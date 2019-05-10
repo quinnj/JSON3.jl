@@ -96,6 +96,7 @@ function read(str::String)
     if len == 0
         return Object(buf, UInt64[])
     end
+    len = ifelse(len == 1, 2, len)
     @inbounds b = buf[1]
     tape = len > div(Mmap.PAGESIZE, 2) ? Mmap.mmap(Vector{UInt64}, len) : Vector{UInt64}(undef, len)
     pos, tapeidx = read!(buf, 1, len, b, tape, 1, Any)

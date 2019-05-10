@@ -70,7 +70,7 @@ function unescape(s)
                     i > n && invalid_escape(s)
                     b = codeunit(s, i)
                     c = (c << 4) + charvalue(b)
-                    st = codeunits(string(Char(c)))
+                    st = codeunits(Base.string(Char(c)))
                     for j = 1:length(st)-1
                         @inbounds buf[len] = st[j]
                         len += 1
