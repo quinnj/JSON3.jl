@@ -13,28 +13,40 @@ include("utils.jl")
   # mutable
     # noarg, positional, or keyword args
 
-struct Object{B <: AbstractVector{UInt8}}
+struct Object{B <: AbstractVector{UInt8}} <: AbstractDict{Symbol, Any}
     buf::B
     tape::Vector{UInt64}
+    len::Int
 end
 
-function Base.propertynames(obj::Object)
-    tape = gettape(obj)
-    buf = getbuf(obj)
-    props = Symbol[]
-    if getidx(tape[1]) == 1
-        return props
-    end
-    tapeidx = 2
-    last = getidx(tape[1])
-    while tapeidx <= last
-        @inbounds t = tape[tapeidx]
-        push!(props, _symbol(pointer(buf, getpos(t)), getlen(t)))
-        tapeidx += 1
-        @inbounds tapeidx += tapeelements(tape[tapeidx])
-    end
-    return props
+# AbstractDict interface
+Base.length(obj::Object) = getlen(obj)
+
+function Base.iterate(obj::Object, (i, tapeidx)=(1, 2))
+    i > length(obj) && return nothing
+    @inbounds t = gettape(obj)[tapeidx]
+    key = _symbol(pointer(getbuf(obj), getpos(t)), getlen(t))
+    tapeidx += 1
+    val = getvalue(getbuf(obj), gettape(obj), tapeidx)
+    @inbounds tapeidx += tapeelements(tape[tapeidx])
+    return (key, val), (i + 1, tapeidx)
 end
+
+function Base.get(obj::Object, key, default)
+    for (k, v) in obj
+        k == key && return v
+    end
+    return default
+end
+
+function Base.get(default::Base.Callable, obj::Object, key)
+    for (k, v) in obj
+        k == key && return v
+    end
+    return default()
+end
+
+Base.propertynames(obj::Object) = collect(keys(obj))
 
 function Base.getproperty(obj::Object, prop::Symbol)
     tape = gettape(obj)
@@ -65,6 +77,7 @@ end
 
 getbuf(j::Union{Object, Array}) = getfield(j, :buf)
 gettape(j::Union{Object, Array}) = getfield(j, :tape)
+getlen(j::Union{Object, Array}) = getfield(j, :len)
 
 # TODO
   # make Array subtype AbstractVector

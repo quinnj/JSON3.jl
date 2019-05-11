@@ -5,7 +5,7 @@ _show(io::IO, x, indent=0, offset=0) = show(io, x)
 function _show(io::IO, obj::Object, indent=0, offset=0)
     tape = gettape(obj)
     buf = getbuf(obj)
-    if getidx(tape[1]) == 1
+    if isempty(tape) || getidx(tape[1]) == 1
         print(io, "{}")
         return
     end
