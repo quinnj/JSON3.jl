@@ -2,6 +2,19 @@ module JSON3
 
 using Parsers, Mmap
 
+struct Object{T} <: AbstractDict{Symbol, T}
+    buf::Base.CodeUnits{UInt8,String}
+    tape::Vector{UInt64}
+end
+
+struct Array{T} <: AbstractVector{T}
+    buf::Base.CodeUnits{UInt8,String}
+    tape::Vector{UInt64}
+end
+
+getbuf(j::Union{Object, Array}) = getfield(j, :buf)
+gettape(j::Union{Object, Array}) = getfield(j, :tape)
+
 include("utils.jl")
 
 @noinline invalid(error, b, T) = throw(ArgumentError("invalid JSON: $error. Encountered '$(Char(b))' while parsing type: $T"))
@@ -13,23 +26,29 @@ include("utils.jl")
   # mutable
     # noarg, positional, or keyword args
 
-struct Object{B <: AbstractVector{UInt8}} <: AbstractDict{Symbol, Any}
-    buf::B
-    tape::Vector{UInt64}
-    len::Int
+# AbstractDict interface
+function Base.length(obj::Object)
+    @inbounds len = getnontypemask(gettape(obj)[2])
+    return len
 end
 
-# AbstractDict interface
-Base.length(obj::Object) = getlen(obj)
-
-function Base.iterate(obj::Object, (i, tapeidx)=(1, 2))
+@inline function Base.iterate(obj::Object{T}, (i, tapeidx)=(1, 3)) where {T}
     i > length(obj) && return nothing
-    @inbounds t = gettape(obj)[tapeidx]
-    key = _symbol(pointer(getbuf(obj), getpos(t)), getlen(t))
-    tapeidx += 1
-    val = getvalue(getbuf(obj), gettape(obj), tapeidx)
-    @inbounds tapeidx += tapeelements(tape[tapeidx])
-    return (key, val), (i + 1, tapeidx)
+    tape = gettape(obj)
+    @inbounds t = tape[tapeidx]
+    key = getvalue(Symbol, getbuf(obj), tape, tapeidx, t)
+    tapeidx += 2
+    @inbounds t = tape[tapeidx]
+    x = Pair{Symbol, T}(key, getvalue(T, getbuf(obj), tape, tapeidx, t))
+    tapeidx += gettapelen(T, t)
+    return x, (i + 1, tapeidx)
+end
+
+function Base.get(obj::Object, key)
+    for (k, v) in obj
+        k == key && return v
+    end
+    throw(KeyError(key))
 end
 
 function Base.get(obj::Object, key, default)
@@ -48,72 +67,67 @@ end
 
 Base.propertynames(obj::Object) = collect(keys(obj))
 
-function Base.getproperty(obj::Object, prop::Symbol)
-    tape = gettape(obj)
-    buf = getbuf(obj)
-    if getidx(tape[1]) == 1
-        return nothing
-    end
-    tapeidx = 2
-    last = getidx(tape[1])
-    while tapeidx <= last
-        @inbounds t = tape[tapeidx]
-        key = _symbol(pointer(buf, getpos(t)), getlen(t))
-        if key == prop
-            return getvalue(buf, tape, tapeidx + 1)
-        else
-            tapeidx += 1
-            @inbounds tapeidx += tapeelements(tape[tapeidx])
-        end
-    end
-    return nothing
-end
-Base.getindex(obj::Object, str::String) = getproperty(obj, Symbol(str))
+Base.getproperty(obj::Object, prop::Symbol) = get(obj, prop)
+Base.getindex(obj::Object, str::String) = get(obj, Symbol(str))
 
-struct Array{B <: AbstractVector{UInt8}}
-    buf::B
-    tape::Vector{UInt64}
+# AbstractArray interface
+Base.IndexStyle(::Type{<:Array}) = Base.IndexLinear()
+
+function Base.size(arr::Array)
+    @inbounds len = getnontypemask(gettape(arr)[2])
+    return (len,)
 end
 
-getbuf(j::Union{Object, Array}) = getfield(j, :buf)
-gettape(j::Union{Object, Array}) = getfield(j, :tape)
-getlen(j::Union{Object, Array}) = getfield(j, :len)
+function Base.iterate(arr::Array{T}, (i, tapeidx)=(1, 3)) where {T}
+    i > length(arr) && return nothing
+    tape = gettape(arr)
+    @inbounds t = tape[tapeidx]
+    val = getvalue(T, getbuf(arr), tape, tapeidx, t)
+    tapeidx += gettapelen(T, t)
+    return val, (i + 1, tapeidx)
+end
 
-# TODO
-  # make Array subtype AbstractVector
-  # implement interface
-  # properly checkbounds
-function Base.getindex(arr::Array, i::Int)
+@inline Base.@propagate_inbounds function Base.getindex(arr::Array{T}, i::Int) where {T}
+    @boundscheck checkbounds(arr, i)
     tape = gettape(arr)
     buf = getbuf(arr)
-    if getidx(tape[1]) == 1
-        return nothing
-    end
-    tapeidx = 2
-    last = getidx(tape[1])
-    idx = 1
-    while tapeidx <= last
-        if i == idx
-            return getvalue(buf, tape, tapeidx)
-        else
-            @inbounds tapeidx += tapeelements(tape[tapeidx])
-            idx += 1
+    if regularstride(T)
+        tapeidx = 1 + 2 * i
+        @inbounds t = tape[tapeidx]
+        return getvalue(T, buf, tape, tapeidx, t)
+    else
+        tapeidx = 3
+        idx = 1
+        while true 
+            @inbounds t = tape[tapeidx]
+            if i == idx
+                return getvalue(T, buf, tape, tapeidx, t)
+            else
+                tapeidx += gettapelen(T, t)
+                idx += 1
+            end
         end
     end
-    return nothing
 end
 
 function read(str::String)
     buf = codeunits(str)
     len = length(buf)
     if len == 0
-        return Object(buf, UInt64[])
+        return Object(buf, UInt64[object(2), 0])
     end
     len = ifelse(len == 1, 2, len)
     @inbounds b = buf[1]
     tape = len > div(Mmap.PAGESIZE, 2) ? Mmap.mmap(Vector{UInt64}, len) : Vector{UInt64}(undef, len)
     pos, tapeidx = read!(buf, 1, len, b, tape, 1, Any)
-    return getvalue(buf, tape, 1)
+    @inbounds t = tape[1]
+    if isobject(t)
+        return Object{geteltype(tape[2])}(buf, tape)
+    elseif isarray(t)
+        return Array{geteltype(tape[2])}(buf, tape)
+    else
+        return getvalue(Any, buf, tape, 1, t)
+    end
 end
 
 function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{Any})
@@ -172,8 +186,9 @@ end
             @inbounds b = buf[pos]
         end
     end
-    @inbounds tape[tapeidx] = escaped ? escapedstring(strpos, strlen) : string(strpos, strlen)
-    return pos + 1, tapeidx + 1
+    @inbounds tape[tapeidx] = string(strlen)
+    @inbounds tape[tapeidx+1] = ifelse(escaped, ESCAPE_BIT | strpos, strpos)
+    return pos + 1, tapeidx + 2
 
 @label invalid
     invalid(error, b, String)
@@ -186,8 +201,8 @@ struct True end
         buf[pos + 1] == UInt8('r') &&
         buf[pos + 2] == UInt8('u') &&
         buf[pos + 3] == UInt8('e')
-        @inbounds tape[tapeidx] = TRUE
-        return pos + 4, tapeidx + 1
+        @inbounds tape[tapeidx] = BOOL | UInt64(1)
+        return pos + 4, tapeidx + 2
     else
         invalid(InvalidChar, b, True)
     end
@@ -201,8 +216,8 @@ struct False end
         buf[pos + 2] == UInt8('l') &&
         buf[pos + 3] == UInt8('s') &&
         buf[pos + 4] == UInt8('e')
-        @inbounds tape[tapeidx] = FALSE
-        return pos + 5, tapeidx + 1
+        @inbounds tape[tapeidx] = BOOL
+        return pos + 5, tapeidx + 2
     else
         invalid(InvalidChar, b, False)
     end
@@ -215,7 +230,7 @@ end
         buf[pos + 2] == UInt8('l') &&
         buf[pos + 3] == UInt8('l')
         @inbounds tape[tapeidx] = NULL
-        return pos + 4, tapeidx + 1
+        return pos + 4, tapeidx + 2
     else
         invalid(InvalidChar, b, Nothing)
     end
@@ -223,6 +238,7 @@ end
 
 @inline function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{Object})
     objidx = tapeidx
+    eT = EMPTY
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
         @goto invalid
@@ -232,8 +248,9 @@ end
     @inbounds b = buf[pos]
     @wh
     if b == UInt8('}')
-        @inbounds tape[tapeidx] = object(1)
-        tapeidx += 1
+        @inbounds tape[tapeidx] = object(2)
+        @inbounds tape[tapeidx+1] = eltypelen(eT, 0)
+        tapeidx += 2
         pos += 1
         @goto done
     elseif b != UInt8('"')
@@ -242,10 +259,12 @@ end
     end
     pos += 1
     @eof
-    tapeidx += 1
+    tapeidx += 2
+    nelem = 0
     while true
         keypos = pos
         keylen = 0
+        escaped = false
         # read first key character
         @inbounds b = buf[pos]
         # positioned at first character of object key
@@ -255,6 +274,7 @@ end
             @eof
             @inbounds b = buf[pos]
             if b == UInt8('\\')
+                escaped = true
                 # skip next character
                 pos += 2
                 keylen += 2
@@ -262,8 +282,9 @@ end
                 @inbounds b = buf[pos]
             end
         end
-        @inbounds tape[tapeidx] = string(keypos, keylen)
-        tapeidx += 1
+        @inbounds tape[tapeidx] = string(keylen)
+        @inbounds tape[tapeidx+1] = ifelse(escaped, ESCAPE_BIT | keypos, keypos)
+        tapeidx += 2
         pos += 1
         @eof
         @inbounds b = buf[pos]
@@ -277,12 +298,16 @@ end
         @inbounds b = buf[pos]
         @wh
         # now positioned at start of value
+        prevtapeidx = tapeidx
         pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any)
         @eof
         @inbounds b = buf[pos]
         @wh
+        @inbounds eT = promoteeltype(eT, gettypemask(tape[prevtapeidx]))
+        nelem += 1
         if b == UInt8('}')
             @inbounds tape[objidx] = object(tapeidx - objidx)
+            @inbounds tape[objidx+1] = eltypelen(eT, nelem)
             pos += 1
             @goto done
         elseif b != UInt8(',')
@@ -309,6 +334,7 @@ end
 
 @inline function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{Array})
     arridx = tapeidx
+    eT = EMPTY
     if b != UInt8('[')
         error = ExpectedOpeningArrayChar
         @goto invalid
@@ -318,20 +344,26 @@ end
     @inbounds b = buf[pos]
     @wh
     if b == UInt8(']')
-        @inbounds tape[tapeidx] = array(1)
-        tapeidx += 1
+        @inbounds tape[tapeidx] = array(2)
+        @inbounds tape[tapeidx+1] = eltypelen(eT, 0)
+        tapeidx += 2
         pos += 1
         @goto done
     end
-    tapeidx += 1
+    tapeidx += 2
+    nelem = 0
     while true
         # positioned at start of value
+        prevtapeidx = tapeidx
         pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any)
         @eof
         @inbounds b = buf[pos]
         @wh
+        @inbounds eT = promoteeltype(eT, gettypemask(tape[prevtapeidx]))
+        nelem += 1
         if b == UInt8(']')
             @inbounds tape[arridx] = array(tapeidx - arridx)
+            @inbounds tape[arridx+1] = eltypelen(eT, nelem)
             pos += 1
             @goto done
         elseif b != UInt8(',')
