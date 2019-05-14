@@ -72,8 +72,6 @@ function promoteeltype(A, B)
         return A
     elseif A == EMPTY
         return B
-    elseif A == STRING && B == ESCAPED
-        return STRING
     elseif A == INT && B == FLOAT
         return A | B
     elseif A == FLOAT && B == INT
@@ -97,7 +95,7 @@ regularstride(T) = false
 regularstride(::Union{Type{Int64}, Type{Float64}, Type{Bool}, Type{Nothing}}) = true
 regularstride(::Type{Union{Int64, Float64}}) = true
 
-getvalue(::Type{Object}, buf, tape, tapeidx, t) = Object{geteltype(tape[tapeidx+1])}(buf,
+getvalue(::Type{Object}, buf, tape, tapeidx, t) = Object(buf,
     unsafe_wrap(Base.Array, pointer(tape, tapeidx), getnontypemask(t)))
 getvalue(::Type{Array}, buf, tape, tapeidx, t) = Array{geteltype(tape[tapeidx+1])}(buf,
     unsafe_wrap(Base.Array, pointer(tape, tapeidx), getnontypemask(t)))

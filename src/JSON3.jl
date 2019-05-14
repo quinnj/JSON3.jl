@@ -2,10 +2,12 @@ module JSON3
 
 using Parsers, Mmap
 
-struct Object{T} <: AbstractDict{Symbol, T}
+struct Object <: AbstractDict{Symbol, Any}
     buf::Base.CodeUnits{UInt8,String}
     tape::Vector{UInt64}
 end
+
+Object() = Object(codeunits(""), UInt64[object(2), 0])
 
 struct Array{T} <: AbstractVector{T}
     buf::Base.CodeUnits{UInt8,String}
@@ -17,7 +19,10 @@ gettape(j::Union{Object, Array}) = getfield(j, :tape)
 
 include("utils.jl")
 
-@noinline invalid(error, b, T) = throw(ArgumentError("invalid JSON: $error. Encountered '$(Char(b))' while parsing type: $T"))
+@noinline invalid(error, buf, pos, T) = throw(ArgumentError("""
+invalid JSON at byte position $pos while parsing type $T: $error
+$(String(buf[max(1, pos-10):min(end, pos+10)]))
+"""))
 @enum Error UnexpectedEOF ExpectedOpeningObjectChar ExpectedOpeningQuoteChar ExpectedOpeningArrayChar ExpectedComma ExpectedSemiColon InvalidChar
 
 # Julia structs
@@ -32,15 +37,15 @@ function Base.length(obj::Object)
     return len
 end
 
-@inline function Base.iterate(obj::Object{T}, (i, tapeidx)=(1, 3)) where {T}
+@inline function Base.iterate(obj::Object, (i, tapeidx)=(1, 3))
     i > length(obj) && return nothing
     tape = gettape(obj)
     @inbounds t = tape[tapeidx]
     key = getvalue(Symbol, getbuf(obj), tape, tapeidx, t)
     tapeidx += 2
     @inbounds t = tape[tapeidx]
-    x = Pair{Symbol, T}(key, getvalue(T, getbuf(obj), tape, tapeidx, t))
-    tapeidx += gettapelen(T, t)
+    x = Pair{Symbol, Any}(key, getvalue(Any, getbuf(obj), tape, tapeidx, t))
+    tapeidx += gettapelen(Any, t)
     return x, (i + 1, tapeidx)
 end
 
@@ -114,15 +119,15 @@ function read(str::String)
     buf = codeunits(str)
     len = length(buf)
     if len == 0
-        return Object(buf, UInt64[object(2), 0])
+        return Object()
     end
-    len = ifelse(len == 1, 2, len)
     @inbounds b = buf[1]
-    tape = len > div(Mmap.PAGESIZE, 2) ? Mmap.mmap(Vector{UInt64}, len) : Vector{UInt64}(undef, len)
+    tape = len > div(Mmap.PAGESIZE, 2) ? Mmap.mmap(Vector{UInt64}, len) :
+        Vector{UInt64}(undef, len + 2)
     pos, tapeidx = read!(buf, 1, len, b, tape, 1, Any)
     @inbounds t = tape[1]
     if isobject(t)
-        return Object{geteltype(tape[2])}(buf, tape)
+        return Object(buf, tape)
     elseif isarray(t)
         return Array{geteltype(tape[2])}(buf, tape)
     else
@@ -131,6 +136,7 @@ function read(str::String)
 end
 
 function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{Any})
+    @wh
     if b == UInt8('{')
         return read!(buf, pos, len, b, tape, tapeidx, Object)
     elseif b == UInt8('[')
@@ -157,7 +163,8 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{An
             return floatpos, tapeidx + 2
         end
     end
-    invalid(InvalidChar, b, Any)
+@label invalid
+    invalid(InvalidChar, buf, pos, Any)
 end
 
 @inline function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{String})
@@ -173,25 +180,24 @@ end
     @inbounds b = buf[pos]
     # positioned at first character of object key
     while b != UInt8('"')
-        pos += 1
-        strlen += 1
-        @eof
-        @inbounds b = buf[pos]
         if b == UInt8('\\')
             escaped = true
             # skip next character
             pos += 2
             strlen += 2
-            @eof
-            @inbounds b = buf[pos]
+        else
+            pos += 1
+            strlen += 1
         end
+        @eof
+        @inbounds b = buf[pos]
     end
     @inbounds tape[tapeidx] = string(strlen)
     @inbounds tape[tapeidx+1] = ifelse(escaped, ESCAPE_BIT | strpos, strpos)
     return pos + 1, tapeidx + 2
 
 @label invalid
-    invalid(error, b, String)
+    invalid(error, buf, pos, String)
 end
 
 struct True end
@@ -204,7 +210,7 @@ struct True end
         @inbounds tape[tapeidx] = BOOL | UInt64(1)
         return pos + 4, tapeidx + 2
     else
-        invalid(InvalidChar, b, True)
+        invalid(InvalidChar, buf, pos, True)
     end
 end
 
@@ -219,7 +225,7 @@ struct False end
         @inbounds tape[tapeidx] = BOOL
         return pos + 5, tapeidx + 2
     else
-        invalid(InvalidChar, b, False)
+        invalid(InvalidChar, buf, pos, False)
     end
 end
 
@@ -232,7 +238,7 @@ end
         @inbounds tape[tapeidx] = NULL
         return pos + 4, tapeidx + 2
     else
-        invalid(InvalidChar, b, Nothing)
+        invalid(InvalidChar, buf, pos, Nothing)
     end
 end
 
@@ -269,18 +275,17 @@ end
         @inbounds b = buf[pos]
         # positioned at first character of object key
         while b != UInt8('"')
-            pos += 1
-            keylen += 1
-            @eof
-            @inbounds b = buf[pos]
             if b == UInt8('\\')
                 escaped = true
                 # skip next character
                 pos += 2
                 keylen += 2
-                @eof
-                @inbounds b = buf[pos]
+            else
+                pos += 1
+                keylen += 1
             end
+            @eof
+            @inbounds b = buf[pos]
         end
         @inbounds tape[tapeidx] = string(keylen)
         @inbounds tape[tapeidx+1] = ifelse(escaped, ESCAPE_BIT | keypos, keypos)
@@ -329,7 +334,7 @@ end
 @label done
     return pos, tapeidx
 @label invalid
-    invalid(error, b, Object)
+    invalid(error, buf, pos, Object)
 end
 
 @inline function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{Array})
@@ -379,7 +384,7 @@ end
 @label done
     return pos, tapeidx
 @label invalid
-    invalid(error, b, Array)
+    invalid(error, buf, pos, Array)
 end
 
 include("strings.jl")
