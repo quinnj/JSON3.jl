@@ -389,5 +389,6 @@ end
 
 include("strings.jl")
 include("show.jl")
+include("structs.jl")
 
 end # module
