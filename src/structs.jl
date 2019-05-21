@@ -1,4 +1,4 @@
-@inline function read(S::ST, buf, pos, len, b, ::Type{T}) where {ST, T}
+@inline function read(::MutableSetField, buf, pos, len, b, ::Type{T}) where {T}
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
         @goto invalid
@@ -7,19 +7,16 @@
     @eof
     @inbounds b = buf[pos]
     @wh
+    x = T()
     if b == UInt8('}')
         pos += 1
-        return pos, T()
+        return pos, x
     elseif b != UInt8('"')
         error = ExpectedOpeningQuoteChar
         @goto invalid
     end
-    if S === MutableSetField()
-        x = T()
-    else
-        keys = Symbol[]
-        vals = []
-    end
+    nms = names(T)
+    excl = excludes(T)
     pos += 1
     @eof
     while true
@@ -41,6 +38,7 @@
             @inbounds b = buf[pos]
         end
         key = escaped ? Symbol(unescape(PointerString(pointer(buf, keypos), keylen))) : _symbol(pointer(buf, keypos), keylen)
+        key = get(nms, key, key)
         pos += 1
         @eof
         @inbounds b = buf[pos]
@@ -54,24 +52,23 @@
         @inbounds b = buf[pos]
         @wh
         # read value
-        FT = fieldtype(T, key)
-        pos, y = read(StructType(FT), buf, pos, len, b, FT)
-        if S === MutableSetField()
-            setfield!(x, key, y)
+        ind = Base.fieldindex(T, key, false)
+        if ind > 0
+            FT = fieldtype(T, key)
+            pos, y = read(StructType(FT), buf, pos, len, b, FT)
+            if !get(excl, key, false)
+                setfield!(x, key, y)
+            end
         else
-            push!(keys, key)
-            push!(vals, y)
+            # read the unknown key's value, but ignore it
+            pos, _ = read(Ordered(), buf, pos, len, b, Any)
         end
         @eof
         @inbounds b = buf[pos]
         @wh
         if b == UInt8('}')
             pos += 1
-            if S === MutableSetField()
-                return pos, x
-            else
-                return pos, T(; zip(keys, vals)...)
-            end
+            return pos, x
         elseif b != UInt8(',')
             error = ExpectedComma
             @goto invalid

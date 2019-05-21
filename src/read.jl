@@ -4,8 +4,13 @@
 abstract type StructType end
 struct Ordered <: StructType end
 struct MutableSetField <: StructType end
-struct KeywordArgConstrutor <: StructType end
+struct AbstractType <: StructType end
+
 StructType(T) = Ordered()
+names(T) = NamedTuple()
+excludes(T) = NamedTuple()
+subtypekey(T) = :type
+subtypes(T) = NamedTuple()
 
 function read(str::String)
     buf = codeunits(str)
@@ -33,7 +38,27 @@ function read(str::String)
     invalid(error, buf, pos, Any)
 end
 
+fromobject(::Ordered, ::Type{T}, obj) where {T} = T((v for (k, v) in obj if k != :type)...)
+function fromobject(::MutableSetField, ::Type{T}, obj) where {T}
+    x = T()
+    nms = names(T)
+    excl = excludes(T)
+    for (k, v) in obj
+        k = get(nms, k, k)
+        ind = Base.fieldindex(T, k, false)
+        if ind > 0 && !get(excl, k, false)
+            setfield!(x, k, v)
+        end
+    end
+    return x
+end
+
 function read(str::String, ::Type{T}) where {T}
+    if StructType(T) == AbstractType()
+        obj = read(str)
+        TT = subtypes(T)[get(obj, subtypekey(T))]
+        return fromobject(StructType(TT), TT, obj)
+    end
     buf = codeunits(str)
     len = length(buf)
     if len == 0
@@ -50,11 +75,11 @@ function read(str::String, ::Type{T}) where {T}
     invalid(error, buf, pos, T)
 end
 
-function read(buf, pos, len, b, U::Union)
+function read(::Ordered, buf, pos, len, b, U::Union)
     try
-        return read(buf, pos, len, b, U.a)
+        return read(Ordered(), buf, pos, len, b, U.a)
     catch e
-        return read(buf, pos, len, b, U.b)
+        return read(Ordered(), buf, pos, len, b, U.b)
     end
 end
 
@@ -93,7 +118,7 @@ function read(::Ordered, buf, pos, len, b, ::Type{Any})
     if b == UInt8('{')
         return read(Ordered(), buf, pos, len, b, NamedTuple)
     elseif b == UInt8('[')
-        return read(Ordered(), buf, pos, len, b, Base.Array)
+        return read(Ordered(), buf, pos, len, b, Base.Array{Any})
     elseif b == UInt8('"')
         return read(Ordered(), buf, pos, len, b, String)
     elseif b == UInt8('n')

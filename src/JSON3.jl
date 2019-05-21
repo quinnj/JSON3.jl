@@ -47,11 +47,24 @@ function Base.get(obj::Object, key)
     for (k, v) in obj
         k == key && return v
     end
-    y = z
+    throw(KeyError(key))
+end
+
+function Base.get(obj::Object, ::Type{T}, key)::T where {T}
+    for (k, v) in obj
+        k == key && return v
+    end
     throw(KeyError(key))
 end
 
 function Base.get(obj::Object, key, default)
+    for (k, v) in obj
+        k == key && return v
+    end
+    return default
+end
+
+function Base.get(obj::Object, ::Type{T}, key, default::T)::T where {T}
     for (k, v) in obj
         k == key && return v
     end
