@@ -1,28 +1,24 @@
-# by default, assume json key-values are in right order, and just pass to T constructor
-# mutable struct + setfield!
-# keyword args constructor
-abstract type StructType end
-struct Ordered <: StructType end
-struct MutableSetField <: StructType end
-struct KeywordArgConstrutor <: StructType end
-StructType(T) = Ordered()
-
-@inline function read(::MutableSetField, buf, pos, len, b, ::Type{T}) where {T}
+@inline function read(S::ST, buf, pos, len, b, ::Type{T}) where {ST, T}
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
         @goto invalid
     end
-    x = T()
     pos += 1
     @eof
     @inbounds b = buf[pos]
     @wh
     if b == UInt8('}')
         pos += 1
-        return pos, x
+        return pos, T()
     elseif b != UInt8('"')
         error = ExpectedOpeningQuoteChar
         @goto invalid
+    end
+    if S === MutableSetField()
+        x = T()
+    else
+        keys = Symbol[]
+        vals = []
     end
     pos += 1
     @eof
@@ -58,14 +54,24 @@ StructType(T) = Ordered()
         @inbounds b = buf[pos]
         @wh
         # read value
-        pos, y = read(buf, pos, len, b, fieldtype(T, key))
-        setfield!(x, key, y)
+        FT = fieldtype(T, key)
+        pos, y = read(StructType(FT), buf, pos, len, b, FT)
+        if S === MutableSetField()
+            setfield!(x, key, y)
+        else
+            push!(keys, key)
+            push!(vals, y)
+        end
         @eof
         @inbounds b = buf[pos]
         @wh
         if b == UInt8('}')
             pos += 1
-            return pos, x
+            if S === MutableSetField()
+                return pos, x
+            else
+                return pos, T(; zip(keys, vals)...)
+            end
         elseif b != UInt8(',')
             error = ExpectedComma
             @goto invalid
@@ -199,7 +205,7 @@ end
     @inbounds b = buf[pos]
     @wh
     # read value
-    pos, y = read(buf, pos, len, b, T)
+    pos, y = read(StructType(T), buf, pos, len, b, T)
     @eof
     @inbounds b = buf[pos]
     @wh

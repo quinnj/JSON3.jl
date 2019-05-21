@@ -1,3 +1,12 @@
+# by default, assume json key-values are in right order, and just pass to T constructor
+# mutable struct + setfield!
+# keyword args constructor
+abstract type StructType end
+struct Ordered <: StructType end
+struct MutableSetField <: StructType end
+struct KeywordArgConstrutor <: StructType end
+StructType(T) = Ordered()
+
 function read(str::String)
     buf = codeunits(str)
     len = length(buf)
@@ -35,7 +44,7 @@ function read(str::String, ::Type{T}) where {T}
     pos = 1
     @inbounds b = buf[pos]
     @wh
-    pos, x = read(buf, pos, len, b, T)
+    pos, x = read(StructType(T), buf, pos, len, b, T)
     return x
 @label invalid
     invalid(error, buf, pos, T)
@@ -49,7 +58,7 @@ function read(buf, pos, len, b, U::Union)
     end
 end
 
-function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{Any})
+function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any})
     if b == UInt8('{')
         return read!(buf, pos, len, b, tape, tapeidx, Object)
     elseif b == UInt8('[')
@@ -80,19 +89,19 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{An
     invalid(InvalidChar, buf, pos, Any)
 end
 
-function read!(buf::AbstractVector{UInt8}, pos, len, b, ::Type{Any})
+function read(::Ordered, buf, pos, len, b, ::Type{Any})
     if b == UInt8('{')
-        return read(buf, pos, len, b, NamedTuple)
+        return read(Ordered(), buf, pos, len, b, NamedTuple)
     elseif b == UInt8('[')
-        return read(buf, pos, len, b, Base.Array)
+        return read(Ordered(), buf, pos, len, b, Base.Array)
     elseif b == UInt8('"')
-        return read(buf, pos, len, b, String)
+        return read(Ordered(), buf, pos, len, b, String)
     elseif b == UInt8('n')
-        return read(buf, pos, len, b, Nothing)
+        return read(Ordered(), buf, pos, len, b, Nothing)
     elseif b == UInt8('t')
-        return read(buf, pos, len, b, Bool)
+        return read(Ordered(), buf, pos, len, b, Bool)
     elseif b == UInt8('f')
-        return read(buf, pos, len, b, Bool)
+        return read(Ordered(), buf, pos, len, b, Bool)
     elseif (UInt8('0') <= b <= UInt8('9')) || b == UInt8('-') || b == UInt8('+')
         float, code, pos = Parsers.typeparser(Float64, buf, pos, len, b, Int16(0), Parsers.OPTIONS)
         if code > 0
@@ -104,7 +113,7 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, ::Type{Any})
     invalid(InvalidChar, buf, pos, Any)
 end
 
-function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{String})
+function read!(buf, pos, len, b, tape, tapeidx, ::Type{String})
     if b != UInt8('"')
         error = ExpectedOpeningQuoteChar
         @goto invalid
@@ -115,7 +124,6 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{St
     strlen = 0
     escaped = false
     @inbounds b = buf[pos]
-    # positioned at first character of object key
     while b != UInt8('"')
         if b == UInt8('\\')
             escaped = true
@@ -137,7 +145,7 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{St
     invalid(error, buf, pos, String)
 end
 
-function read!(buf::AbstractVector{UInt8}, pos, len, b, ::Type{String})
+function read(::Ordered, buf, pos, len, b, ::Type{String})
     if b != UInt8('"')
         error = ExpectedOpeningQuoteChar
         @goto invalid
@@ -148,7 +156,6 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, ::Type{String})
     strlen = 0
     escaped = false
     @inbounds b = buf[pos]
-    # positioned at first character of object key
     while b != UInt8('"')
         if b == UInt8('\\')
             escaped = true
@@ -169,7 +176,7 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, ::Type{String})
     invalid(error, buf, pos, String)
 end
 
-function read!(buf::AbstractVector{UInt8}, pos, len, b, ::Type{Char})
+function read(::Ordered, buf, pos, len, b, ::Type{Char})
     if b != UInt8('"')
         error = ExpectedOpeningQuoteChar
         @goto invalid
@@ -191,7 +198,7 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, ::Type{Char})
 end
 
 struct True end
-function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{True})
+function read!(buf, pos, len, b, tape, tapeidx, ::Type{True})
     if pos + 3 <= len &&
         b            == UInt8('t') &&
         buf[pos + 1] == UInt8('r') &&
@@ -205,7 +212,7 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{Tr
 end
 
 struct False end
-function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{False})
+function read!(buf, pos, len, b, tape, tapeidx, ::Type{False})
     if pos + 4 <= len &&
         b            == UInt8('f') &&
         buf[pos + 1] == UInt8('a') &&
@@ -219,7 +226,7 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{Fa
     end
 end
 
-function read!(buf::AbstractVector{UInt8}, pos, len, b, ::Type{Bool})
+function read(::Ordered, buf, pos, len, b, ::Type{Bool})
     if pos + 3 <= len &&
         b            == UInt8('t') &&
         buf[pos + 1] == UInt8('r') &&
@@ -238,7 +245,7 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, ::Type{Bool})
     end
 end
 
-function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{Nothing})
+function read!(buf, pos, len, b, tape, tapeidx, ::Type{Nothing})
     if pos + 3 <= len &&
         b            == UInt8('n') &&
         buf[pos + 1] == UInt8('u') &&
@@ -251,7 +258,7 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{No
     end
 end
 
-function read!(buf::AbstractVector{UInt8}, pos, len, b, T::Union{Type{Missing}, Type{Nothing}})
+function read(::Ordered, buf, pos, len, b, T::Union{Type{Missing}, Type{Nothing}})
     if pos + 3 <= len &&
         b            == UInt8('n') &&
         buf[pos + 1] == UInt8('u') &&
@@ -263,7 +270,7 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, T::Union{Type{Missing}, 
     end
 end
 
-function read(buf, pos, len, b, ::Type{T}) where {T <: Integer}
+function read(::Ordered, buf, pos, len, b, ::Type{T}) where {T <: Integer}
     int, code, pos = Parsers.typeparser(T, buf, pos, len, b, Int16(0), Parsers.OPTIONS)
     if code > 0
         return pos, int
@@ -271,7 +278,7 @@ function read(buf, pos, len, b, ::Type{T}) where {T <: Integer}
     invalid(InvalidChar, buf, pos, T)
 end
 
-function read(buf, pos, len, b, ::Type{T}) where {T <: AbstractFloat}
+function read(::Ordered, buf, pos, len, b, ::Type{T}) where {T <: AbstractFloat}
     float, code, pos = Parsers.typeparser(T, buf, pos, len, b, Int16(0), Parsers.OPTIONS)
     if code > 0
         return pos, float
@@ -279,7 +286,7 @@ function read(buf, pos, len, b, ::Type{T}) where {T <: AbstractFloat}
     invalid(InvalidChar, buf, pos, T)
 end
 
-function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{Object})
+function read!(buf, pos, len, b, tape, tapeidx, ::Type{Object})
     objidx = tapeidx
     eT = EMPTY
     if b != UInt8('{')
@@ -374,7 +381,7 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{Ob
     invalid(error, buf, pos, Object)
 end
 
-function read!(buf::AbstractVector{UInt8}, pos, len, b, ::Type{NamedTuple})
+function read(::Ordered, buf, pos, len, b, ::Type{NamedTuple})
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
         @goto invalid
@@ -427,7 +434,7 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, ::Type{NamedTuple})
         @inbounds b = buf[pos]
         @wh
         # now positioned at start of value
-        pos, y = read!(buf, pos, len, b, Any)
+        pos, y = read(Ordered(), buf, pos, len, b, Any)
         push!(vals, y)
         @eof
         @inbounds b = buf[pos]
@@ -454,7 +461,7 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, ::Type{NamedTuple})
     invalid(error, buf, pos, Object)
 end
 
-function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{Array})
+function read!(buf, pos, len, b, tape, tapeidx, ::Type{Array})
     arridx = tapeidx
     eT = EMPTY
     if b != UInt8('[')
@@ -504,7 +511,7 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, tape, tapeidx, ::Type{Ar
     invalid(error, buf, pos, Array)
 end
 
-function read!(buf::AbstractVector{UInt8}, pos, len, b, ::Type{A}) where {A <: AbstractArray{T}} where {T}
+function read(::Ordered, buf, pos, len, b, ::Type{A}) where {A <: AbstractArray{T}} where {T}
     if b != UInt8('[')
         error = ExpectedOpeningArrayChar
         @goto invalid
@@ -519,7 +526,7 @@ function read!(buf::AbstractVector{UInt8}, pos, len, b, ::Type{A}) where {A <: A
     end
     while true
         # positioned at start of value
-        pos, y = read!(buf, pos, len, b, T)
+        pos, y = read(StructType(T), buf, pos, len, b, T)
         push!(vals, y)
         @eof
         @inbounds b = buf[pos]
