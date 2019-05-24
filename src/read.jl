@@ -1,9 +1,11 @@
-# by default, assume json key-values are in right order, and just pass to T constructor
-# mutable struct + setfield!
-# keyword args constructor
 abstract type StructType end
+
+# by default, assume json key-values are in right order, and just pass to T constructor
 struct Ordered <: StructType end
+
+# mutable struct + setfield!
 struct MutableSetField <: StructType end
+
 struct AbstractType <: StructType end
 
 StructType(T) = Ordered()
@@ -38,7 +40,7 @@ function read(str::String)
     invalid(error, buf, pos, Any)
 end
 
-fromobject(::Ordered, ::Type{T}, obj) where {T} = T((v for (k, v) in obj if k != :type)...)
+fromobject(::Ordered, ::Type{T}, obj) where {T} = T(values(obj)...)
 function fromobject(::MutableSetField, ::Type{T}, obj) where {T}
     x = T()
     nms = names(T)
@@ -56,7 +58,7 @@ end
 function read(str::String, ::Type{T}) where {T}
     if StructType(T) == AbstractType()
         obj = read(str)
-        TT = subtypes(T)[get(obj, subtypekey(T))]
+        TT = subtypes(T)[Symbol(get(obj, subtypekey(T)))]
         return fromobject(StructType(TT), TT, obj)
     end
     buf = codeunits(str)

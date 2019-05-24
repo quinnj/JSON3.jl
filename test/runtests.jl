@@ -207,6 +207,7 @@ b = JSON3.read("""
 abstract type Vehicle end
 
 struct Car <: Vehicle
+    type::String
     make::String
     model::String
     seatingCapacity::Int
@@ -214,13 +215,14 @@ struct Car <: Vehicle
 end
 
 struct Truck <: Vehicle
+    type::String
     make::String
     model::String
     payloadCapacity::Float64
 end
 
 JSON3.StructType(::Type{Vehicle}) = JSON3.AbstractType()
-JSON3.subtypes(::Type{Vehicle}) = Dict("car"=>Car, "truck"=>Truck)
+JSON3.subtypes(::Type{Vehicle}) = (car=Car, truck=Truck)
 
 car = JSON3.read("""
 {
@@ -246,5 +248,48 @@ truck = JSON3.read("""
 @test typeof(truck) == Truck
 @test truck.make == "Isuzu"
 @test truck.payloadCapacity == 7500.5
+
+abstract type Expression end
+
+JSON3.StructType(::Type{Expression}) = JSON3.AbstractType()
+
+abstract type Literal <: Expression end
+
+abstract type BinaryFunction <: Expression end
+
+struct LiteralValue <: Literal
+    exprType::String
+    value::Any
+end
+
+struct AndFunction <: BinaryFunction
+    exprType::String
+    lhs::Expression
+    rhs::Expression
+end
+
+JSON3.subtypes(::Type{Expression}) = (AND=AndFunction, LITERAL=LiteralValue)
+JSON3.subtypekey(::Type{Expression}) = :exprType
+
+expr = JSON3.read("""
+{
+    "exprType": "AND",
+    "lhs": {
+        "exprType": "LITERAL",
+        "value": 3.14
+    },
+    "rhs": {
+        "exprType": "AND",
+        "lhs": {
+            "exprType": "LITERAL",
+            "value": null
+        },
+        "rhs": {
+            "exprType": "LITERAL",
+            "value": "hey"
+        }
+    }
+}
+""", Expression)
 
 end # @testset
