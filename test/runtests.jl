@@ -186,7 +186,7 @@ b = JSON3.read("""
     "b": 2,
     "a": 1,
     "c": 3
-}""")
+}""", B)
 
 @test b.a == 1
 @test b.b == 2
@@ -200,7 +200,7 @@ b = JSON3.read("""
     "a": 1,
     "c": 3,
     "e": 5
-}""")
+}""", B)
 
 @test b.a == 1
 
@@ -251,8 +251,6 @@ truck = JSON3.read("""
 
 abstract type Expression end
 
-JSON3.StructType(::Type{Expression}) = JSON3.AbstractType()
-
 abstract type Literal <: Expression end
 
 abstract type BinaryFunction <: Expression end
@@ -268,6 +266,7 @@ struct AndFunction <: BinaryFunction
     rhs::Expression
 end
 
+JSON3.StructType(::Type{Expression}) = JSON3.AbstractType()
 JSON3.subtypes(::Type{Expression}) = (AND=AndFunction, LITERAL=LiteralValue)
 JSON3.subtypekey(::Type{Expression}) = :exprType
 

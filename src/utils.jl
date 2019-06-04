@@ -146,3 +146,10 @@ getvalue(::Type{Nothing}, buf, tape, tapeidx, t) = nothing
         return nothing
     end
 end
+
+Base.@pure function symbolin(names::Tuple{Vararg{Symbol}}, name::Symbol)
+    for nm in names
+        nm === name && return true
+    end
+    return false
+end

@@ -8,11 +8,33 @@ struct MutableSetField <: StructType end
 
 struct AbstractType <: StructType end
 
-StructType(T) = Ordered()
-names(T) = NamedTuple()
-excludes(T) = NamedTuple()
-subtypekey(T) = :type
-subtypes(T) = NamedTuple()
+StructType(::Type{T}) where {T} = Ordered()
+StructType(x::T) where {T} = StructType(T)
+# maps Julia struct field name to json key name: ((:field1, :json1), (:field2, :json2))
+names(x::T) where {T} = names(T)
+names(::Type{T}) where {T} = ()
+Base.@pure function julianame(names::Tuple{Vararg{Tuple{Symbol, Symbol}}}, jsonname::Symbol)
+    for nm in names
+        nm[2] === jsonname && return nm[2]
+    end
+    return jsonname
+end
+Base.@pure function jsonname(names::Tuple{Vararg{Tuple{Symbol, Symbol}}}, julianame::Symbol)
+    for nm in names
+        nm[1] === julianame && return nm[1]
+    end
+    return julianame
+end
+# Julia struct field names as symbols that will be ignored when reading, and never written
+excludes(x::T) where {T} = excludes(T)
+excludes(::Type{T}) where {T} = ()
+# Julia struct field names as symbols 
+omitempties(x::T) where {T} = omitempties(T)
+omitempties(::Type{T}) where {T} = ()
+subtypekey(x::T) where {T} = subtypekey(T)
+subtypekey(::Type{T}) where {T} = :type
+subtypes(x::T) where {T} = subtypes(T)
+subtypes(::Type{T}) where {T} = NamedTuple()
 
 function read(str::String)
     buf = codeunits(str)
@@ -40,19 +62,29 @@ function read(str::String)
     invalid(error, buf, pos, Any)
 end
 
-fromobject(::Ordered, ::Type{T}, obj) where {T} = T(values(obj)...)
-function fromobject(::MutableSetField, ::Type{T}, obj) where {T}
+# fallback
+fromobject(::Ordered, ::Type{T}, obj) where {T} = obj
+function fromobject(::Ordered, ::Type{T}, obj::Object) where {T}
+    vals = values(obj)
+    return T(map(x->fromobject(StructType(fieldtype(T, x[1])), fieldtype(T, x[1]), x[2]), enumerate(vals))...)
+end
+function fromobject(::MutableSetField, ::Type{T}, obj::Object) where {T}
     x = T()
     nms = names(T)
     excl = excludes(T)
     for (k, v) in obj
-        k = get(nms, k, k)
+        k = julianame(nms, k)
         ind = Base.fieldindex(T, k, false)
-        if ind > 0 && !get(excl, k, false)
-            setfield!(x, k, v)
+        if ind > 0 && !symbolin(excl, k)
+            T = fieldtype(T, k)
+            setfield!(x, k, fromobject(StructType(T), T, v))
         end
     end
     return x
+end
+function fromobject(::AbstractType, ::Type{T}, obj::Object) where {T}
+    TT = subtypes(T)[Symbol(get(obj, subtypekey(T)))]
+    return fromobject(StructType(TT), TT, obj)
 end
 
 function read(str::String, ::Type{T}) where {T}
