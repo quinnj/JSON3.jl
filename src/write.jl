@@ -3,11 +3,17 @@
     return new, length(new)
 end
 
-macro writechar(chars...)
-    block = quote
-        if (pos + $(length(chars) - 1) > len
+macro check(n)
+    quote
+        if (pos + $n - 1) > len
             buf, len = realloc!(buf, len)
         end
+    end
+end
+
+macro writechar(chars...)
+    block = quote
+        @boundscheck @check($(length(chars)))
     end
     for c in chars
         push!(block.args, quote
@@ -15,7 +21,8 @@ macro writechar(chars...)
             pos += 1
         end)
     end
-    return block
+    #println(macroexpand(@__MODULE__, block))
+    return esc(block)
 end
 
 function write(buf, pos, len, x::T) where {T <: AbstractDict}
@@ -66,6 +73,18 @@ function write(buf, pos, len, x::Bool)
     return buf, pos
 end
 
-function write(buf, pos, len, x::Number)
-
+function write(buf, pos, len, y::Number)
+    x, neg = Base.split_sign(y)
+    i = neg + ndigits(x, base=10, pad=1)
+    pos += i
+    while i > neg
+        @inbounds buf[i] = 48 + rem(x, 10)
+        x = oftype(x, div(x, 10))
+        i -= 1
+    end
+    if neg
+        @writechar UInt8('-')
+    end
+    return buf, pos
 end
+

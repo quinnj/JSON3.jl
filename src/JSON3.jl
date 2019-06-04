@@ -2,6 +2,11 @@ module JSON3
 
 using Parsers, Mmap
 
+function __init__()
+    # Threads.resize_nthreads!()
+    return
+end
+
 struct Object <: AbstractDict{Symbol, Any}
     buf::Base.CodeUnits{UInt8,String}
     tape::Vector{UInt64}
@@ -127,5 +132,6 @@ include("read.jl")
 include("strings.jl")
 include("show.jl")
 include("structs.jl")
+include("write.jl")
 
 end # module
