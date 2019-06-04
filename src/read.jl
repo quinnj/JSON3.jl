@@ -8,6 +8,8 @@ struct MutableSetField <: StructType end
 
 struct AbstractType <: StructType end
 
+struct FromObject <: StructType end
+
 StructType(::Type{T}) where {T} = Ordered()
 StructType(x::T) where {T} = StructType(T)
 # maps Julia struct field name to json key name: ((:field1, :json1), (:field2, :json2))
@@ -36,6 +38,9 @@ subtypekey(::Type{T}) where {T} = :type
 subtypes(x::T) where {T} = subtypes(T)
 subtypes(::Type{T}) where {T} = NamedTuple()
 
+read(io::IO) = read(Base.read(io, String))
+read(bytes::Vector{UInt8}) = read(String(bytes))
+
 function read(str::String)
     buf = codeunits(str)
     len = length(buf)
@@ -63,6 +68,7 @@ function read(str::String)
 end
 
 # fallback
+fromobject(::Type{T}, obj) where {T} = fromobject(StructType(T), T, obj)
 fromobject(::Ordered, ::Type{T}, obj) where {T} = obj
 function fromobject(::Ordered, ::Type{T}, obj::Object) where {T}
     vals = values(obj)
@@ -87,11 +93,16 @@ function fromobject(::AbstractType, ::Type{T}, obj::Object) where {T}
     return fromobject(StructType(TT), TT, obj)
 end
 
+read(io::IO, ::Type{T}) where {T} = read(Base.read(io, String), T)
+read(bytes::Vector{UInt8}, ::Type{T}) where {T} = read(String(bytes), T)
+
 function read(str::String, ::Type{T}) where {T}
     if StructType(T) == AbstractType()
         obj = read(str)
         TT = subtypes(T)[Symbol(get(obj, subtypekey(T)))]
         return fromobject(StructType(TT), TT, obj)
+    elseif StructType(T) == FromObject()
+        return fromobject(T, read(str))
     end
     buf = codeunits(str)
     len = length(buf)

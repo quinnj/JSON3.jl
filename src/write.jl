@@ -1,3 +1,13 @@
+lower(x) = x
+
+write(io::IO, obj) = Base.write(io, write(obj))
+
+function write(obj)
+    buf = Mmap.mmap(Vector{UInt8}, sizeof(obj))
+    buf, pos = write(buf, 1, length(buf), lower(obj))
+    return String(buf)
+end
+
 _getfield(x, i) = isdefined(x, i) ? Core.getfield(x, i) : nothing
 _isempty(x, i) = !isdefined(x, i) || _isempty(getfield(x, i))
 _isempty(x::Union{AbstractDict, AbstractArray, AbstractString, Tuple, NamedTuple}) = isempty(x)
