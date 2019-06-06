@@ -1,43 +1,55 @@
 abstract type StructType end
 
-# by default, assume json key-values are in right order, and just pass to T constructor
-struct Ordered <: StructType end
+# "Data" type: fields are json keys, field values are json values; use names, omitempties, excludes
+abstract type DataType <: StructType end
+struct Struct <: DataType end
+struct Mutable <: DataType end
 
-# mutable struct + setfield!
-struct MutableSetField <: StructType end
-
-struct AbstractType <: StructType end
-
-struct FromObject <: StructType end
-
-StructType(::Type{T}) where {T} = Ordered()
+StructType(::Type{T}) where {T} = Struct()
 StructType(x::T) where {T} = StructType(T)
 # maps Julia struct field name to json key name: ((:field1, :json1), (:field2, :json2))
 names(x::T) where {T} = names(T)
 names(::Type{T}) where {T} = ()
+
 Base.@pure function julianame(names::Tuple{Vararg{Tuple{Symbol, Symbol}}}, jsonname::Symbol)
     for nm in names
         nm[2] === jsonname && return nm[2]
     end
     return jsonname
 end
+
 Base.@pure function jsonname(names::Tuple{Vararg{Tuple{Symbol, Symbol}}}, julianame::Symbol)
     for nm in names
         nm[1] === julianame && return nm[1]
     end
     return julianame
 end
+
 # Julia struct field names as symbols that will be ignored when reading, and never written
 excludes(x::T) where {T} = excludes(T)
 excludes(::Type{T}) where {T} = ()
 # Julia struct field names as symbols 
 omitempties(x::T) where {T} = omitempties(T)
 omitempties(::Type{T}) where {T} = ()
+
+# "interface" type: fields are internal, json representation is accessible via transform/interface functions
+abstract type JSONType end
+struct ObjectType <: JSONType end
+struct ArrayType <: JSONType end
+struct StringType <: JSONType end
+struct NumberType <: JSONType end
+struct BoolType <: JSONType end
+struct NullType <: JSONType end
+
+# "abstract" type: json representation via a concrete subtype, json includes subtype key-value to signal concrete subtype
+struct AbstractType <: StructType end
+
 subtypekey(x::T) where {T} = subtypekey(T)
 subtypekey(::Type{T}) where {T} = :type
 subtypes(x::T) where {T} = subtypes(T)
 subtypes(::Type{T}) where {T} = NamedTuple()
 
+# high-level user API functions
 read(io::IO) = read(Base.read(io, String))
 read(bytes::Vector{UInt8}) = read(String(bytes))
 
@@ -67,43 +79,10 @@ function read(str::String)
     invalid(error, buf, pos, Any)
 end
 
-# fallback
-fromobject(::Type{T}, obj) where {T} = fromobject(StructType(T), T, obj)
-fromobject(::Ordered, ::Type{T}, obj) where {T} = obj
-function fromobject(::Ordered, ::Type{T}, obj::Object) where {T}
-    vals = values(obj)
-    return T(map(x->fromobject(StructType(fieldtype(T, x[1])), fieldtype(T, x[1]), x[2]), enumerate(vals))...)
-end
-function fromobject(::MutableSetField, ::Type{T}, obj::Object) where {T}
-    x = T()
-    nms = names(T)
-    excl = excludes(T)
-    for (k, v) in obj
-        k = julianame(nms, k)
-        ind = Base.fieldindex(T, k, false)
-        if ind > 0 && !symbolin(excl, k)
-            T = fieldtype(T, k)
-            setfield!(x, k, fromobject(StructType(T), T, v))
-        end
-    end
-    return x
-end
-function fromobject(::AbstractType, ::Type{T}, obj::Object) where {T}
-    TT = subtypes(T)[Symbol(get(obj, subtypekey(T)))]
-    return fromobject(StructType(TT), TT, obj)
-end
-
 read(io::IO, ::Type{T}) where {T} = read(Base.read(io, String), T)
 read(bytes::Vector{UInt8}, ::Type{T}) where {T} = read(String(bytes), T)
 
 function read(str::String, ::Type{T}) where {T}
-    if StructType(T) == AbstractType()
-        obj = read(str)
-        TT = subtypes(T)[Symbol(get(obj, subtypekey(T)))]
-        return fromobject(StructType(TT), TT, obj)
-    elseif StructType(T) == FromObject()
-        return fromobject(T, read(str))
-    end
     buf = codeunits(str)
     len = length(buf)
     if len == 0
@@ -120,11 +99,11 @@ function read(str::String, ::Type{T}) where {T}
     invalid(error, buf, pos, T)
 end
 
-function read(::Ordered, buf, pos, len, b, U::Union)
+function read(::Struct, buf, pos, len, b, U::Union)
     try
-        return read(Ordered(), buf, pos, len, b, U.a)
+        return read(Struct(), buf, pos, len, b, U.a)
     catch e
-        return read(Ordered(), buf, pos, len, b, U.b)
+        return read(Struct(), buf, pos, len, b, U.b)
     end
 end
 
@@ -159,19 +138,19 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any})
     invalid(InvalidChar, buf, pos, Any)
 end
 
-function read(::Ordered, buf, pos, len, b, ::Type{Any})
+function read(::Struct, buf, pos, len, b, ::Type{Any})
     if b == UInt8('{')
-        return read(Ordered(), buf, pos, len, b, NamedTuple)
+        return read(Struct(), buf, pos, len, b, NamedTuple)
     elseif b == UInt8('[')
-        return read(Ordered(), buf, pos, len, b, Base.Array{Any})
+        return read(Struct(), buf, pos, len, b, Base.Array{Any})
     elseif b == UInt8('"')
-        return read(Ordered(), buf, pos, len, b, String)
+        return read(Struct(), buf, pos, len, b, String)
     elseif b == UInt8('n')
-        return read(Ordered(), buf, pos, len, b, Nothing)
+        return read(Struct(), buf, pos, len, b, Nothing)
     elseif b == UInt8('t')
-        return read(Ordered(), buf, pos, len, b, Bool)
+        return read(Struct(), buf, pos, len, b, Bool)
     elseif b == UInt8('f')
-        return read(Ordered(), buf, pos, len, b, Bool)
+        return read(Struct(), buf, pos, len, b, Bool)
     elseif (UInt8('0') <= b <= UInt8('9')) || b == UInt8('-') || b == UInt8('+')
         float, code, pos = Parsers.typeparser(Float64, buf, pos, len, b, Int16(0), Parsers.OPTIONS)
         if code > 0
@@ -215,7 +194,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{String})
     invalid(error, buf, pos, String)
 end
 
-function read(::Ordered, buf, pos, len, b, ::Type{String})
+function read(::Struct, buf, pos, len, b, ::Type{String})
     if b != UInt8('"')
         error = ExpectedOpeningQuoteChar
         @goto invalid
@@ -246,7 +225,7 @@ function read(::Ordered, buf, pos, len, b, ::Type{String})
     invalid(error, buf, pos, String)
 end
 
-function read(::Ordered, buf, pos, len, b, ::Type{Char})
+function read(::Struct, buf, pos, len, b, ::Type{Char})
     if b != UInt8('"')
         error = ExpectedOpeningQuoteChar
         @goto invalid
@@ -296,7 +275,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{False})
     end
 end
 
-function read(::Ordered, buf, pos, len, b, ::Type{Bool})
+function read(::Struct, buf, pos, len, b, ::Type{Bool})
     if pos + 3 <= len &&
         b            == UInt8('t') &&
         buf[pos + 1] == UInt8('r') &&
@@ -328,7 +307,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Nothing})
     end
 end
 
-function read(::Ordered, buf, pos, len, b, T::Union{Type{Missing}, Type{Nothing}})
+function read(::Struct, buf, pos, len, b, T::Union{Type{Missing}, Type{Nothing}})
     if pos + 3 <= len &&
         b            == UInt8('n') &&
         buf[pos + 1] == UInt8('u') &&
@@ -340,7 +319,7 @@ function read(::Ordered, buf, pos, len, b, T::Union{Type{Missing}, Type{Nothing}
     end
 end
 
-function read(::Ordered, buf, pos, len, b, ::Type{T}) where {T <: Integer}
+function read(::Struct, buf, pos, len, b, ::Type{T}) where {T <: Integer}
     int, code, pos = Parsers.typeparser(T, buf, pos, len, b, Int16(0), Parsers.OPTIONS)
     if code > 0
         return pos, int
@@ -348,7 +327,7 @@ function read(::Ordered, buf, pos, len, b, ::Type{T}) where {T <: Integer}
     invalid(InvalidChar, buf, pos, T)
 end
 
-function read(::Ordered, buf, pos, len, b, ::Type{T}) where {T <: AbstractFloat}
+function read(::Struct, buf, pos, len, b, ::Type{T}) where {T <: AbstractFloat}
     float, code, pos = Parsers.typeparser(T, buf, pos, len, b, Int16(0), Parsers.OPTIONS)
     if code > 0
         return pos, float
@@ -451,7 +430,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Object})
     invalid(error, buf, pos, Object)
 end
 
-function read(::Ordered, buf, pos, len, b, ::Type{NamedTuple})
+function read(::Struct, buf, pos, len, b, ::Type{NamedTuple})
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
         @goto invalid
@@ -504,7 +483,7 @@ function read(::Ordered, buf, pos, len, b, ::Type{NamedTuple})
         @inbounds b = buf[pos]
         @wh
         # now positioned at start of value
-        pos, y = read(Ordered(), buf, pos, len, b, Any)
+        pos, y = read(Struct(), buf, pos, len, b, Any)
         push!(vals, y)
         @eof
         @inbounds b = buf[pos]
@@ -581,7 +560,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Array})
     invalid(error, buf, pos, Array)
 end
 
-function read(::Ordered, buf, pos, len, b, ::Type{A}) where {A <: AbstractArray{T}} where {T}
+function read(::Struct, buf, pos, len, b, ::Type{A}) where {A <: AbstractArray{T}} where {T}
     if b != UInt8('[')
         error = ExpectedOpeningArrayChar
         @goto invalid
