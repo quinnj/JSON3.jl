@@ -89,6 +89,7 @@ function write(::ObjectType, buf, pos, len, x::T) where {T}
     for (k, v) in x
         buf, pos, len = write(StringType(), buf, pos, len, Base.string(k))
         @writechar ':'
+        @show StructType(v)
         buf, pos, len = write(StructType(v), buf, pos, len, v)
         if i < n
             @writechar ','
@@ -104,13 +105,15 @@ end
 function write(::ArrayType, buf, pos, len, x::T) where {T}
     @writechar '['
     n = length(x)
-    i = 1
-    for y in x
-        buf, pos, len = write(StructType(y), buf, pos, len, y)
-        if i < n
-            @writechar ','
+    for i = 1:n
+        if isdefined(x, i)
+            buf, pos, len = write(StructType(y), buf, pos, len, y)
+            if i < n
+                @writechar ','
+            end
+        else
+            buf, pos, len = write(NullType(), buf, pos, len, x)
         end
-        i += 1
     end
     @writechar ']'
     return buf, pos, len
