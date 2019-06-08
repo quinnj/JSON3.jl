@@ -21,6 +21,7 @@ _isempty(x) = false
 
 @noinline function realloc!(buf, len)
     new = Mmap.mmap(Vector{UInt8}, trunc(Int, len * 1.25))
+    copyto!(buf, 1, new, len)
     return new, length(new)
 end
 
