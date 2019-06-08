@@ -58,15 +58,10 @@ end
     Base.@nexprs 32 i -> begin
         k_i = fieldname(T, i)
         if !symbolin(excl, k_i) && (!symbolin(emp, k_i) || !_isempty(x, i))
-            @show String(copy(buf)), pos, len
             buf, pos, len = write(StringType(), buf, pos, len, jsonname(nms, k_i))
-            @show String(copy(buf)), pos, len
             @writechar ':'
-            @show String(copy(buf)), pos, len
             buf, pos, len = write(StructType(fieldtype(T, i)), buf, pos, len, _getfield(x, i))
-            @show String(copy(buf)), pos, len
             i < N && @writechar ','
-            @show String(copy(buf)), pos, len
         end
         N == i && @goto done
     end
