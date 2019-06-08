@@ -8,7 +8,7 @@ defaultminimum(x) = sizeof(x)
 function write(obj::T) where {T}
     len = defaultminimum(obj)
     buf = len < Mmap.PAGESIZE ? zeros(UInt8, len) : Mmap.mmap(Vector{UInt8}, len)
-    buf, pos = write(StructType(T), buf, 1, length(buf), obj)
+    buf, pos, len = write(StructType(T), buf, 1, length(buf), obj)
     return SubString(String(buf), 1, pos - 1)
 end
 
@@ -21,7 +21,7 @@ _isempty(x) = false
 
 @noinline function realloc!(buf, len)
     new = Mmap.mmap(Vector{UInt8}, trunc(Int, len * 1.25))
-    copyto!(buf, 1, new, len)
+    copyto!(new, 1, buf, 1, len)
     return new, length(new)
 end
 
@@ -48,7 +48,7 @@ macro writechar(chars...)
 end
 
 # generic object writing
-function write(::Union{Struct, Mutable, AbstractType}, buf, pos, len, x::T) where {T}
+@inline function write(::Union{Struct, Mutable, AbstractType}, buf, pos, len, x::T) where {T}
     @writechar '{'
     N = fieldcount(T)
     N == 0 && @goto done
@@ -58,9 +58,9 @@ function write(::Union{Struct, Mutable, AbstractType}, buf, pos, len, x::T) wher
     Base.@nexprs 32 i -> begin
         k_i = fieldname(T, i)
         if !symbolin(excl, k_i) && (!symbolin(emp, k_i) || !_isempty(x, i))
-            buf, pos = write(StringType(), buf, pos, len, jsonname(nms, k_i))
+            buf, pos, len = write(StringType(), buf, pos, len, jsonname(nms, k_i))
             @writechar ':'
-            buf, pos = write(StructType(fieldtype(T, i)), buf, pos, len, _getfield(x, i))
+            buf, pos, len = write(StructType(fieldtype(T, i)), buf, pos, len, _getfield(x, i))
             i < N && @writechar ','
         end
         N == i && @goto done
@@ -69,9 +69,9 @@ function write(::Union{Struct, Mutable, AbstractType}, buf, pos, len, x::T) wher
         for i = 33:N
             k_i = fieldname(T, i)
             if !symbolin(excl, k_i) && (!symbolin(emp, k_i) || !_isempty(x, i))
-                buf, pos = write(StringType(), buf, pos, len, jsonname(nms, k_i))
+                buf, pos, len = write(StringType(), buf, pos, len, jsonname(nms, k_i))
                 @writechar ':'
-                buf, pos = write(StructType(fieldtype(T, i)), buf, pos, len, _getfield(x, i))
+                buf, pos, len = write(StructType(fieldtype(T, i)), buf, pos, len, _getfield(x, i))
                 i < N && @writechar ','
             end
         end
@@ -79,7 +79,7 @@ function write(::Union{Struct, Mutable, AbstractType}, buf, pos, len, x::T) wher
 
 @label done
     @writechar '}'
-    return buf, pos
+    return buf, pos, len
 end
 
 function write(::ObjectType, buf, pos, len, x::T) where {T}
@@ -87,9 +87,9 @@ function write(::ObjectType, buf, pos, len, x::T) where {T}
     n = length(x)
     i = 1
     for (k, v) in x
-        buf, pos = write(StringType(), buf, pos, len, Base.string(k))
+        buf, pos, len = write(StringType(), buf, pos, len, Base.string(k))
         @writechar ':'
-        buf, pos = write(StructType(v), buf, pos, len, v)
+        buf, pos, len = write(StructType(v), buf, pos, len, v)
         if i < n
             @writechar ','
         end
@@ -98,7 +98,7 @@ function write(::ObjectType, buf, pos, len, x::T) where {T}
 
 @label done
     @writechar '}'
-    return buf, pos
+    return buf, pos, len
 end
 
 function write(::ArrayType, buf, pos, len, x::T) where {T}
@@ -106,19 +106,19 @@ function write(::ArrayType, buf, pos, len, x::T) where {T}
     n = length(x)
     i = 1
     for y in x
-        buf, pos = write(StructType(y), buf, pos, len, y)
+        buf, pos, len = write(StructType(y), buf, pos, len, y)
         if i < n
             @writechar ','
         end
         i += 1
     end
     @writechar ']'
-    return buf, pos
+    return buf, pos, len
 end
 
 function write(::NullType, buf, pos, len, x)
     @writechar 'n' 'u' 'l' 'l'
-    return buf, pos
+    return buf, pos, len
 end
 
 function write(::BoolType, buf, pos, len, x)
@@ -127,7 +127,7 @@ function write(::BoolType, buf, pos, len, x)
     else
         @writechar 'f' 'a' 'l' 's' 'e'
     end
-    return buf, pos
+    return buf, pos, len
 end
 
 # adapted from base/intfuncs.jl
@@ -143,7 +143,7 @@ function write(::NumberType, buf, pos, len, y)
     if neg
         @inbounds @writechar UInt8('-')
     end
-    return buf, pos + n
+    return buf, pos + n, len
 end
 
 const NEEDESCAPE = Set(map(UInt8, ('"', '\\', '\b', '\f', '\n', '\r', '\t')))
@@ -191,7 +191,7 @@ function write(::StringType, buf, pos, len, x)
     sz = sizeof(x)
     el = escapelength(x)
     @check (el + 2)
-    @writechar '"'
+    @inbounds @writechar '"'
     bytes = codeunits(x)
     if el > sz
         for i = 1:sz
@@ -207,8 +207,8 @@ function write(::StringType, buf, pos, len, x)
             pos += 1
         end
     end
-    @writechar '"'
-    return buf, pos
+    @inbounds @writechar '"'
+    return buf, pos, len
 end
 
 function write(::StringType, buf, pos, len, x::Symbol)
@@ -220,13 +220,13 @@ function write(::StringType, buf, pos, len, x::Symbol)
         @inbounds @writechar unsafe_load(ptr, i)
     end
     @inbounds @writechar '"'
-    return buf, pos
+    return buf, pos, len
 end
 
 function write(::NumberType, buf, pos, len, x::T) where {T <: Base.IEEEFloat}
     if !isfinite(x)
         @writechar 'n' 'u' 'l' 'l'
-        return buf, pos
+        return buf, pos, len
     end
     bytes = codeunits(string(x))
     sz = sizeof(bytes)
@@ -235,5 +235,5 @@ function write(::NumberType, buf, pos, len, x::T) where {T <: Base.IEEEFloat}
         @inbounds @writechar bytes[i]
     end
 
-    return buf, pos
+    return buf, pos, len
 end
