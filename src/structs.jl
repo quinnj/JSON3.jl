@@ -204,11 +204,13 @@ function read(::NumberType, buf, pos, len, b, ::Type{T}) where {T <: Integer}
 end
 
 StructType(::Type{<:AbstractFloat}) = NumberType()
+numbertype(x::T) where {T <: Real} = T
+numbertype(x) = Float64
 
 function read(::NumberType, buf, pos, len, b, ::Type{T}) where {T}
-    float, code, pos = Parsers.typeparser(T, buf, pos, len, b, Int16(0), Parsers.OPTIONS)
+    x, code, pos = Parsers.typeparser(numbertype(T), buf, pos, len, b, Int16(0), Parsers.OPTIONS)
     if code > 0
-        return pos, T(float)
+        return pos, T(x)
     end
     invalid(InvalidChar, buf, pos, T)
 end
