@@ -151,8 +151,8 @@ obj = JSON3.read("""
 @test JSON3.read("null", Nothing) === nothing
 @test JSON3.read("null", Missing) === missing
 @test JSON3.read("\"a\"", Char) == 'a'
-@test JSON3.read("{\"a\": 1}", Any).a == 1
-@test JSON3.read("{\"a\": 1}", NamedTuple).a == 1
+@test JSON3.read("{\"a\": 1}", Any)[:a] == 1
+@test JSON3.read("{\"a\": 1}", Dict{Symbol, Any})[:a] == 1
 @test JSON3.read("[1,2,3]", Base.Array{Any}) == [1,2,3]
 
 @test_throws ArgumentError JSON3.read("hey", Any)
@@ -178,7 +178,7 @@ mutable struct B
     B() = new()
 end
 
-JSON3.StructType(::Type{B}) = JSON3.MutableSetField()
+JSON3.StructType(::Type{B}) = JSON3.Mutable()
 
 b = JSON3.read("""
 {
@@ -290,5 +290,7 @@ expr = JSON3.read("""
     }
 }
 """, Expression)
+
+
 
 end # @testset

@@ -1,11 +1,15 @@
-lower(x) = x
-
 write(io::IO, obj) = Base.write(io, write(obj))
 
-function write(obj)
-    buf = Mmap.mmap(Vector{UInt8}, sizeof(obj))
-    buf, pos = write(buf, 1, length(buf), lower(obj))
-    return String(buf)
+defaultminimum(::Union{Nothing, Missing}) = 4
+defaultminimum(::Number) = 20
+defaultminimum(x::Bool) = x ? 4 : 5
+defaultminimum(x) = sizeof(x)
+
+function write(obj::T) where {T}
+    len = defaultminimum(obj)
+    buf = len < Mmap.PAGESIZE ? zeros(UInt8, len) : Mmap.mmap(Vector{UInt8}, len)
+    buf, pos = write(StructType(T), buf, 1, length(buf), obj)
+    return SubString(String(buf), 1, pos - 1)
 end
 
 _getfield(x, i) = isdefined(x, i) ? Core.getfield(x, i) : nothing
@@ -43,7 +47,7 @@ macro writechar(chars...)
 end
 
 # generic object writing
-function write(buf, pos, len, x::T) where {T}
+function write(::Union{Struct, Mutable, AbstractType}, buf, pos, len, x::T) where {T}
     @writechar '{'
     N = fieldcount(T)
     N == 0 && @goto done
@@ -53,9 +57,9 @@ function write(buf, pos, len, x::T) where {T}
     Base.@nexprs 32 i -> begin
         k_i = fieldname(T, i)
         if !symbolin(excl, k_i) && (!symbolin(emp, k_i) || !_isempty(x, i))
-            buf, pos = write(buf, pos, len, jsonname(nms, k_i))
+            buf, pos = write(StringType(), buf, pos, len, jsonname(nms, k_i))
             @writechar ':'
-            buf, pos = write(buf, pos, len, _getfield(x, i))
+            buf, pos = write(StructType(fieldtype(T, i)), buf, pos, len, _getfield(x, i))
             i < N && @writechar ','
         end
         N == i && @goto done
@@ -64,9 +68,9 @@ function write(buf, pos, len, x::T) where {T}
         for i = 33:N
             k_i = fieldname(T, i)
             if !symbolin(excl, k_i) && (!symbolin(emp, k_i) || !_isempty(x, i))
-                buf, pos = write(buf, pos, len, jsonname(nms, k_i))
+                buf, pos = write(StringType(), buf, pos, len, jsonname(nms, k_i))
                 @writechar ':'
-                buf, pos = write(buf, pos, len, _getfield(x, i))
+                buf, pos = write(StructType(fieldtype(T, i)), buf, pos, len, _getfield(x, i))
                 i < N && @writechar ','
             end
         end
@@ -77,14 +81,14 @@ function write(buf, pos, len, x::T) where {T}
     return buf, pos
 end
 
-function write(buf, pos, len, x::T) where {T <: AbstractDict}
+function write(::ObjectType, buf, pos, len, x::T) where {T}
     @writechar '{'
     n = length(x)
     i = 1
     for (k, v) in x
-        buf, pos = write(buf, pos, len, Base.string(k))
+        buf, pos = write(StringType(), buf, pos, len, Base.string(k))
         @writechar ':'
-        buf, pos = write(buf, pos, len, v)
+        buf, pos = write(StructType(v), buf, pos, len, v)
         if i < n
             @writechar ','
         end
@@ -96,12 +100,12 @@ function write(buf, pos, len, x::T) where {T <: AbstractDict}
     return buf, pos
 end
 
-function write(buf, pos, len, x::T) where {T <: Union{AbstractArray, AbstractSet, Tuple}}
+function write(::ArrayType, buf, pos, len, x::T) where {T}
     @writechar '['
     n = length(x)
     i = 1
     for y in x
-        buf, pos = write(buf, pos, len, y)
+        buf, pos = write(StructType(y), buf, pos, len, y)
         if i < n
             @writechar ','
         end
@@ -111,12 +115,12 @@ function write(buf, pos, len, x::T) where {T <: Union{AbstractArray, AbstractSet
     return buf, pos
 end
 
-function write(buf, pos, len, x::Union{Nothing, Missing})
+function write(::NullType, buf, pos, len, x)
     @writechar 'n' 'u' 'l' 'l'
     return buf, pos
 end
 
-function write(buf, pos, len, x::Bool)
+function write(::BoolType, buf, pos, len, x)
     if x
         @writechar 't' 'r' 'u' 'e'
     else
@@ -126,7 +130,7 @@ function write(buf, pos, len, x::Bool)
 end
 
 # adapted from base/intfuncs.jl
-function write(buf, pos, len, y::Number)
+function write(::NumberType, buf, pos, len, y)
     x, neg = Base.split_sign(y)
     n = i = neg + ndigits(x, base=10, pad=1)
     @check i
@@ -182,7 +186,7 @@ function escapelength(str)
     return x
 end
 
-function write(buf, pos, len, x::AbstractString)
+function write(::StringType, buf, pos, len, x)
     sz = sizeof(x)
     el = escapelength(x)
     @check (el + 2)
@@ -206,7 +210,7 @@ function write(buf, pos, len, x::AbstractString)
     return buf, pos
 end
 
-function write(buf, pos, len, x::Symbol)
+function write(::StringType, buf, pos, len, x::Symbol)
     ptr = Base.unsafe_convert(Ptr{UInt8}, x)
     slen = ccall(:strlen, Csize_t, (Cstring,), ptr)
     @check (slen + 2)
@@ -218,7 +222,7 @@ function write(buf, pos, len, x::Symbol)
     return buf, pos
 end
 
-function write(buf, pos, len, x::T) where {T <: Base.IEEEFloat}
+function write(::NumberType, buf, pos, len, x::T) where {T <: Base.IEEEFloat}
     if !isfinite(x)
         @writechar 'n' 'u' 'l' 'l'
         return buf, pos
