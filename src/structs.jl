@@ -294,7 +294,7 @@ function read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T}
             @eof
             @inbounds b = buf[pos]
         end
-        key = escaped ? Symbol(unescape(PointerString(pointer(buf, keypos), keylen))) : _symbol(pointer(buf, keypos), keylen)
+        key = escaped ? unescape(PointerString(pointer(buf, keypos), keylen)) : unsafe_string(pointer(buf, keypos), keylen)
         pos += 1
         @eof
         @inbounds b = buf[pos]
