@@ -58,10 +58,10 @@ end
     Base.@nexprs 32 i -> begin
         k_i = fieldname(T, i)
         if !symbolin(excl, k_i) && (!symbolin(emp, k_i) || !_isempty(x, i))
+            i > 1 && @writechar ','
             buf, pos, len = write(StringType(), buf, pos, len, jsonname(nms, k_i))
             @writechar ':'
             buf, pos, len = write(StructType(fieldtype(T, i)), buf, pos, len, _getfield(x, i))
-            i < N && @writechar ','
         end
         N == i && @goto done
     end
@@ -69,10 +69,10 @@ end
         for i = 33:N
             k_i = fieldname(T, i)
             if !symbolin(excl, k_i) && (!symbolin(emp, k_i) || !_isempty(x, i))
+                @writechar ','
                 buf, pos, len = write(StringType(), buf, pos, len, jsonname(nms, k_i))
                 @writechar ':'
                 buf, pos, len = write(StructType(fieldtype(T, i)), buf, pos, len, _getfield(x, i))
-                i < N && @writechar ','
             end
         end
     end
@@ -89,7 +89,6 @@ function write(::ObjectType, buf, pos, len, x::T) where {T}
     for (k, v) in x
         buf, pos, len = write(StringType(), buf, pos, len, Base.string(k))
         @writechar ':'
-        @show StructType(v)
         buf, pos, len = write(StructType(v), buf, pos, len, v)
         if i < n
             @writechar ','
