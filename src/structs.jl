@@ -256,7 +256,8 @@ end
 
 StructType(::Type{<:AbstractDict}) = ObjectType()
 
-function read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T}
+read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T <: AbstractDict} = read(ObjectType(), buf, pos, len, b, T, keytype(T), valtype(T))
+function read(::ObjectType, buf, pos, len, b, ::Type{T}, ::Type{K}=Any, ::Type{V}=Any) where {T, K, V}
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
         @goto invalid
@@ -308,8 +309,8 @@ function read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T}
         @inbounds b = buf[pos]
         @wh
         # now positioned at start of value
-        pos, y = read(Struct(), buf, pos, len, b, Any)
-        x[key] = y
+        pos, y = read(StructType(V), buf, pos, len, b, V)
+        x[K(key)] = y
         @eof
         @inbounds b = buf[pos]
         @wh

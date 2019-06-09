@@ -107,7 +107,8 @@ function write(::ArrayType, buf, pos, len, x::T) where {T}
     @writechar '['
     n = length(x)
     for i = 1:n
-        if isdefined(x, i)
+        if isassigned(x, i)
+            @inbounds y = x[i]
             buf, pos, len = write(StructType(y), buf, pos, len, y)
             if i < n
                 @writechar ','
@@ -125,7 +126,8 @@ function write(::NullType, buf, pos, len, x)
     return buf, pos, len
 end
 
-function write(::BoolType, buf, pos, len, x)
+write(::BoolType, buf, pos, len, x) = write(BoolType(), buf, pos, len, Bool(x))
+function write(::BoolType, buf, pos, len, x::Bool)
     if x
         @writechar 't' 'r' 'u' 'e'
     else
@@ -135,7 +137,7 @@ function write(::BoolType, buf, pos, len, x)
 end
 
 # adapted from base/intfuncs.jl
-function write(::NumberType, buf, pos, len, y)
+function write(::NumberType, buf, pos, len, y::Integer)
     x, neg = Base.split_sign(y)
     n = i = neg + ndigits(x, base=10, pad=1)
     @check i
@@ -148,6 +150,22 @@ function write(::NumberType, buf, pos, len, y)
         @inbounds @writechar UInt8('-')
     end
     return buf, pos + n, len
+end
+
+write(::NumberType, buf, pos, len, x) = write(NumberType(), buf, pos, len, Float64(x))
+function write(::NumberType, buf, pos, len, x::Float64)
+    if !isfinite(x)
+        @writechar 'n' 'u' 'l' 'l'
+        return buf, pos, len
+    end
+    bytes = codeunits(Base.string(x))
+    sz = sizeof(bytes)
+    @check sz
+    for i = 1:sz
+        @inbounds @writechar bytes[i]
+    end
+
+    return buf, pos, len
 end
 
 const NEEDESCAPE = Set(map(UInt8, ('"', '\\', '\b', '\f', '\n', '\r', '\t')))
@@ -191,7 +209,8 @@ function escapelength(str)
     return x
 end
 
-function write(::StringType, buf, pos, len, x)
+write(::StringType, buf, pos, len, x) = write(StringType(), buf, pos, len, Base.string(x))
+function write(::StringType, buf, pos, len, x::String)
     sz = sizeof(x)
     el = escapelength(x)
     @check (el + 2)
@@ -224,20 +243,5 @@ function write(::StringType, buf, pos, len, x::Symbol)
         @inbounds @writechar unsafe_load(ptr, i)
     end
     @inbounds @writechar '"'
-    return buf, pos, len
-end
-
-function write(::NumberType, buf, pos, len, x::T) where {T <: Base.IEEEFloat}
-    if !isfinite(x)
-        @writechar 'n' 'u' 'l' 'l'
-        return buf, pos, len
-    end
-    bytes = codeunits(string(x))
-    sz = sizeof(bytes)
-    @check sz
-    for i = 1:sz
-        @inbounds @writechar bytes[i]
-    end
-
     return buf, pos, len
 end
