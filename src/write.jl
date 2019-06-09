@@ -55,10 +55,12 @@ end
     excl = excludes(T)
     nms = names(T)
     emp = omitempties(T)
+    afterfirst = false
     Base.@nexprs 32 i -> begin
         k_i = fieldname(T, i)
         if !symbolin(excl, k_i) && (!symbolin(emp, k_i) || !_isempty(x, i))
-            i > 1 && @writechar ','
+            afterfirst && @writechar ','
+            afterfirst = true
             buf, pos, len = write(StringType(), buf, pos, len, jsonname(nms, k_i))
             @writechar ':'
             buf, pos, len = write(StructType(fieldtype(T, i)), buf, pos, len, _getfield(x, i))
