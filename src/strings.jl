@@ -35,9 +35,9 @@ end
 utf16_is_surrogate(c::UInt16) = (c & 0xf800) == 0xd800
 utf16_get_supplementary(lead::UInt16, trail::UInt16) = Char(UInt32(lead-0xd7f7)<<10 + trail)
 
-charvalue(b) = (UInt8('0') <= b < UInt8('9'))         ? b - UInt8('0')            :
+charvalue(b) = (UInt8('0') <= b <= UInt8('9')) ? b - UInt8('0') :
                (UInt8('a') <= b <= UInt8('f')) ? b - (UInt8('a') - 0x0a) :
-               (UInt8('A') <= b <= UInt8('F'))       ? b - (UInt8('A') - 0x0a)    :
+               (UInt8('A') <= b <= UInt8('F')) ? b - (UInt8('A') - 0x0a) :
                throw(ArgumentError("JSON invalid unicode hex value"))
 
 @noinline invalid_escape(str) = throw(ArgumentError("encountered invalid escape character in json string: \"$(String(str))\""))
