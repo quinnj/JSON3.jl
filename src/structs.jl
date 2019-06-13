@@ -102,6 +102,17 @@ function read(::Struct, buf, pos, len, b, ::Type{Any})
 end
 
 StructType(::Type{<:AbstractString}) = StringType()
+StructType(::Type{<:Enum}) = StringType()
+StructType(::Type{DataType}) = StringType()
+
+# argh!
+function (::Type{E})(str::String) where {E <: Enum}
+    sym = Symbol(str)
+    for (k, v) in Base.Enums.namemap(E)
+        sym == v && return E(k)
+    end
+    throw(ArgumentError("invalid $E string value: \"$str\""))
+end
 
 function read(::StringType, buf, pos, len, b, ::Type{T}) where {T}
     if b != UInt8('"')
@@ -216,6 +227,8 @@ function read(::NumberType, buf, pos, len, b, ::Type{T}) where {T}
 end
 
 StructType(::Type{<:AbstractArray}) = ArrayType()
+StructType(::Type{<:AbstractSet}) = ArrayType()
+StructType(::Type{<:Tuple}) = ArrayType()
 
 read(::ArrayType, buf, pos, len, b, ::Type{T}) where {T} = read(ArrayType(), buf, pos, len, b, T, Base.IteratorEltype(T) == Base.HasEltype() ? eltype(T) : Any)
 function read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T, eT}
@@ -239,7 +252,7 @@ function read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T, eT
         @inbounds b = buf[pos]
         @wh
         if b == UInt8(']')
-            return pos + 1, vals
+            return pos + 1, T(vals)
         elseif b != UInt8(',')
             error = ExpectedComma
             @goto invalid

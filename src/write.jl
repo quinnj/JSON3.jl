@@ -8,7 +8,7 @@ defaultminimum(x) = sizeof(x)
 function write(obj::T) where {T}
     len = defaultminimum(obj)
     buf = len < Mmap.PAGESIZE ? zeros(UInt8, len) : Mmap.mmap(Vector{UInt8}, len)
-    buf, pos, len = write(StructType(T), buf, 1, length(buf), obj)
+    buf, pos, len = write(StructType(obj), buf, 1, length(buf), obj)
     return unsafe_string(pointer(buf), pos - 1)
 end
 
@@ -47,6 +47,8 @@ macro writechar(chars...)
     return esc(block)
 end
 
+write(::Struct, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+
 # generic object writing
 @inline function write(::Union{Struct, Mutable, AbstractType}, buf, pos, len, x::T) where {T}
     @writechar '{'
@@ -63,7 +65,8 @@ end
             afterfirst = true
             buf, pos, len = write(StringType(), buf, pos, len, jsonname(nms, k_i))
             @writechar ':'
-            buf, pos, len = write(StructType(fieldtype(T, i)), buf, pos, len, _getfield(x, i))
+            y = _getfield(x, i)
+            buf, pos, len = write(StructType(y), buf, pos, len, y)
         end
         N == i && @goto done
     end
@@ -74,7 +77,8 @@ end
                 @writechar ','
                 buf, pos, len = write(StringType(), buf, pos, len, jsonname(nms, k_i))
                 @writechar ':'
-                buf, pos, len = write(StructType(fieldtype(T, i)), buf, pos, len, _getfield(x, i))
+                y = _getfield(x, i)
+                buf, pos, len = write(StructType(y), buf, pos, len, y)
             end
         end
     end
@@ -106,16 +110,13 @@ end
 function write(::ArrayType, buf, pos, len, x::T) where {T}
     @writechar '['
     n = length(x)
-    for i = 1:n
-        if isassigned(x, i)
-            @inbounds y = x[i]
-            buf, pos, len = write(StructType(y), buf, pos, len, y)
-            if i < n
-                @writechar ','
-            end
-        else
-            buf, pos, len = write(NullType(), buf, pos, len, x)
+    i = 1
+    for y in x
+        buf, pos, len = write(StructType(y), buf, pos, len, y)
+        if i < n
+            @writechar ','
         end
+        i += 1
     end
     @writechar ']'
     return buf, pos, len
@@ -139,15 +140,15 @@ end
 # adapted from base/intfuncs.jl
 function write(::NumberType, buf, pos, len, y::Integer)
     x, neg = Base.split_sign(y)
-    n = i = neg + ndigits(x, base=10, pad=1)
+    if neg
+        @inbounds @writechar UInt8('-')
+    end
+    n = i = ndigits(x, base=10, pad=1)
     @check i
-    while i > neg
+    while i > 0
         @inbounds buf[pos + i - 1] = 48 + rem(x, 10)
         x = oftype(x, div(x, 10))
         i -= 1
-    end
-    if neg
-        @inbounds @writechar UInt8('-')
     end
     return buf, pos + n, len
 end
