@@ -9,7 +9,7 @@ function write(obj::T) where {T}
     len = defaultminimum(obj)
     buf = len < Mmap.PAGESIZE ? zeros(UInt8, len) : Mmap.mmap(Vector{UInt8}, len)
     buf, pos, len = write(StructType(obj), buf, 1, length(buf), obj)
-    return unsafe_string(pointer(buf), pos - 1)
+    return GC.@preserve buf unsafe_string(pointer(buf), pos - 1)
 end
 
 _getfield(x, i) = isdefined(x, i) ? Core.getfield(x, i) : nothing
