@@ -1,5 +1,9 @@
 _symbol(ptr, len) = ccall(:jl_symbol_n, Ref{Symbol}, (Ptr{UInt8}, Int), ptr, len)
 
+function getbyte(buf, pos)
+    unsafe_load(pointer(buf.s), pos)
+end
+
 macro eof()
     esc(quote
         if pos > len
@@ -17,7 +21,7 @@ macro wh()
                 error = UnexpectedEOF
                 @goto invalid
             end
-            @inbounds b = buf[pos]
+            b = getbyte(buf, pos)
         end
     end)
 end

@@ -23,7 +23,7 @@ function read(str::AbstractString)
         @goto invalid
     end
     pos = 1
-    @inbounds b = buf[pos]
+    b = getbyte(buf, pos)
     @wh
     tape = len > div(Mmap.PAGESIZE, 2) ? Mmap.mmap(Vector{UInt64}, len) :
         Vector{UInt64}(undef, len + 2)
@@ -81,7 +81,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{String})
     strpos = pos
     strlen = 0
     escaped = false
-    @inbounds b = buf[pos]
+    b = getbyte(buf, pos)
     while b != UInt8('"')
         if b == UInt8('\\')
             escaped = true
@@ -93,7 +93,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{String})
             strlen += 1
         end
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
     end
     @inbounds tape[tapeidx] = string(strlen)
     @inbounds tape[tapeidx+1] = ifelse(escaped, ESCAPE_BIT | strpos, strpos)
@@ -154,7 +154,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Object})
     end
     pos += 1
     @eof
-    @inbounds b = buf[pos]
+    b = getbyte(buf, pos)
     @wh
     if b == UInt8('}')
         @inbounds tape[tapeidx] = object(2)
@@ -175,7 +175,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Object})
         keylen = 0
         escaped = false
         # read first key character
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         # positioned at first character of object key
         while b != UInt8('"')
             if b == UInt8('\\')
@@ -188,14 +188,14 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Object})
                 keylen += 1
             end
             @eof
-            @inbounds b = buf[pos]
+            b = getbyte(buf, pos)
         end
         @inbounds tape[tapeidx] = string(keylen)
         @inbounds tape[tapeidx+1] = ifelse(escaped, ESCAPE_BIT | keypos, keypos)
         tapeidx += 2
         pos += 1
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         if b != UInt8(':')
             error = ExpectedSemiColon
@@ -203,13 +203,13 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Object})
         end
         pos += 1
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         # now positioned at start of value
         prevtapeidx = tapeidx
         pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any)
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         @inbounds eT = promoteeltype(eT, gettypemask(tape[prevtapeidx]))
         nelem += 1
@@ -224,7 +224,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Object})
         end
         pos += 1
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         if b != UInt8('"')
             error = ExpectedOpeningQuoteChar
@@ -249,7 +249,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Array})
     end
     pos += 1
     @eof
-    @inbounds b = buf[pos]
+    b = getbyte(buf, pos)
     @wh
     if b == UInt8(']')
         @inbounds tape[tapeidx] = array(2)
@@ -265,7 +265,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Array})
         prevtapeidx = tapeidx
         pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any)
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         @inbounds eT = promoteeltype(eT, gettypemask(tape[prevtapeidx]))
         nelem += 1
@@ -280,7 +280,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Array})
         end
         pos += 1
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
     end
 

@@ -18,7 +18,7 @@ Base.codeunit(s::PointerString) = UInt8
 Base.ncodeunits(s::PointerString) = s.len
 @inline function Base.codeunit(s::PointerString, i::Integer)
     @boundscheck checkbounds(s, i)
-    GC.@preserve s unsafe_load(s.ptr + i - 1)
+    unsafe_load(s.ptr + i - 1)
 end
 Base.String(x::PointerString) = unsafe_string(x.ptr, x.len)
 

@@ -1,10 +1,13 @@
 defaultminimum(::Union{Nothing, Missing}) = 4
 defaultminimum(::Number) = 20
-defaultminimum(x::Bool) = x ? 4 : 5
-defaultminimum(x::AbstractString) = sizeof(x) + 2
+defaultminimum(x::Bool) = ifelse(x, 4, 5)
+defaultminimum(x::AbstractString) = ncodeunits(x) + 2
 defaultminimum(x::Symbol) = ccall(:strlen, Csize_t, (Cstring,), x) + 2
+defaultminimum(x::Enum) = 16
 defaultminimum(::Type{T}) where {T} = 16
-defaultminimum(x::AbstractArray{T}) where {T} = isempty(x) ? 2 : isbitstype(T) ? sizeof(x) : Base.isbitsunion(T) ? length(x) * Base.bitsunionsize(T) : sum(defaultminimum, x)
+defaultminimum(x::Char) = 3
+defaultminimum(x::Union{Tuple, AbstractSet, AbstractArray}) = isempty(x) ? 2 : sum(defaultminimum, x)
+defaultminimum(x::Union{AbstractDict, NamedTuple, Pair}) = sum(defaultminimum(k) + defaultminimum(v) for (k, v) in keyvaluepairs(x))
 defaultminimum(x) = max(2, sizeof(x))
 
 function write(io::IO, obj::T) where {T}

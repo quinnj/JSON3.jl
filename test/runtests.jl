@@ -424,6 +424,19 @@ expr = JSON3.read("""
 @test expr.exprType == "AND"
 @test JSON3.write(expr) == "{\"exprType\":\"AND\",\"lhs\":{\"exprType\":\"LITERAL\",\"value\":3.14},\"rhs\":{\"exprType\":\"AND\",\"lhs\":{\"exprType\":\"LITERAL\",\"value\":null},\"rhs\":{\"exprType\":\"LITERAL\",\"value\":\"hey\"}}}"
 
+@test JSON3.write(Int64) == "\"Int64\""
+@test JSON3.write(Float64) == "\"Float64\""
+@test JSON3.write(String) == "\"String\""
+@test JSON3.write(Vector{Int64}) == "\"Vector{Int64}\""
+@test JSON3.write(NamedTuple{(:a, :b), Tuple{Int64, String}}) == "\"NamedTuple{(:a, :b),Tuple{Int64,String}}\""
+@test JSON3.write(Dict{Symbol, Any}) == "\"Dict{Symbol,Any}\""
+@test JSON3.write(Bool) == "\"Bool\""
+@test JSON3.write(Nothing) == "\"Nothing\""
+@test JSON3.write(Missing) == "\"Missing\""
+@test JSON3.write(A) == "\"A\""
+@test JSON3.write(B) == "\"B\""
+@test JSON3.write(Vehicle) == "\"Vehicle\""
+
 end # @testset "structs.jl"
 
 include("json.jl")

@@ -62,7 +62,7 @@ function read(str::AbstractString, ::Type{T}) where {T}
         @goto invalid
     end
     pos = 1
-    @inbounds b = buf[pos]
+    b = getbyte(buf, pos)
     @wh
     pos, x = read(StructType(T), buf, pos, len, b, T)
     return x
@@ -78,7 +78,7 @@ function read(::Struct, buf, pos, len, b, U::Union)
     end
 end
 
-function read(::Struct, buf, pos, len, b, ::Type{Any})
+@inline function read(::Struct, buf, pos, len, b, ::Type{Any})
     if b == UInt8('{')
         return read(ObjectType(), buf, pos, len, b, Dict{String, Any})
     elseif b == UInt8('[')
@@ -127,7 +127,7 @@ construct(T, str::String) = T(str)
 construct(T, ptr::Ptr{UInt8}, len::Int) = construct(T, unsafe_string(ptr, len))
 construct(::Type{Symbol}, ptr::Ptr{UInt8}, len::Int) = _symbol(ptr, len)
 
-function read(::StringType, buf, pos, len, b, ::Type{T}) where {T}
+@inline function read(::StringType, buf, pos, len, b, ::Type{T}) where {T}
     if b != UInt8('"')
         error = ExpectedOpeningQuoteChar
         @goto invalid
@@ -137,7 +137,7 @@ function read(::StringType, buf, pos, len, b, ::Type{T}) where {T}
     strpos = pos
     strlen = 0
     escaped = false
-    @inbounds b = buf[pos]
+    b = getbyte(buf, pos)
     while b != UInt8('"')
         if b == UInt8('\\')
             escaped = true
@@ -149,7 +149,7 @@ function read(::StringType, buf, pos, len, b, ::Type{T}) where {T}
             strlen += 1
         end
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
     end
     ptr = pointer(buf, strpos)
     return pos + 1, escaped ? construct(T, unescape(PointerString(ptr, strlen))) : construct(T, ptr, strlen)
@@ -162,7 +162,7 @@ StructType(::Type{Bool}) = BoolType()
 
 construct(T, bool::Bool) = T(bool)
 
-function read(::BoolType, buf, pos, len, b, ::Type{T}) where {T}
+@inline function read(::BoolType, buf, pos, len, b, ::Type{T}) where {T}
     if pos + 3 <= len &&
         b            == UInt8('t') &&
         buf[pos + 1] == UInt8('r') &&
@@ -186,7 +186,7 @@ StructType(::Type{Missing}) = NullType()
 
 construct(T, ::Nothing) = T()
 
-function read(::NullType, buf, pos, len, b, ::Type{T}) where {T}
+@inline function read(::NullType, buf, pos, len, b, ::Type{T}) where {T}
     if pos + 3 <= len &&
         b            == UInt8('n') &&
         buf[pos + 1] == UInt8('u') &&
@@ -203,7 +203,7 @@ numbertype(::Type{T}) where {T <: Real} = T
 numbertype(x) = Float64
 construct(T, x::Real) = T(x)
 
-function read(::NumberType, buf, pos, len, b, ::Type{T}) where {T}
+@inline function read(::NumberType, buf, pos, len, b, ::Type{T}) where {T}
     x, code, pos = Parsers.typeparser(numbertype(T), buf, pos, len, b, Int16(0), Parsers.OPTIONS)
     if code > 0
         return pos, construct(T, x)
@@ -217,15 +217,16 @@ StructType(::Type{<:Tuple}) = ArrayType()
 
 construct(T, x::Vector{S}) where {S} = T(x)
 
-read(::ArrayType, buf, pos, len, b, ::Type{T}) where {T} = read(ArrayType(), buf, pos, len, b, T, Base.IteratorEltype(T) == Base.HasEltype() ? eltype(T) : Any)
-function read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T, eT}
+@inline read(::ArrayType, buf, pos, len, b, ::Type{T}) where {T} = read(ArrayType(), buf, pos, len, b, T, Base.IteratorEltype(T) == Base.HasEltype() ? eltype(T) : Any)
+
+@inline function read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T, eT}
     if b != UInt8('[')
         error = ExpectedOpeningArrayChar
         @goto invalid
     end
     pos += 1
     @eof
-    @inbounds b = buf[pos]
+    b = getbyte(buf, pos)
     @wh
     vals = Vector{eT}(undef, 0)
     if b == UInt8(']')
@@ -236,7 +237,7 @@ function read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T, eT
         pos, y = read(StructType(eT), buf, pos, len, b, eT)
         push!(vals, y)
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         if b == UInt8(']')
             return pos + 1, construct(T, vals)
@@ -246,7 +247,7 @@ function read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T, eT
         end
         pos += 1
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
     end
 
@@ -271,18 +272,18 @@ construct(::Type{NamedTuple{names, types}}, x::Dict) where {names, types} = Name
 keyvalue(::Type{Symbol}, escaped, ptr, len) = escaped ? Symbol(unescape(PointerString(ptr, len))) : _symbol(ptr, len)
 keyvalue(::Type{String}, escaped, ptr, len) = escaped ? unescape(PointerString(ptr, len)) : unsafe_string(ptr, len)
 
-read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T <: NamedTuple} = read(ObjectType(), buf, pos, len, b, T, Symbol, Any)
-read(::ObjectType, buf, pos, len, b, ::Type{Dict}) = read(ObjectType(), buf, pos, len, b, Dict, String, Any)
-read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T <: AbstractDict} = read(ObjectType(), buf, pos, len, b, T, keytype(T), valtype(T))
+@inline read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T <: NamedTuple} = read(ObjectType(), buf, pos, len, b, T, Symbol, Any)
+@inline read(::ObjectType, buf, pos, len, b, ::Type{Dict}) = read(ObjectType(), buf, pos, len, b, Dict, String, Any)
+@inline read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T <: AbstractDict} = read(ObjectType(), buf, pos, len, b, T, keytype(T), valtype(T))
 
-function read(::ObjectType, buf, pos, len, b, ::Type{T}, ::Type{K}=String, ::Type{V}=Any) where {T, K, V}
+@inline function read(::ObjectType, buf, pos, len, b, ::Type{T}, ::Type{K}, ::Type{V}) where {T, K, V}
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
         @goto invalid
     end
     pos += 1
     @eof
-    @inbounds b = buf[pos]
+    b = getbyte(buf, pos)
     @wh
     x = Dict{K, V}()
     if b == UInt8('}')
@@ -298,7 +299,7 @@ function read(::ObjectType, buf, pos, len, b, ::Type{T}, ::Type{K}=String, ::Typ
         keylen = 0
         escaped = false
         # read first key character
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         # positioned at first character of object key
         while b != UInt8('"')
             if b == UInt8('\\')
@@ -311,12 +312,12 @@ function read(::ObjectType, buf, pos, len, b, ::Type{T}, ::Type{K}=String, ::Typ
                 keylen += 1
             end
             @eof
-            @inbounds b = buf[pos]
+            b = getbyte(buf, pos)
         end
         key = keyvalue(K, escaped, pointer(buf, keypos), keylen)
         pos += 1
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         if b != UInt8(':')
             error = ExpectedSemiColon
@@ -324,13 +325,13 @@ function read(::ObjectType, buf, pos, len, b, ::Type{T}, ::Type{K}=String, ::Typ
         end
         pos += 1
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         # now positioned at start of value
         pos, y = read(StructType(V), buf, pos, len, b, V)
         x[K(key)] = y
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         if b == UInt8('}')
             return pos + 1, construct(T, x)
@@ -340,7 +341,7 @@ function read(::ObjectType, buf, pos, len, b, ::Type{T}, ::Type{K}=String, ::Typ
         end
         pos += 1
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         if b != UInt8('"')
             error = ExpectedOpeningQuoteChar
@@ -361,7 +362,7 @@ end
     end
     pos += 1
     @eof
-    @inbounds b = buf[pos]
+    b = getbyte(buf, pos)
     @wh
     x = T()
     if b == UInt8('}')
@@ -379,7 +380,7 @@ end
         keypos = pos
         keylen = 0
         escaped = false
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         while b != UInt8('"')
             if b == UInt8('\\')
                 escaped = true
@@ -391,13 +392,13 @@ end
                 keylen += 1
             end
             @eof
-            @inbounds b = buf[pos]
+            b = getbyte(buf, pos)
         end
         key = keyvalue(Symbol, escaped, pointer(buf, keypos), keylen)
         key = julianame(nms, key)
         pos += 1
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         if b != UInt8(':')
             error = ExpectedSemiColon
@@ -405,7 +406,7 @@ end
         end
         pos += 1
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         # read value
         ind = Base.fieldindex(T, key, false)
@@ -420,7 +421,7 @@ end
             pos, _ = read(Struct(), buf, pos, len, b, Any)
         end
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         if b == UInt8('}')
             pos += 1
@@ -431,7 +432,7 @@ end
         end
         pos += 1
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         if b != UInt8('"')
             error = ExpectedOpeningQuoteChar
@@ -452,7 +453,7 @@ end
     end
     pos += 1
     @eof
-    @inbounds b = buf[pos]
+    b = getbyte(buf, pos)
     @wh
     if b == UInt8('}')
         pos += 1
@@ -483,15 +484,15 @@ end
 end
 
 @inline function readvalue(buf, pos, len, ::Type{T}) where {T}
-    @inbounds b = buf[pos]
+    b = getbyte(buf, pos)
     while b != UInt8('"')
         pos += ifelse(b == UInt8('\\'), 2, 1)
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
     end
     pos += 1
     @eof
-    @inbounds b = buf[pos]
+    b = getbyte(buf, pos)
     @wh
     if b != UInt8(':')
         error = ExpectedSemiColon
@@ -499,12 +500,12 @@ end
     end
     pos += 1
     @eof
-    @inbounds b = buf[pos]
+    b = getbyte(buf, pos)
     @wh
     # read value
     pos, y = read(StructType(T), buf, pos, len, b, T)
     @eof
-    @inbounds b = buf[pos]
+    b = getbyte(buf, pos)
     @wh
     if b == UInt8('}')
         pos += 1
@@ -515,7 +516,7 @@ end
     end
     pos += 1
     @eof
-    @inbounds b = buf[pos]
+    b = getbyte(buf, pos)
     @wh
     if b != UInt8('"')
         error = ExpectedOpeningQuoteChar
@@ -537,7 +538,7 @@ end
     end
     pos += 1
     @eof
-    @inbounds b = buf[pos]
+    b = getbyte(buf, pos)
     @wh
     if b == UInt8('}')
         throw(ArgumentError("invalid json abstract type"))
@@ -553,7 +554,7 @@ end
         keypos = pos
         keylen = 0
         escaped = false
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         while b != UInt8('"')
             if b == UInt8('\\')
                 escaped = true
@@ -565,12 +566,12 @@ end
                 keylen += 1
             end
             @eof
-            @inbounds b = buf[pos]
+            b = getbyte(buf, pos)
         end
         key = keyvalue(Symbol, escaped, pointer(buf, keypos), keylen)
         pos += 1
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         if b != UInt8(':')
             error = ExpectedSemiColon
@@ -578,7 +579,7 @@ end
         end
         pos += 1
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         # read value
         pos, val = read(Struct(), buf, pos, len, b, Any)
@@ -587,7 +588,7 @@ end
             return read(StructType(TT), buf, startpos, len, startb, TT)
         end
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         if b == UInt8('}')
             pos += 1
@@ -598,7 +599,7 @@ end
         end
         pos += 1
         @eof
-        @inbounds b = buf[pos]
+        b = getbyte(buf, pos)
         @wh
         if b != UInt8('"')
             error = ExpectedOpeningQuoteChar
