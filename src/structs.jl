@@ -95,7 +95,11 @@ end
         float, code, pos = Parsers.typeparser(Float64, buf, pos, len, b, Int16(0), Parsers.OPTIONS)
         if code > 0
             int = unsafe_trunc(Int64, float)
-            return pos, ifelse(int == float, int, float)
+            if int == float
+                return pos, int
+            else
+                return pos, float
+            end
         end
     end
 @label invalid
