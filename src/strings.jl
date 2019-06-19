@@ -14,6 +14,7 @@ function ==(x::String, y::PointerString)
 end
 ==(y::PointerString, x::String) = x == y
 
+Base.codeunit(s::PointerString) = UInt8
 Base.ncodeunits(s::PointerString) = s.len
 @inline function Base.codeunit(s::PointerString, i::Integer)
     @boundscheck checkbounds(s, i)

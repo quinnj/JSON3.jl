@@ -1,96 +1,79 @@
-const FAILURES = [
-    # Unexpected character in array
-    "[1,2,3/4,5,6,7]",
-    # Unexpected character in object
-    "{\"1\":2, \"2\":3 _ \"4\":5}",
-    # Invalid escaped character
-    # "[\"alpha\\α\"]",
-    # Invalid 'simple' and 'unknown value'
-    "[tXXe]",
-    "[fail]",
-    "∞",
-    # Invalid number
-    "[5,2,-]",
-    "[5,2,+β]",
-    # Incomplete escape
-    "\"\\",
-    # Control character
-    # "\"\0\"",
-    # Issue #99
-    "[\"🍕\"_\"🍕\""
-]
+@testset "errors" begin
+# Unexpected character in array
+@test_throws ArgumentError JSON3.read("[1,2,3/4,5,6,7]")
+# Unexpected character in object
+@test_throws ArgumentError JSON3.read("{\"1\":2, \"2\":3 _ \"4\":5}")
+# Invalid escaped character
+@test_throws ArgumentError show(JSON3.read("[\"alpha\\α\"]"))
+# Invalid 'simple' and 'unknown value'
+@test_throws ArgumentError JSON3.read("[tXXe]")
+@test_throws ArgumentError JSON3.read("[fail]")
+@test_throws ArgumentError JSON3.read("∞")
+# Invalid number
+@test_throws ArgumentError JSON3.read("[5,2,-]")
+@test_throws ArgumentError JSON3.read("[5,2,+β]")
+# Incomplete escape
+@test_throws ArgumentError JSON3.read("\"\\")
+@test_throws ArgumentError JSON3.read("[\"🍕\"_\"🍕\"")
 
-@testset for fail in FAILURES
-    # Test memory parser
-    @test_throws Union{Parsers.Error, ArgumentError} JSON2.read(fail)
-end
+end # @testset "errors"
 
 @enum Animal zebra aardvark horse
-@test JSON2.write(zebra) == "\"zebra\""
-@test JSON2.write([aardvark, horse, Dict("z" => zebra)]) ==
-    "[\"aardvark\",\"horse\",{\"z\":\"zebra\"}]"
+@test JSON3.write(zebra) == "\"zebra\""
+@test JSON3.write([aardvark, horse, Dict("z" => zebra)]) == "[\"aardvark\",\"horse\",{\"z\":\"zebra\"}]"
 
 
 @testset "Symbol" begin
     symtest = Dict(:symbolarray => [:apple, :pear], :symbolsingleton => :hello)
-    @test (JSON2.write(symtest) == "{\"symbolarray\":[\"apple\",\"pear\"],\"symbolsingleton\":\"hello\"}"
-             || JSON2.write(symtest) == "{\"symbolsingleton\":\"hello\",\"symbolarray\":[\"apple\",\"pear\"]}")
+    @test (JSON3.write(symtest) == "{\"symbolarray\":[\"apple\",\"pear\"],\"symbolsingleton\":\"hello\"}"
+             || JSON3.write(symtest) == "{\"symbolsingleton\":\"hello\",\"symbolarray\":[\"apple\",\"pear\"]}")
 end
 
 @testset "Floats" begin
-    @test sprint(JSON2.write, [NaN]) == "[null]"
-    @test sprint(JSON2.write, [Inf]) == "[null]"
-end
-
-@static if VERSION < v"0.7.0-DEV.3017"
-@testset "Nullable" begin
-    @test sprint(JSON2.write, [Nullable()]) == "[null]"
-    @test sprint(JSON2.write, [Nullable{Int64}()]) == "[null]"
-    @test sprint(JSON2.write, [Nullable{Int64}(Int64(1))]) == "[1]"
-end
+    @test sprint(JSON3.write, [NaN]) == "[null]"
+    @test sprint(JSON3.write, [Inf]) == "[null]"
 end
 
 @testset "Char" begin
-    @test JSON2.write('a') == "\"a\""
-    @test JSON2.write('\\') == "\"\\\\\""
-    @test JSON2.write('\n') == "\"\\n\""
-    @test JSON2.write('🍩') =="\"🍩\""
+    @test JSON3.write('a') == "\"a\""
+    @test JSON3.write('\\') == "\"\\\\\""
+    @test JSON3.write('\n') == "\"\\n\""
+    @test JSON3.write('🍩') =="\"🍩\""
 end
 
-@test sprint(JSON2.write, Float64) == "\"Float64\""
-@test_throws MethodError sprint(JSON2.read, JSON2)
+@test sprint(JSON3.write, Float64) == "\"Float64\""
 
 @testset "Null bytes" begin
     zeros = Dict("\0" => "\0")
-    json_zeros = JSON2.write(zeros)
+    json_zeros = JSON3.write(zeros)
     @test occursin("\\u0000", json_zeros)
     @test !occursin("\\0", json_zeros)
-    @test JSON2.read(json_zeros, Dict) == zeros
+    @test JSON3.read(json_zeros, Dict) == zeros
 end
 
 @testset "Arrays" begin
 # Printing an empty array or Dict shouldn't cause a BoundsError
-@test JSON2.write(String[]) == "[]"
-@test JSON2.write(Dict()) == "{}"
+@test JSON3.write(String[]) == "[]"
+@test JSON3.write(Dict()) == "{}"
 
 #Multidimensional arrays
-@test_broken JSON2.write([0 1; 2 0]) == "[[0,2],[1,0]]" #TODO
+@test_broken JSON3.write([0 1; 2 0]) == "[[0,2],[1,0]]" #TODO
 end
 
 @testset "Pairs" begin
-@test JSON2.write(1 => 2) == "{\"1\":2}"
-@test JSON2.write(:foo => 2) == "{\"foo\":2}"
-@test JSON2.write([1, 2] => [3, 4]) == "{\"$([1, 2])\":[3,4]}"
-@test JSON2.write([1 => 2]) == "[{\"1\":2}]"
+@test JSON3.write(1 => 2) == "{\"1\":2}"
+@test JSON3.write(:foo => 2) == "{\"foo\":2}"
+@test JSON3.write([1, 2] => [3, 4]) == "{\"$([1, 2])\":[3,4]}"
+@test JSON3.write([1 => 2]) == "[{\"1\":2}]"
 end
 
 @testset "Sets" begin
-@test JSON2.write(Set()) == "[]"
-@test JSON2.write(Set([1, 2])) in ["[1,2]", "[2,1]"]
+@test JSON3.write(Set()) == "[]"
+@test JSON3.write(Set([1, 2])) in ["[1,2]", "[2,1]"]
 end
 
 #Examples from http://json.org/example.html
-a="{\"menu\": {
+JSON3.read("{\"menu\": {
     \"id\": \"file\",
     \"value\": \"File\",
     \"popup\": {
@@ -101,10 +84,10 @@ a="{\"menu\": {
       ]
     }
   }}
-  "
+  ")
 
 
-b="{
+JSON3.read("{
 \"glossary\": {
    \"title\": \"example glossary\",
 \"GlossDiv\": {
@@ -126,9 +109,9 @@ b="{
    }
 }
 }
-"
+")
 
-const c = """
+JSON3.read("""
 {"widget": {
 "debug": "on",
 "window": {
@@ -154,17 +137,9 @@ const c = """
    "alignment": "center",
    "onMouseUp": "sun1.opacity = (sun1.opacity / 100) * 90;"
 }
-}}"""
-function validate_c(c)
-j = JSON2.read(c)
-@test j != nothing
-@test typeof(j["widget"]["image"]["hOffset"]) == Int64
-@test j["widget"]["image"]["hOffset"] == 250
-@test typeof(j["widget"]["text"]["size"]) == Float64
-@test j["widget"]["text"]["size"] == 36.5
-end
+}}""")
 
-d = "{\"web-app\": {
+JSON3.read("{\"web-app\": {
 \"servlet\": [
 {
  \"servlet-name\": \"cofaxCDS\",
@@ -251,9 +226,9 @@ d = "{\"web-app\": {
 
 \"taglib\": {
 \"taglib-uri\": \"cofax.tld\",
-\"taglib-location\": \"/WEB-INF/tlds/cofax.tld\"}}}"
+\"taglib-location\": \"/WEB-INF/tlds/cofax.tld\"}}}")
 
-const svg_tviewer_menu = """
+JSON3.read("""
 {"menu": {
 "header": "SVG\\tViewer\\u03b1",
 "items": [
@@ -280,26 +255,10 @@ const svg_tviewer_menu = """
    {"id": "Help"},
    {"id": "About", "label": "About Adobe SVG Viewer..."}
 ]
-}}"""
-function validate_svg_tviewer_menu(str)
-j = JSON2.read(str)
-@test j != nothing
-@test typeof(j) == Dict{String, Any}
-@test length(j) == 1
-@test typeof(j["menu"]) == Dict{String, Any}
-@test length(j["menu"]) == 2
-@test j["menu"]["header"] == "SVG\tViewerα"
-@test isa(j["menu"]["items"], Vector{Any})
-@test length(j["menu"]["items"]) == 22
-@test j["menu"]["items"][3] == nothing
-@test j["menu"]["items"][2]["id"] == "OpenNew"
-@test j["menu"]["items"][2]["label"] == "Open New"
-end
-
+}}""")
 
 #Example JSON strings from http://www.jquery4u.com/json/10-example-json-files/
-
-gmaps= "{\"markers\": [
+JSON3.read("{\"markers\": [
    {
        \"point\":\"new GLatLng(40.266044,-74.718479)\",
        \"homeTeam\":\"Lawrence Library\",
@@ -330,9 +289,9 @@ gmaps= "{\"markers\": [
        \"capacity\":\"2 to 4 pints\",
        \"tv\":\"\"
    }
-] }"
+] }")
 
-colors1 = "{
+JSON3.read("{
 \"colorsArray\":[{
        \"colorName\":\"red\",
        \"hexValue\":\"#f00\"
@@ -362,9 +321,9 @@ colors1 = "{
        \"hexValue\":\"#000\"
    }
 ]
-}"
+}")
 
-colors2 = "{
+JSON3.read("{
 \"colorsArray\":[{
        \"red\":\"#f00\",
        \"green\":\"#0f0\",
@@ -375,9 +334,9 @@ colors2 = "{
        \"black\":\"#000\"
    }
 ]
-}"
+}")
 
-colors3 = "{
+JSON3.read("{
 \"red\":\"#f00\",
 \"green\":\"#0f0\",
 \"blue\":\"#00f\",
@@ -385,9 +344,9 @@ colors3 = "{
 \"magenta\":\"#f0f\",
 \"yellow\":\"#ff0\",
 \"black\":\"#000\"
-}"
+}")
 
-twitter = "{\"results\":[
+JSON3.read("{\"results\":[
 
 {\"text\":\"@twitterapi  http://tinyurl.com/ctrefg\",
 \"to_user_id\":396524,
@@ -411,9 +370,9 @@ twitter = "{\"results\":[
 \"next_page\":\"?page=2&max_id=1480307926&q=%40twitterapi\",
 \"completed_in\":0.031704,
 \"page\":1,
-\"query\":\"%40twitterapi\"}"
+\"query\":\"%40twitterapi\"}")
 
-facebook= "{
+JSON3.read("{
 \"data\": [
  {
     \"id\": \"X999_Y999\",
@@ -456,9 +415,9 @@ facebook= "{
     \"updated_time\": \"2010-08-02T21:27:44+0000\"
  }
 ]
-}"
+}")
 
-const flickr = """{
+JSON3.read("""{
 "title": "Talk On Travel Pool",
 "link": "http://www.flickr.com/groups/talkontravel/pool/",
 "description": "Travel and vacation photos from around the world.",
@@ -478,9 +437,9 @@ const flickr = """{
        "tags": "spain dolphins tenerife canaries lagomera aqualand playadelasamericas junglepark losgigantos loscristines talkontravel"
        }
 ]
-}"""
+}""")
 
-youtube = "{\"apiVersion\":\"2.0\",
+JSON3.read("{\"apiVersion\":\"2.0\",
 \"data\":{
 \"updated\":\"2010-01-07T19:58:42.949Z\",
 \"totalItems\":800,
@@ -532,9 +491,9 @@ youtube = "{\"apiVersion\":\"2.0\",
    }
 ]
 }
-}"
+}")
 
-iphone = "{
+JSON3.read("{
 \"menu\": {
    \"header\": \"xProgress SVG Viewer\",
    \"items\": [
@@ -610,9 +569,9 @@ iphone = "{
        }
    ]
 }
-}"
+}")
 
-customer = "{
+JSON3.read("{
 \"firstName\": \"John\",
 \"lastName\": \"Smith\",
 \"age\": 25,
@@ -634,9 +593,9 @@ customer = "{
       \"number\": \"646 555-4567\"
     }
 ]
-}"
+}")
 
-product = "{
+JSON3.read("{
    \"name\":\"Product\",
    \"properties\":
    {
@@ -667,9 +626,9 @@ product = "{
                    }
            }
    }
-}"
+}")
 
-interop = "{
+JSON3.read("{
 \"ResultSet\": {
    \"totalResultsAvailable\": \"1827221\",
    \"totalResultsReturned\": 2,
@@ -709,9 +668,9 @@ interop = "{
        }
    ]
 }
-}"
+}")
 
-const unicode = """
+JSON3.read("""
 {"অলিম্পিকস": {
 "অ্যাথলেট": "২২টি দেশ থেকে ২,০৩৫ জন প্রতিযোগী",
 "ইভেন্ট": "২২টি ইভেন্টের মধ্যে ছিল দড়ি টানাটানি",
@@ -721,73 +680,41 @@ const unicode = """
    {" ফ্রি-স্টাইল সাঁতার": "Henry Taylor, Britain"}
 ]
 }}
-"""
-
-@test JSON2.read(a) != nothing
-@test JSON2.read(b) != nothing
-@test JSON2.read(c) != nothing
-@test JSON2.read(d) != nothing
-@test JSON2.read(svg_tviewer_menu) != nothing
-
-@test JSON2.read(gmaps) != nothing
-@test JSON2.read(colors1) != nothing
-@test JSON2.read(colors2) != nothing
-
-@test JSON2.read(colors3) != nothing
-
-@test JSON2.read(twitter) != nothing #TODO
-
-@test JSON2.read(facebook) != nothing
-
-@test JSON2.read(flickr) != nothing
-
-@test JSON2.read(youtube) != nothing
-
-@test JSON2.read(iphone) != nothing
-
-@test JSON2.read(customer) != nothing
-
-@test JSON2.read(product) != nothing
-
-@test JSON2.read(interop) != nothing
-
-@test JSON2.read(unicode) != nothing
+""")
 
 # issue #5
 issue5 = "[\"A\",\"B\",\"C\\n\"]"
-JSON2.read(issue5)
+@test JSON3.read(issue5) == ["A", "B", "C\n"]
 
 # $ escaping issue
 dollars = ["all of the \$s", "µniçø∂\$"]
-json_dollars = JSON2.write(dollars)
-@test JSON2.read(json_dollars) != nothing
+@test JSON3.read(JSON3.write(dollars)) == dollars
 
 # unmatched brackets
 brackets = Dict("foo"=>"ba}r", "be}e]p"=>"boo{p")
-json_brackets = JSON2.write(brackets)
-@test JSON2.read(json_brackets) != nothing
+@test JSON3.read(JSON3.write(brackets), Dict{String, String}) == brackets
 
 test21 = "[\r\n{\r\n\"a\": 1,\r\n\"b\": 2\r\n},\r\n{\r\n\"a\": 3,\r\n\"b\": 4\r\n}\r\n]"
-a = JSON2.read(test21)
+a = JSON3.read(test21, Vector{Any})
 @test isa(a, Vector{Any})
 @test length(a) == 2
 
-obj = JSON2.read("{\"a\":2e10}")
+obj = JSON3.read("{\"a\":2e10}")
 @test obj.a == 2e10
 
-obj = JSON2.read("{\"\U0001d712\":\"\\ud835\\udf12\"}")
-@test_broken obj.𝜒 == "𝜒"
+obj = JSON3.read("{\"\U0001d712\":\"\\ud835\\udf12\"}")
+@test obj.𝜒 == "𝜒"
 
 struct t109
     i::Int
 end
 
 let iob = IOBuffer()
-    JSON2.write(iob, t109(1))
-    @test (JSON2.read(String(take!(iob)))).i == 1
+    JSON3.write(iob, t109(1))
+    @test (JSON3.read(String(take!(iob)))).i == 1
 end
 
-@test_broken JSON2.write([Int64[] Int64[]]) == "[[],[]]" #TODO
-@test JSON2.write([Int64[] Int64[]]') == "[]"
+@test_broken JSON3.write([Int64[] Int64[]]) == "[[],[]]" #TODO
+@test JSON3.write([Int64[] Int64[]]') == "[]"
 
-@test Float32(JSON2.read(JSON2.write(2.1f-8))) == 2.1f-8
+@test Float32(JSON3.read(JSON3.write(2.1f-8))) == 2.1f-8

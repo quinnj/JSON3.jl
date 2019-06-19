@@ -1,8 +1,20 @@
+struct VectorString <: AbstractString
+    bytes::Vector{UInt8}
+end
+
+Base.ncodeunits(s::VectorString) = length(s.bytes)
+Base.codeunit(s::VectorString) = UInt8
+Base.length(s::VectorString) = ncodeunits(s)
+function Base.codeunit(s::VectorString, i::Int)
+    @inbounds b = s.bytes[i]
+    return b
+end
+
 # high-level user API functions
 read(io::IO) = read(Base.read(io, String))
-read(bytes::Vector{UInt8}) = read(String(bytes))
+read(bytes::Vector{UInt8}) = read(VectorString(bytes))
 
-function read(str::String)
+function read(str::AbstractString)
     buf = codeunits(str)
     len = length(buf)
     if len == 0

@@ -2,22 +2,19 @@ module JSON3
 
 using Parsers, Mmap
 
-function __init__()
-    # Threads.resize_nthreads!()
-    return
-end
-
-struct Object <: AbstractDict{Symbol, Any}
-    buf::Base.CodeUnits{UInt8,String}
+struct Object{S <: AbstractVector{UInt8}} <: AbstractDict{Symbol, Any}
+    buf::S
     tape::Vector{UInt64}
 end
 
 Object() = Object(codeunits(""), UInt64[object(2), 0])
 
-struct Array{T} <: AbstractVector{T}
-    buf::Base.CodeUnits{UInt8,String}
+struct Array{T, S <: AbstractVector{UInt8}} <: AbstractVector{T}
+    buf::S
     tape::Vector{UInt64}
 end
+
+Array{T}(buf::S, tape::Vector{UInt64}) where {T, S} = Array{T, S}(buf, tape)
 
 getbuf(j::Union{Object, Array}) = getfield(j, :buf)
 gettape(j::Union{Object, Array}) = getfield(j, :tape)
@@ -26,8 +23,9 @@ include("utils.jl")
 
 @noinline invalid(error, buf, pos, T) = throw(ArgumentError("""
 invalid JSON at byte position $pos while parsing type $T: $error
-$(String(buf[max(1, pos-10):min(end, pos+10)]))
+$(String(buf[max(1, pos-25):min(end, pos+25)]))
 """))
+
 @enum Error UnexpectedEOF ExpectedOpeningObjectChar ExpectedOpeningQuoteChar ExpectedOpeningArrayChar ExpectedComma ExpectedSemiColon InvalidChar
 
 # AbstractDict interface

@@ -1,9 +1,18 @@
-write(io::IO, obj) = Base.write(io, write(obj))
-
 defaultminimum(::Union{Nothing, Missing}) = 4
 defaultminimum(::Number) = 20
 defaultminimum(x::Bool) = x ? 4 : 5
-defaultminimum(x) = sizeof(x)
+defaultminimum(x::AbstractString) = sizeof(x) + 2
+defaultminimum(x::Symbol) = ccall(:strlen, Csize_t, (Cstring,), x) + 2
+defaultminimum(::Type{T}) where {T} = 16
+defaultminimum(x::AbstractArray{T}) where {T} = isempty(x) ? 2 : isbitstype(T) ? sizeof(x) : Base.isbitsunion(T) ? length(x) * Base.bitsunionsize(T) : sum(defaultminimum, x)
+defaultminimum(x) = max(2, sizeof(x))
+
+function write(io::IO, obj::T) where {T}
+    len = defaultminimum(obj)
+    buf = len < Mmap.PAGESIZE ? zeros(UInt8, len) : Mmap.mmap(Vector{UInt8}, len)
+    buf, pos, len = write(StructType(obj), buf, 1, length(buf), obj)
+    return GC.@preserve buf Base.unsafe_write(io, pointer(buf), pos - 1)
+end
 
 function write(obj::T) where {T}
     len = defaultminimum(obj)
@@ -20,6 +29,7 @@ _isempty(::Nothing) = true
 _isempty(x) = false
 
 @noinline function realloc!(buf, len, n)
+    println("re-allocing...")
     new = Mmap.mmap(Vector{UInt8}, max(n, trunc(Int, len * 1.25)))
     copyto!(new, 1, buf, 1, len)
     return new, length(new)
@@ -47,10 +57,19 @@ macro writechar(chars...)
     return esc(block)
 end
 
+# we need to special-case writing Type{T} because of ambiguities w/ StructTypes
 write(::Struct, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::Mutable, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::ObjectType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::ArrayType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::StringType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::NumberType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::NullType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::BoolType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::AbstractType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
 
 # generic object writing
-@inline function write(::Union{Struct, Mutable, AbstractType}, buf, pos, len, x::T) where {T}
+@inline function write(::Union{Struct, Mutable}, buf, pos, len, x::T) where {T}
     @writechar '{'
     N = fieldcount(T)
     N == 0 && @goto done
@@ -90,9 +109,10 @@ end
 
 function write(::ObjectType, buf, pos, len, x::T) where {T}
     @writechar '{'
-    n = length(x)
+    pairs = keyvaluepairs(x)
+    n = length(pairs)
     i = 1
-    for (k, v) in x
+    for (k, v) in pairs
         buf, pos, len = write(StringType(), buf, pos, len, Base.string(k))
         @writechar ':'
         buf, pos, len = write(StructType(v), buf, pos, len, v)
@@ -153,7 +173,7 @@ function write(::NumberType, buf, pos, len, y::Integer)
     return buf, pos + n, len
 end
 
-write(::NumberType, buf, pos, len, x) = write(NumberType(), buf, pos, len, Float64(x))
+write(::NumberType, buf, pos, len, x::T) where {T} = write(NumberType(), buf, pos, len, numbertype(T)(x))
 function write(::NumberType, buf, pos, len, x::Float64)
     if !isfinite(x)
         @writechar 'n' 'u' 'l' 'l'
@@ -201,25 +221,23 @@ const ESCAPECHARS = [escaped(b) for b = 0x00:0xff]
 const ESCAPELENS = [length(x) for x in ESCAPECHARS]
 
 function escapelength(str)
-    bytes = codeunits(str)
     x = 0
-    @simd for i = 1:length(bytes)
-        @inbounds len = ESCAPELENS[bytes[i] + 0x01]
+    @simd for i = 1:ncodeunits(str)
+        @inbounds len = ESCAPELENS[codeunit(str, i) + 0x01]
         x += len
     end
     return x
 end
 
 write(::StringType, buf, pos, len, x) = write(StringType(), buf, pos, len, Base.string(x))
-function write(::StringType, buf, pos, len, x::String)
-    sz = sizeof(x)
+function write(::StringType, buf, pos, len, x::AbstractString)
+    sz = ncodeunits(x)
     el = escapelength(x)
     @check (el + 2)
     @inbounds @writechar '"'
-    bytes = codeunits(x)
     if el > sz
         for i = 1:sz
-            @inbounds escbytes = ESCAPECHARS[bytes[i] + 0x01]
+            @inbounds escbytes = ESCAPECHARS[codeunit(x, i) + 0x01]
             for j = 1:length(escbytes)
                 @inbounds buf[pos] = escbytes[j]
                 pos += 1
@@ -227,7 +245,7 @@ function write(::StringType, buf, pos, len, x::String)
         end
     else
         @simd for i = 1:sz
-            @inbounds buf[pos] = bytes[i]
+            @inbounds buf[pos] = codeunit(x, i)
             pos += 1
         end
     end

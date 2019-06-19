@@ -5,6 +5,7 @@ abstract type DataType <: StructType end
 struct Struct <: DataType end
 struct Mutable <: DataType end
 
+StructType(u::Union) = Struct()
 StructType(::Type{T}) where {T} = Struct()
 StructType(x::T) where {T} = StructType(T)
 # maps Julia struct field name to json key name: ((:field1, :json1), (:field2, :json2))
@@ -13,14 +14,14 @@ names(::Type{T}) where {T} = ()
 
 Base.@pure function julianame(names::Tuple{Vararg{Tuple{Symbol, Symbol}}}, jsonname::Symbol)
     for nm in names
-        nm[2] === jsonname && return nm[2]
+        nm[2] === jsonname && return nm[1]
     end
     return jsonname
 end
 
 Base.@pure function jsonname(names::Tuple{Vararg{Tuple{Symbol, Symbol}}}, julianame::Symbol)
     for nm in names
-        nm[1] === julianame && return nm[1]
+        nm[1] === julianame && return nm[2]
     end
     return julianame
 end
@@ -50,9 +51,9 @@ subtypes(x::T) where {T} = subtypes(T)
 subtypes(::Type{T}) where {T} = NamedTuple()
 
 read(io::IO, ::Type{T}) where {T} = read(Base.read(io, String), T)
-read(bytes::Vector{UInt8}, ::Type{T}) where {T} = read(String(bytes), T)
+read(bytes::Vector{UInt8}, ::Type{T}) where {T} = read(VectorString(bytes), T)
 
-function read(str::String, ::Type{T}) where {T}
+function read(str::AbstractString, ::Type{T}) where {T}
     buf = codeunits(str)
     len = length(buf)
     if len == 0
@@ -79,7 +80,7 @@ end
 
 function read(::Struct, buf, pos, len, b, ::Type{Any})
     if b == UInt8('{')
-        return read(ObjectType(), buf, pos, len, b, Dict{Symbol, Any})
+        return read(ObjectType(), buf, pos, len, b, Dict{String, Any})
     elseif b == UInt8('[')
         return read(ArrayType(), buf, pos, len, b, Base.Array{Any})
     elseif b == UInt8('"')
@@ -102,17 +103,29 @@ function read(::Struct, buf, pos, len, b, ::Type{Any})
 end
 
 StructType(::Type{<:AbstractString}) = StringType()
+StructType(::Type{Symbol}) = StringType()
 StructType(::Type{<:Enum}) = StringType()
-StructType(::Type{DataType}) = StringType()
+StructType(::Type{Char}) = StringType()
 
-# argh!
-function (::Type{E})(str::String) where {E <: Enum}
-    sym = Symbol(str)
+function construct(::Type{Char}, str::String)
+    if length(str) == 1
+        return Char(str[1])
+    else
+        throw(ArgumentError("invalid conversion from json string to Char: '$str'"))
+    end
+end
+
+function construct(::Type{E}, ptr::Ptr{UInt8}, len::Int) where {E <: Enum}
+    sym = _symbol(ptr, len)
     for (k, v) in Base.Enums.namemap(E)
         sym == v && return E(k)
     end
-    throw(ArgumentError("invalid $E string value: \"$str\""))
+    throw(ArgumentError("invalid $E string value: \"$(unsafe_string(ptr, len))\""))
 end
+
+construct(T, str::String) = T(str)
+construct(T, ptr::Ptr{UInt8}, len::Int) = construct(T, unsafe_string(ptr, len))
+construct(::Type{Symbol}, ptr::Ptr{UInt8}, len::Int) = _symbol(ptr, len)
 
 function read(::StringType, buf, pos, len, b, ::Type{T}) where {T}
     if b != UInt8('"')
@@ -139,36 +152,15 @@ function read(::StringType, buf, pos, len, b, ::Type{T}) where {T}
         @inbounds b = buf[pos]
     end
     ptr = pointer(buf, strpos)
-    return pos + 1, escaped ? T(unescape(PointerString(ptr, strlen))) : T(unsafe_string(ptr, strlen))
+    return pos + 1, escaped ? construct(T, unescape(PointerString(ptr, strlen))) : construct(T, ptr, strlen)
 
 @label invalid
-    invalid(error, buf, pos, String)
-end
-
-StructType(::Type{Char}) = StringType()
-
-function read(::StringType, buf, pos, len, b, ::Type{Char})
-    if b != UInt8('"')
-        error = ExpectedOpeningQuoteChar
-        @goto invalid
-    end
-    pos += 1
-    @eof
-    @inbounds x = Char(buf[pos])
-    pos += 1
-    @eof
-    @inbounds b = buf[pos]
-    if b != UInt8('"')
-        error = InvalidChar
-        @goto invalid
-    end
-    return pos + 1, x
-
-@label invalid
-    invalid(error, buf, pos, Char)
+    invalid(error, buf, pos, T)
 end
 
 StructType(::Type{Bool}) = BoolType()
+
+construct(T, bool::Bool) = T(bool)
 
 function read(::BoolType, buf, pos, len, b, ::Type{T}) where {T}
     if pos + 3 <= len &&
@@ -176,14 +168,14 @@ function read(::BoolType, buf, pos, len, b, ::Type{T}) where {T}
         buf[pos + 1] == UInt8('r') &&
         buf[pos + 2] == UInt8('u') &&
         buf[pos + 3] == UInt8('e')
-        return pos + 4, T(true)
+        return pos + 4, construct(T, true)
     elseif pos + 4 <= len &&
         b            == UInt8('f') &&
         buf[pos + 1] == UInt8('a') &&
         buf[pos + 2] == UInt8('l') &&
         buf[pos + 3] == UInt8('s') &&
         buf[pos + 4] == UInt8('e')
-        return pos + 5, T(false)
+        return pos + 5, construct(T, false)
     else
         invalid(InvalidChar, buf, pos, Bool)
     end
@@ -192,36 +184,29 @@ end
 StructType(::Type{Nothing}) = NullType()
 StructType(::Type{Missing}) = NullType()
 
+construct(T, ::Nothing) = T()
+
 function read(::NullType, buf, pos, len, b, ::Type{T}) where {T}
     if pos + 3 <= len &&
         b            == UInt8('n') &&
         buf[pos + 1] == UInt8('u') &&
         buf[pos + 2] == UInt8('l') &&
         buf[pos + 3] == UInt8('l')
-        return pos + 4, T()
+        return pos + 4, construct(T, nothing)
     else
         invalid(InvalidChar, buf, pos, T)
     end
 end
 
-StructType(::Type{<:Integer}) = NumberType()
-
-function read(::NumberType, buf, pos, len, b, ::Type{T}) where {T <: Integer}
-    int, code, pos = Parsers.typeparser(T, buf, pos, len, b, Int16(0), Parsers.OPTIONS)
-    if code > 0
-        return pos, int
-    end
-    invalid(InvalidChar, buf, pos, T)
-end
-
-StructType(::Type{<:AbstractFloat}) = NumberType()
-numbertype(x::T) where {T <: Real} = T
+StructType(::Type{<:Real}) = NumberType()
+numbertype(::Type{T}) where {T <: Real} = T
 numbertype(x) = Float64
+construct(T, x::Real) = T(x)
 
 function read(::NumberType, buf, pos, len, b, ::Type{T}) where {T}
     x, code, pos = Parsers.typeparser(numbertype(T), buf, pos, len, b, Int16(0), Parsers.OPTIONS)
     if code > 0
-        return pos, T(x)
+        return pos, construct(T, x)
     end
     invalid(InvalidChar, buf, pos, T)
 end
@@ -229,6 +214,8 @@ end
 StructType(::Type{<:AbstractArray}) = ArrayType()
 StructType(::Type{<:AbstractSet}) = ArrayType()
 StructType(::Type{<:Tuple}) = ArrayType()
+
+construct(T, x::Vector{S}) where {S} = T(x)
 
 read(::ArrayType, buf, pos, len, b, ::Type{T}) where {T} = read(ArrayType(), buf, pos, len, b, T, Base.IteratorEltype(T) == Base.HasEltype() ? eltype(T) : Any)
 function read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T, eT}
@@ -252,7 +239,7 @@ function read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T, eT
         @inbounds b = buf[pos]
         @wh
         if b == UInt8(']')
-            return pos + 1, T(vals)
+            return pos + 1, construct(T, vals)
         elseif b != UInt8(',')
             error = ExpectedComma
             @goto invalid
@@ -268,9 +255,27 @@ function read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T, eT
 end
 
 StructType(::Type{<:AbstractDict}) = ObjectType()
+StructType(::Type{<:NamedTuple}) = ObjectType()
+StructType(::Type{<:Pair}) = ObjectType()
 
+keyvaluepairs(x) = pairs(x)
+keyvaluepairs(x::Pair) = (x,)
+
+construct(::Type{Dict{K, V}}, x::Dict{K, V}) where {K, V} = x
+construct(T, x::Dict{K, V}) where {K, V} = T(x)
+
+construct(::Type{NamedTuple}, x::Dict) = NamedTuple{Tuple(keys(x))}(values(x))
+construct(::Type{NamedTuple{names}}, x::Dict) where {names} = NamedTuple{names}(Tuple(x[nm] for nm in names))
+construct(::Type{NamedTuple{names, types}}, x::Dict) where {names, types} = NamedTuple{names, types}(Tuple(x[nm] for nm in names))
+
+keyvalue(::Type{Symbol}, escaped, ptr, len) = escaped ? Symbol(unescape(PointerString(ptr, len))) : _symbol(ptr, len)
+keyvalue(::Type{String}, escaped, ptr, len) = escaped ? unescape(PointerString(ptr, len)) : unsafe_string(ptr, len)
+
+read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T <: NamedTuple} = read(ObjectType(), buf, pos, len, b, T, Symbol, Any)
+read(::ObjectType, buf, pos, len, b, ::Type{Dict}) = read(ObjectType(), buf, pos, len, b, Dict, String, Any)
 read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T <: AbstractDict} = read(ObjectType(), buf, pos, len, b, T, keytype(T), valtype(T))
-function read(::ObjectType, buf, pos, len, b, ::Type{T}, ::Type{K}=Any, ::Type{V}=Any) where {T, K, V}
+
+function read(::ObjectType, buf, pos, len, b, ::Type{T}, ::Type{K}=String, ::Type{V}=Any) where {T, K, V}
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
         @goto invalid
@@ -279,9 +284,9 @@ function read(::ObjectType, buf, pos, len, b, ::Type{T}, ::Type{K}=Any, ::Type{V
     @eof
     @inbounds b = buf[pos]
     @wh
-    x = T()
+    x = Dict{K, V}()
     if b == UInt8('}')
-        return pos + 1, x
+        return pos + 1, construct(T, x)
     elseif b != UInt8('"')
         error = ExpectedOpeningQuoteChar
         @goto invalid
@@ -308,7 +313,7 @@ function read(::ObjectType, buf, pos, len, b, ::Type{T}, ::Type{K}=Any, ::Type{V
             @eof
             @inbounds b = buf[pos]
         end
-        key = escaped ? unescape(PointerString(pointer(buf, keypos), keylen)) : unsafe_string(pointer(buf, keypos), keylen)
+        key = keyvalue(K, escaped, pointer(buf, keypos), keylen)
         pos += 1
         @eof
         @inbounds b = buf[pos]
@@ -328,7 +333,7 @@ function read(::ObjectType, buf, pos, len, b, ::Type{T}, ::Type{K}=Any, ::Type{V
         @inbounds b = buf[pos]
         @wh
         if b == UInt8('}')
-            return pos + 1, x
+            return pos + 1, construct(T, x)
         elseif b != UInt8(',')
             error = ExpectedComma
             @goto invalid
@@ -388,7 +393,7 @@ end
             @eof
             @inbounds b = buf[pos]
         end
-        key = escaped ? Symbol(unescape(PointerString(pointer(buf, keypos), keylen))) : _symbol(pointer(buf, keypos), keylen)
+        key = keyvalue(Symbol, escaped, pointer(buf, keypos), keylen)
         key = julianame(nms, key)
         pos += 1
         @eof
@@ -562,7 +567,7 @@ end
             @eof
             @inbounds b = buf[pos]
         end
-        key = escaped ? Symbol(unescape(PointerString(pointer(buf, keypos), keylen))) : _symbol(pointer(buf, keypos), keylen)
+        key = keyvalue(Symbol, escaped, pointer(buf, keypos), keylen)
         pos += 1
         @eof
         @inbounds b = buf[pos]
