@@ -120,11 +120,15 @@ function construct(::Type{Char}, str::String)
 end
 
 function construct(::Type{E}, ptr::Ptr{UInt8}, len::Int) where {E <: Enum}
-    sym = _symbol(ptr, len)
-    for (k, v) in Base.Enums.namemap(E)
-        sym == v && return E(k)
+    @static if VERSION < v"1.2.0-DEV.272"
+        Core.eval(parentmodule(E), _symbol(ptr, len))
+    else
+        sym = _symbol(ptr, len)
+        for (k, v) in Base.Enums.namemap(E)
+            sym == v && return E(k)
+        end
+        throw(ArgumentError("invalid $E string value: \"$(unsafe_string(ptr, len))\""))
     end
-    throw(ArgumentError("invalid $E string value: \"$(unsafe_string(ptr, len))\""))
 end
 
 construct(T, str::String) = T(str)
