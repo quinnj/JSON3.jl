@@ -7,7 +7,7 @@ defaultminimum(x::Enum) = 16
 defaultminimum(::Type{T}) where {T} = 16
 defaultminimum(x::Char) = 3
 defaultminimum(x::Union{Tuple, AbstractSet, AbstractArray}) = isempty(x) ? 2 : sum(defaultminimum, x)
-defaultminimum(x::Union{AbstractDict, NamedTuple, Pair}) = sum(defaultminimum(k) + defaultminimum(v) for (k, v) in keyvaluepairs(x))
+defaultminimum(x::Union{AbstractDict, NamedTuple, Pair}) = isempty(x) ? 2 : sum(defaultminimum(k) + defaultminimum(v) for (k, v) in keyvaluepairs(x))
 defaultminimum(x) = max(2, sizeof(x))
 
 function write(io::IO, obj::T) where {T}
@@ -32,7 +32,7 @@ _isempty(::Nothing) = true
 _isempty(x) = false
 
 @noinline function realloc!(buf, len, n)
-    println("re-allocing...")
+    # println("re-allocing...")
     new = Mmap.mmap(Vector{UInt8}, max(n, trunc(Int, len * 1.25)))
     copyto!(new, 1, buf, 1, len)
     return new, length(new)
@@ -177,7 +177,7 @@ function write(::NumberType, buf, pos, len, y::Integer)
 end
 
 write(::NumberType, buf, pos, len, x::T) where {T} = write(NumberType(), buf, pos, len, numbertype(T)(x))
-function write(::NumberType, buf, pos, len, x::Float64)
+function write(::NumberType, buf, pos, len, x::AbstractFloat)
     if !isfinite(x)
         @writechar 'n' 'u' 'l' 'l'
         return buf, pos, len

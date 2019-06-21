@@ -202,7 +202,9 @@ construct(T, ::Nothing) = T()
     end
 end
 
-StructType(::Type{<:Real}) = NumberType()
+StructType(::Type{<:Unsigned}) = NumberType()
+StructType(::Type{<:Signed}) = NumberType()
+StructType(::Type{<:AbstractFloat}) = NumberType()
 numbertype(::Type{T}) where {T <: Real} = T
 numbertype(x) = Float64
 construct(T, x::Real) = T(x)
