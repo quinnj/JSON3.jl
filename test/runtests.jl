@@ -1,4 +1,4 @@
-using Test, JSON3, Dates
+using Test, JSON3
 
 @testset "JSON3" begin
 
