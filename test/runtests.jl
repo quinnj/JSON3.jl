@@ -224,7 +224,7 @@ x = JSON3.read("\"hey\"", JSON3.PointerString);
 @test JSON3.write(x) == "\"hey\""
 
 @test JSON3.read("\"apple\"", Fruit) == apple
-@test_throws ArgumentError JSON3.read("\"watermelon\"", Fruit)
+@test_throws Union{UndefVarError, ArgumentError} JSON3.read("\"watermelon\"", Fruit)
 @test JSON3.write(apple) == "\"apple\""
 
 @test JSON3.read("\"apple\"", Symbol) == :apple
