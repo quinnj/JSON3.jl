@@ -26,7 +26,7 @@ end
 
 _getfield(x, i) = isdefined(x, i) ? Core.getfield(x, i) : nothing
 _isempty(x, i) = !isdefined(x, i) || _isempty(getfield(x, i))
-_isempty(x::Union{AbstractDict, AbstractArray, AbstractString, Tuple, NamedTuple}) = isempty(x)
+_isempty(x::Union{Object, Array, AbstractDict, AbstractArray, AbstractString, Tuple, NamedTuple}) = isempty(x)
 _isempty(::Number) = false
 _isempty(::Nothing) = true
 _isempty(x) = false
