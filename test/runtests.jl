@@ -1,5 +1,60 @@
 using Test, JSON3
 
+@enum Fruit apple banana
+
+struct XInt
+    x::Int64
+end
+
+struct A
+    a::Int
+    b::Int
+    c::Int
+    d::Int
+end
+
+mutable struct B
+    a::Int
+    b::Int
+    c::Int
+    d::Int
+    B() = new()
+end
+
+abstract type Vehicle end
+
+struct Car <: Vehicle
+    type::String
+    make::String
+    model::String
+    seatingCapacity::Int
+    topSpeed::Float64
+end
+
+struct Truck <: Vehicle
+    type::String
+    make::String
+    model::String
+    payloadCapacity::Float64
+end
+
+abstract type Expression end
+
+abstract type Literal <: Expression end
+
+abstract type BinaryFunction <: Expression end
+
+struct LiteralValue <: Literal
+    exprType::String
+    value::Any
+end
+
+struct AndFunction <: BinaryFunction
+    exprType::String
+    lhs::Expression
+    rhs::Expression
+end
+
 @testset "JSON3" begin
 
 @testset "read.jl" begin
@@ -131,61 +186,6 @@ end
 @test arr[end] == 4
 
 end # @testset "read.jl"
-
-@enum Fruit apple banana
-
-struct XInt
-    x::Int64
-end
-
-struct A
-    a::Int
-    b::Int
-    c::Int
-    d::Int
-end
-
-mutable struct B
-    a::Int
-    b::Int
-    c::Int
-    d::Int
-    B() = new()
-end
-
-abstract type Vehicle end
-
-struct Car <: Vehicle
-    type::String
-    make::String
-    model::String
-    seatingCapacity::Int
-    topSpeed::Float64
-end
-
-struct Truck <: Vehicle
-    type::String
-    make::String
-    model::String
-    payloadCapacity::Float64
-end
-
-abstract type Expression end
-
-abstract type Literal <: Expression end
-
-abstract type BinaryFunction <: Expression end
-
-struct LiteralValue <: Literal
-    exprType::String
-    value::Any
-end
-
-struct AndFunction <: BinaryFunction
-    exprType::String
-    lhs::Expression
-    rhs::Expression
-end
 
 @testset "structs.jl" begin
 
