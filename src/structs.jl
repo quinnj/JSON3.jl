@@ -256,14 +256,14 @@ JSON3.StructType(::Type{Vehicle}) = JSON3.AbstractType()
 JSON3.subtypekey(::Type{Vehicle}) = :type
 JSON3.subtypes(::Type{Vehicle}) = (car=Car, truck=Truck)
 
-car = JSON3.read("""
+car = JSON3.read(\"\"\"
 {
     "type": "car",
     "make": "Mercedes-Benz",
     "model": "S500",
     "seatingCapacity": 5,
     "topSpeed": 250.1
-}""", Vehicle)
+}\"\"\", Vehicle)
 ```
 Here we have a `Vehicle` type that is defined as a `JSON3.AbstractType()`. We also have two concrete subtypes, `Car` and `Truck`. In addition to the `StructType` definition, we also define `JSON3.subtypekey(::Type{Vehicle}) = :type`, which signals to JSON3 that, when parsing a JSON structure, when it encounters the `type` key, it should use the value, in our example it's `car`, to discover the appropriate concrete subtype to parse the structure as, in this case `Car`. The mapping of JSON subtype key value to Julia Type is defined in our example via `JSON3.subtypes(::Type{Vehicle}) = (car=Car, truck=Truck)`. Thus, `JSON3.AbstractType` is useful when the JSON structure to read includes a "subtype" key-value pair that can be used to parse a specific, concrete type; in our example, parsing the structure as a `Car` instead of a `Truck`.
 """
