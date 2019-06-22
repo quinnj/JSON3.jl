@@ -275,7 +275,7 @@ subtypes(x::T) where {T} = subtypes(T)
 subtypes(::Type{T}) where {T} = NamedTuple()
 
 read(io::IO, ::Type{T}) where {T} = read(Base.read(io, String), T)
-read(bytes::Vector{UInt8}, ::Type{T}) where {T} = read(VectorString(bytes), T)
+read(bytes::AbstractVector{UInt8}, ::Type{T}) where {T} = read(VectorString(bytes), T)
 
 function read(str::AbstractString, ::Type{T}) where {T}
     buf = codeunits(str)

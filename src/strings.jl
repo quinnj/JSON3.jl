@@ -42,7 +42,7 @@ charvalue(b) = (UInt8('0') <= b <= UInt8('9')) ? b - UInt8('0') :
                throw(ArgumentError("JSON invalid unicode hex value"))
 
 @noinline invalid_escape(str) = throw(ArgumentError("encountered invalid escape character in json string: \"$(String(str))\""))
-@noinline unescaped_control(b) = throw(ArgumentError("encountered unescaped control character in json: '$(Char(b))'"))
+@noinline unescaped_control(b) = throw(ArgumentError("encountered unescaped control character in json: '$(escape_string(Base.string(Char(b))))'"))
 
 function unescape(s)
     n = ncodeunits(s)
@@ -106,8 +106,6 @@ function unescape(s)
                     b = reverseescapechar(b)
                     b == 0x00 && invalid_escape(s)
                 end
-            elseif b < UInt8(' ')
-                unescaped_control(b)
             end
             @inbounds buf[len] = b
             len += 1

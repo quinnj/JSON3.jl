@@ -1,5 +1,5 @@
-struct VectorString <: AbstractString
-    bytes::Vector{UInt8}
+struct VectorString{T <: AbstractVector{UInt8}} <: AbstractString
+    bytes::T
 end
 
 Base.ncodeunits(s::VectorString) = length(s.bytes)
@@ -9,10 +9,13 @@ function Base.codeunit(s::VectorString, i::Int)
     @inbounds b = s.bytes[i]
     return b
 end
+Base.pointer(v::VectorString) = pointer(v.bytes)
+Base.pointer(v::VectorString, i::Integer) = pointer(v.bytes, i)
+Base.unsafe_convert(::Type{Ptr{UInt8}}, v::VectorString) = pointer(v)
 
 # high-level user API functions
 read(io::IO) = read(Base.read(io, String))
-read(bytes::Vector{UInt8}) = read(VectorString(bytes))
+read(bytes::AbstractVector{UInt8}) = read(VectorString(bytes))
 
 function read(str::AbstractString)
     buf = codeunits(str)
@@ -72,10 +75,6 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any})
 end
 
 function read!(buf, pos, len, b, tape, tapeidx, ::Type{String})
-    if b != UInt8('"')
-        error = ExpectedOpeningQuoteChar
-        @goto invalid
-    end
     pos += 1
     @eof
     strpos = pos
@@ -88,6 +87,8 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{String})
             # skip next character
             pos += 2
             strlen += 2
+        elseif b < UInt8(' ')
+            unescaped_control(b)
         else
             pos += 1
             strlen += 1
@@ -148,10 +149,6 @@ end
 function read!(buf, pos, len, b, tape, tapeidx, ::Type{Object})
     objidx = tapeidx
     eT = EMPTY
-    if b != UInt8('{')
-        error = ExpectedOpeningObjectChar
-        @goto invalid
-    end
     pos += 1
     @eof
     b = getbyte(buf, pos)
@@ -243,10 +240,6 @@ end
 function read!(buf, pos, len, b, tape, tapeidx, ::Type{Array})
     arridx = tapeidx
     eT = EMPTY
-    if b != UInt8('[')
-        error = ExpectedOpeningArrayChar
-        @goto invalid
-    end
     pos += 1
     @eof
     b = getbyte(buf, pos)

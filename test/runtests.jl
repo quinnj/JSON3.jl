@@ -21,6 +21,9 @@ mutable struct B
     B() = new()
 end
 
+struct C
+end
+
 abstract type Vehicle end
 
 struct Car <: Vehicle
@@ -91,6 +94,8 @@ end
 @test JSON3.read("[1]") == [1]
 @test JSON3.read("[1,2,3]") == [1,2,3]
 @test_throws ArgumentError JSON3.read("[1 a")
+@test_throws ArgumentError JSON3.read("nulL")
+@test_throws ArgumentError JSON3.read("\"\b\"")
 
 obj = JSON3.read("""
 {
@@ -275,12 +280,19 @@ obj = JSON3.read("""
 @test obj.d == 4
 
 @test_throws ArgumentError JSON3.read("", A)
+@test_throws ArgumentError JSON3.read("a", A)
+@test_throws ArgumentError JSON3.read("{a", A)
+@test_throws ArgumentError JSON3.read("{\"a\"a", A)
+@test_throws ArgumentError JSON3.read("{\"a\": 1a", A)
+@test_throws ArgumentError JSON3.read("{\"a\": 1, a", A)
+
+@test JSON3.read("{}", C) == C()
 @test JSON3.write(obj) == "{\"a\":1,\"b\":2,\"c\":3,\"d\":4}"
 
 @test JSON3.read("1", Union{String, Int}) == 1
 @test JSON3.read("\"1\"", Union{String, Int}) == "1"
 @test JSON3.read("null", Union{Int, String, Nothing}) === nothing
-#FIXME @test JSON3.read("1.0", Union{Float64, Int}) === 1.0
+@test JSON3.read("1.0", Union{Float64, Int}) === 1.0
 
 @test JSON3.read("1", Any) == 1
 @test JSON3.read("3.14", Any) == 3.14
@@ -300,6 +312,8 @@ obj = JSON3.read("""
 @test JSON3.read("{\"a\": 1}", Any)["a"] == 1
 @test JSON3.read("{\"a\": 1}", Dict{Symbol, Any})[:a] == 1
 @test JSON3.read("[1,2,3]", Base.Array{Any}) == [1,2,3]
+@test JSON3.read("[]", Vector{Any}) == []
+@test JSON3.read("{}", Dict{Symbol, Any}) == Dict{Symbol, Any}()
 
 @test_throws ArgumentError JSON3.read("hey", Any)
 @test_throws ArgumentError JSON3.read("hey", String)
@@ -315,6 +329,13 @@ obj = JSON3.read("""
 @test_throws ArgumentError JSON3.read("f", Bool)
 @test_throws ArgumentError JSON3.read("a1bc", Int)
 @test_throws ArgumentError JSON3.read("a1.0b", Float64)
+@test_throws ArgumentError JSON3.read("a1bc", Vector{Any})
+@test_throws ArgumentError JSON3.read("[1,2n", Vector{Any})
+@test_throws ArgumentError JSON3.read("a1bc", Dict{Symbol, Any})
+@test_throws ArgumentError JSON3.read("{a1bc", Dict{Symbol, Any})
+@test_throws ArgumentError JSON3.read("{\"a\"1bc", Dict{Symbol, Any})
+@test_throws ArgumentError JSON3.read("{\"a\": 1bc", Dict{Symbol, Any})
+@test_throws ArgumentError JSON3.read("{\"a\": 1, bc", Dict{Symbol, Any})
 
 JSON3.StructType(::Type{B}) = JSON3.Mutable()
 
@@ -330,6 +351,13 @@ b = JSON3.read("""
 @test b.b == 2
 @test b.c == 3
 @test b.d == 4
+
+@test_throws ArgumentError JSON3.read("a", B)
+@test_throws ArgumentError JSON3.read("{a", B)
+@test_throws ArgumentError JSON3.read("{\"a\": 1b", B)
+@test_throws ArgumentError JSON3.read("{\"a\": 1, b", B)
+b = JSON3.read("{}", B)
+@test typeof(b) == B
 
 b = JSON3.read("""
 {
@@ -397,6 +425,15 @@ truck = JSON3.read("""
 @test truck.payloadCapacity == 7500.5
 @test JSON3.write(truck) == "{\"type\":\"truck\",\"make\":\"Isuzu\",\"model\":\"NQR\",\"payloadCapacity\":7500.5}"
 
+@test_throws ArgumentError JSON3.read("", Vehicle)
+@test_throws ArgumentError JSON3.read("a", Vehicle)
+@test_throws ArgumentError JSON3.read("{a", Vehicle)
+@test_throws ArgumentError JSON3.read("{}", Vehicle)
+@test_throws ArgumentError JSON3.read("{\"a\"a", Vehicle)
+@test_throws ArgumentError JSON3.read("{\"a\": 1a", Vehicle)
+@test_throws ArgumentError JSON3.read("{\"a\": 1, a", Vehicle)
+@test_throws ArgumentError JSON3.read("{\"a\": 1}", Vehicle)
+
 JSON3.StructType(::Type{Expression}) = JSON3.AbstractType()
 JSON3.subtypes(::Type{Expression}) = (AND=AndFunction, LITERAL=LiteralValue)
 JSON3.subtypekey(::Type{Expression}) = :exprType
@@ -440,5 +477,61 @@ expr = JSON3.read("""
 end # @testset "structs.jl"
 
 include("json.jl")
+
+# more tests for coverage
+obj = JSON3.read("{\"hey\":1}")
+@test get(obj, Int, :hey) == 1
+@test get(obj, Int, :ho, 2) == 2
+
+@test JSON3.read("{\"hey\":1}") == JSON3.read(b"{\"hey\":1}") == JSON3.read(IOBuffer("{\"hey\":1}"))
+
+arr = JSON3.read("[\"hey\",1, null, false, \"ho\", {\"a\": 1}, 2]")
+@test Base.IndexStyle(arr) == Base.IndexLinear()
+@test arr[7] == 2
+
+str = "hey"
+ptr = JSON3.PointerString(pointer(str), 3)
+@test hash(str) == hash(ptr)
+@test codeunit(ptr) == UInt8
+@test JSON3.names(1) == ()
+@test JSON3.names(Any) == ()
+@test JSON3.excludes(1) == ()
+@test JSON3.excludes(Any) == ()
+@test JSON3.omitempties(1) == ()
+@test JSON3.omitempties(Any) == ()
+
+@test JSON3.subtypekey(1) == :type
+@test JSON3.subtypekey(Any) == :type
+@test JSON3.subtypes(1) == NamedTuple()
+@test JSON3.subtypes(Any) == NamedTuple()
+
+@test JSON3.read(b"\"a\"", String) == "a"
+@test JSON3.read(IOBuffer("\"a\""), String) == "a"
+@test JSON3.StructType(Char) == JSON3.StringType()
+@test JSON3.construct(String, "hey") == "hey"
+@test JSON3.StructType(Bool) == JSON3.BoolType()
+@test JSON3.construct(Bool, true) === true
+@test JSON3.StructType(UInt8) == JSON3.NumberType()
+@test JSON3.numbertype(UInt8) == UInt8
+@test JSON3.numbertype(1) == Float64
+@test JSON3.construct(String, "hey") == "hey"
+@test JSON3.StructType(typeof((1,2))) == JSON3.ArrayType()
+x = Dict(:hey=>1)
+@test JSON3.construct(Dict{Symbol, Any}, x) == x
+
+@test JSON3.gettapelen(Int64) == 2
+@test JSON3.regularstride(Missing) == false
+@test JSON3.regularstride(Int64) == true
+@test JSON3.regularstride(Union{Int64, Float64}) == true
+@test JSON3.getvalue(Nothing, [], [], 1, 2) === nothing
+@test JSON3.defaultminimum(nothing) == 4
+@test JSON3.defaultminimum(Int64) == 16
+@test JSON3.defaultminimum('1') == 3
+
+@test JSON3._isempty(B(), 1) === false
+@test !JSON3._isempty((a=1, c=2))
+@test JSON3._isempty(1) === false
+@test JSON3._isempty(nothing) === true
+@test JSON3._isempty("ho") === false
 
 end # @testset "JSON3"
