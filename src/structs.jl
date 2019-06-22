@@ -2,12 +2,52 @@ abstract type StructType end
 
 # "Data" type: fields are json keys, field values are json values; use names, omitempties, excludes
 abstract type DataType <: StructType end
+
+"""
+    JSON3.StructType(::Type{MyType}) = JSON3.Struct()
+
+While the default `StructType` for custom types is `JSON3.Struct()`, it is less flexible, yet more performant. For reading a `JSON3.Struct()` from a JSON string input, each key-value pair is read in the order it is encountered in the JSON input, the keys are ignored, and the values are directly passed to the type at the end of the object parsing like `MyType(val1, val2, val3)`. Yes, the JSON specification says that Objects are specifically ***un-ordered*** collections of key-value pairs, but the truth is that many JSON libraries provide ways to maintain JSON Object key-value pair order when reading/writing. Because of the minimal processing done while parsing, and the "trusting" that the Julia type constructor will be able to handle fields being present, missing, or even extra fields that should be ignored, this is the fastest possible method for mapping a JSON input to a Julia structure. If your workflow interacts with non-Julia APIs for sending/receiving JSON, you should take care to test and confirm the use of `JSON3.Struct()` in the cases mentioned above: what if a field is missing when parsing? what if the key-value pairs are out of order? what if there extra fields get included that weren't anticipated? If your workflow is questionable on these points, or it would be too difficult to account for these scenarios in your type constructor, it would be better to consider the `JSON3.Mutable()` option.
+"""
 struct Struct <: DataType end
+
+"""
+    JSON3.StructType(::Type{MyType}) = JSON3.Mutable()
+
+The slightly less performant, yet much more robust method for directly mapping Julia struct fields to JSON objects is via `JSON3.Mutable()`. This technique requires your Julia type to be defined, ***at a minimum***, like:
+```julia
+mutable struct MyType
+    field1
+    field2
+    field3
+    # etc.
+
+    MyType() = new()
+end
+```
+Note specifically that we're defining a `mutable struct` to allow field mutation, and providing a `MyType() = new()` inner constructor which constructs an "empty" `MyType` where isbits fields will be randomly initialied, and reference fields will be `#undef`. (Note that the inner constructor doesn't need to be ***exactly*** this, but at least needs to be callable like `MyType()`. If certain fields need to be intialized or zeroed out for security, then this should be accounted for in the inner constructor). For these mutable types, the type will first be initizlied like `MyType()`, then JSON parsing will parse each key-value pair in a JSON object, setting the field as the key is encountered, and converting the JSON value to the appropriate field value. This flow has the nice properties of: allowing parsing success even if fields are missing in the JSON structure, and if "extra" fields exist in the JSON structure that aren't apart of the Julia struct's fields, it will automatically be ignored. This allows for maximum robustness when mapping Julia types to arbitrary JSON objects that may be generated via web services, other language JSON libraries, etc.
+
+There are a few additional helper methods that can be utilized by `JSON3.Mutable()` types to hand-tune field reading/writing behavior:
+
+* `JSON3.names(::Type{MyType}) = ((:field1, :json1), (:field2, :json2))`: provides a mapping of Julia field name to expected JSON object key name. This affects both reading and writing. When reading the `json1` key, the `field1` field of `MyType` will be set. When writing the `field2` field of `MyType`, the JSON key will be `json2`.
+* `JSON3.excludes(::Type{MyType}) = (:field1, :field2)`: specify fields of `MyType` to ignore when reading and writing, provided as a `Tuple` of `Symbol`s. When reading, if `field1` is encountered as a JSON key, it's value will be read, but the field will not be set in `MyType`. When writing, `field1` will be skipped when writing out `MyType` fields as key-value pairs.
+* `JSON3.omitempties(::Type{MyType}) = (:field1, :field2)`: specify fields of `MyType` that shouldn't be written if they are "empty", provided as a `Tuple` of `Symbol`s. This only affects writing. If a field is a collection (AbstractDict, AbstractArray, etc.) and `isempty(x) === true`, then it will not be written. If a field is `#undef`, it will not be written. If a field is `nothing`, it will not be written. 
+"""
 struct Mutable <: DataType end
 
 StructType(u::Union) = Struct()
 StructType(::Type{T}) where {T} = Struct()
 StructType(x::T) where {T} = StructType(T)
+
+"""
+    JSON3.names(::Type{MyType}) = ((:field1, :json1), (:field2, :json2))
+
+Provides a mapping of Julia field name to expected JSON object key name.
+This affects both reading and writing.
+When reading the `json1` key, the `field1` field of `MyType` will be set.
+When writing the `field2` field of `MyType`, the JSON key will be `json2`.
+"""
+function names end
+
 # maps Julia struct field name to json key name: ((:field1, :json1), (:field2, :json2))
 names(x::T) where {T} = names(T)
 names(::Type{T}) where {T} = ()
@@ -26,23 +66,207 @@ Base.@pure function jsonname(names::Tuple{Vararg{Tuple{Symbol, Symbol}}}, julian
     return julianame
 end
 
+"""
+    JSON3.excludes(::Type{MyType}) = (:field1, :field2)
+
+Specify for a `JSON3.Mutable` `StructType` the fields, given as a `Tuple` of `Symbol`s, that should be ignored when reading, and excluded from writing.
+"""
+function excludes end
 # Julia struct field names as symbols that will be ignored when reading, and never written
 excludes(x::T) where {T} = excludes(T)
 excludes(::Type{T}) where {T} = ()
+
+"""
+    JSON3.omitempties(::Type{MyType}) = (:field1, :field2)
+
+Specify for a `JSON3.Mutable` `StructType` the fields, given as a `Tuple` of `Symbol`s, that should not be written if they're considered "empty".
+If a field is a collection (AbstractDict, AbstractArray, etc.) and `isempty(x) === true`, then it will not be written. If a field is `#undef`, it will not be written. If a field is `nothing`, it will not be written. 
+"""
+function omitempties end
+
 # Julia struct field names as symbols 
 omitempties(x::T) where {T} = omitempties(T)
 omitempties(::Type{T}) where {T} = ()
 
-# "interface" type: fields are internal, json representation is accessible via transform/interface functions
+"""
+    JSON3.JSONType
+
+An abstract type used in the API for "interface types" to map Julia types to a specific JSON type. See docs for the following for more details:
+
+    * JSON3.ObjectType
+    * JSON3.ArrayType
+    * JSON3.StringType
+    * JSON3.NumberType
+    * JSON3.BoolType
+    * JSON3.NullType
+"""
 abstract type JSONType end
+
+"""
+    JSON3.StructType(::Type{MyType}) = JSON3.ObjectType()
+
+Declaring my type is `JSON3.ObjectType()` means it should map to a JSON object of unordered key-value pairs, where keys are `Symbol` or `String`, and values are any other type (or `Any`).
+
+Types already declared as `JSON3.ObjectType()` include:
+  * Any subtype of `AbstractDict`
+  * Any `NamedTuple` type
+  * Any `Pair` type
+
+So if your type subtypes `AbstractDict` and implements its interface, then JSON reading/writing should just work!
+
+Otherwise, the interface to satisfy `JSON3.ObjectType()` for reading is:
+
+  * `MyType(x::Dict{Symbol, Any})`: implement a constructor that takes a `Dict{Symbol, Any}` of key-value pairs parsed from JSOn
+  * `JSON3.construct(::Type{MyType}, x::Dict)`: alternatively, you may overload the `JSON3.construct` method for your type if defining a constructor is undesirable (or would cause other clashes or ambiguities)
+
+The interface to satisfy for writing is:
+
+  * `pairs(x)`: implement the `pairs` iteration function (from Base) to iterate key-value pairs to be written out to JSON
+  * `JSON3.keyvaluepairs(x::MyType)`: alternatively, you can overload the `JSON3.keyvaluepairs` function if overloading `pairs` isn't possible for whatever reason
+"""
 struct ObjectType <: JSONType end
+
+"""
+    JSON3.StructType(::Type{MyType}) = JSON3.ArrayType()
+
+Declaring my type is `JSON3.ArrayType()` means it should map to a JSON array of ordered elements, homogenous or otherwise.
+
+Types already declared as `JSON3.ArrayType()` include:
+  * Any subtype of `AbstractArray`
+  * Any subtype of `AbstractSet`
+  * Any `Tuple` type
+
+So if your type already subtypes these and satifies the interface, things should just work.
+
+Otherwise, the interface to satisfy `JSON3.ArrayType()` for reading is:
+
+  * `MyType(x::Vector)`: implement a constructo that takes a `Vector` argument of values and constructs a `MyType`
+  * `JSON3.construct(::Type{MyType}, x::Vector)`: alternatively, you may overload the `JSON3.construct` method for your type if defining a constructor isn't possible
+  * Optional: `Base.IteratorEltype(::Type{MyType})` and `Base.eltype(x::MyType)`: this can be used to signal to JSON3 that elements for your type are expected to be a single type and JSON3 will attempt to parse as such
+
+The interface to satisfy for writing is:
+
+  * `iterate(x::MyType)`: just iteration over each element is required; note if you subtype `AbstractArray` and define `getindex(x::MyType, i::Int)`, then iteration is already defined for your type
+"""
 struct ArrayType <: JSONType end
+
+"""
+    JSON3.StructType(::Type{MyType}) = JSON3.StringType()
+
+Declaring my type is `JSON3.StringType()` means it should map to a JSON string value.
+
+Types already declared as `JSON3.StringType()` include:
+  * Any subtype of `AbstractString`
+  * The `Symbol` type
+  * Any subtype of `Enum` (values are written with their symbolic name)
+  * The `Char` type
+
+So if your type is an `AbstractString` or `Enum`, then things should already work.
+
+Otherwise, the interface to satisfy `JSON3.StringType()` for reading is:
+
+  * `MyType(x::String)`: define a constructor for your type that takes a single String argument
+  * `JSON3.construct(::Type{MyType}, x::String)`: alternatively, you may overload `JSON3.construct` for your type
+  * `JSON3.construct(::Type{MyType}, ptr::Ptr{UInt8}, len::Int)`: another option is to overload `JSON3.construct` with pointer and length arguments, if it's possible for your custom type to take advantage of avoiding the full string materialization; note that your type should implement both `JSON3.construct` methods, since JSON strings with escape characters in them will be fully unescaped before calling `JSON3.construct(::Type{MyType}, x::String)`, i.e. there is no direct pointer/length method for escaped strings
+
+The interface to satisfy for writing is:
+
+  * `Base.string(x::MyType)`: overload `Base.string` for your type to return a "stringified" value
+"""
 struct StringType <: JSONType end
+
+"""
+    JSON3.StructType(::Type{MyType}) = JSON3.NumberType()
+
+Declaring my type is `JSON3.NumberType()` means it should map to a JSON number value.
+
+Types already declared as `JSON3.NumberType()` include:
+  * Any subtype of `Signed`
+  * Any subtype of `Unsigned`
+  * Any subtype of `AbstractFloat`
+
+In addition to declaring `JSON3.NumberType()`, custom types can also specify a specific, ***existing*** number type it should map to. It does this like:
+```julia
+JSON3.numbertype(::Type{MyType}) = Float64
+```
+
+In this case, I'm declaring the `MyType` should map to an already-supported number type `Float64`. This means that when reading, JSON3 will first parse a `Float64` value, and then call `MyType(x::Float64)`. Note that custom types may also overload `JSON3.construct(::Type{MyType}, x::Float64)` if using a constructor isn't possible. Also note that the default for any type declared as `JSON3.NumberType()` is `Float64`.
+
+Similarly for writing, JSON3 will first call `Float64(x::MyType)` before writing the resulting `Float64` value out as a JSON number.
+"""
 struct NumberType <: JSONType end
+
+"""
+    JSON3.StructType(::Type{MyType}) = JSON3.BoolType()
+
+Declaring my type is `JSON3.BoolType()` means it should map to a JSON boolean value.
+
+Types already declared as `JSON3.BoolType()` include:
+  * `Bool`
+
+The interface to satisfy for reading is:
+  * `MyType(x::Bool)`: define a constructor that takes a single `Bool` value
+  * `JSON3.construct(::Type{MyType}, x::Bool)`: alternatively, you may overload `JSON3.construct`
+
+The interface to satisfy for writing is:
+  * `Bool(x::MyType)`: define a conversion to `Bool` method
+"""
 struct BoolType <: JSONType end
+
+"""
+    JSON3.StructType(::Type{MyType}) = JSON3.NullType()
+
+Declaring my type is `JSON3.NullType()` means it should map to the JSON value `null`.
+
+Types already declared as `JSON3.NullType()` include:
+  * `nothing`
+  * `missing`
+
+The interface to satisfy for reading is:
+  * `MyType()`: an empty constructor for `MyType`
+  * `JSON3.construct(::Type{MyType}, x::Nothing)`: alternatively, you may overload `JSON3.construct`
+
+There is no interface for writing; if a custom type is declared as `JSON3.NullType()`, then the JSON value `null` will be written.
+"""
 struct NullType <: JSONType end
 
-# "abstract" type: json representation via a concrete subtype, json includes subtype key-value to signal concrete subtype
+"""
+    JSON3.StructType(::Type{MyType}) = JSON3.AbstractType()
+
+When declaring my type as `JSON3.AbstractType()`, you must also define `JSON3.subtypes`, which should be a NamedTuple with subtype keys mapping to Julia subtype Type values. You may optionally define `JSON3.subtypekey` that indicates which JSON key should be used for identifying the appropriate concrete subtype. A quick example should help illustrate proper use of this `StructType`:
+```julia
+abstract type Vehicle end
+
+struct Car <: Vehicle
+    type::String
+    make::String
+    model::String
+    seatingCapacity::Int
+    topSpeed::Float64
+end
+
+struct Truck <: Vehicle
+    type::String
+    make::String
+    model::String
+    payloadCapacity::Float64
+end
+
+JSON3.StructType(::Type{Vehicle}) = JSON3.AbstractType()
+JSON3.subtypekey(::Type{Vehicle}) = :type
+JSON3.subtypes(::Type{Vehicle}) = (car=Car, truck=Truck)
+
+car = JSON3.read("""
+{
+    "type": "car",
+    "make": "Mercedes-Benz",
+    "model": "S500",
+    "seatingCapacity": 5,
+    "topSpeed": 250.1
+}""", Vehicle)
+```
+Here we have a `Vehicle` type that is defined as a `JSON3.AbstractType()`. We also have two concrete subtypes, `Car` and `Truck`. In addition to the `StructType` definition, we also define `JSON3.subtypekey(::Type{Vehicle}) = :type`, which signals to JSON3 that, when parsing a JSON structure, when it encounters the `type` key, it should use the value, in our example it's `car`, to discover the appropriate concrete subtype to parse the structure as, in this case `Car`. The mapping of JSON subtype key value to Julia Type is defined in our example via `JSON3.subtypes(::Type{Vehicle}) = (car=Car, truck=Truck)`. Thus, `JSON3.AbstractType` is useful when the JSON structure to read includes a "subtype" key-value pair that can be used to parse a specific, concrete type; in our example, parsing the structure as a `Car` instead of a `Truck`.
+"""
 struct AbstractType <: StructType end
 
 subtypekey(x::T) where {T} = subtypekey(T)
@@ -282,6 +506,7 @@ construct(::Type{NamedTuple{names, types}}, x::Dict) where {names, types} = Name
 keyvalue(::Type{Symbol}, escaped, ptr, len) = escaped ? Symbol(unescape(PointerString(ptr, len))) : _symbol(ptr, len)
 keyvalue(::Type{String}, escaped, ptr, len) = escaped ? unescape(PointerString(ptr, len)) : unsafe_string(ptr, len)
 
+@inline read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T} = read(ObjectType(), buf, pos, len, b, T, Symbol, Any)
 @inline read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T <: NamedTuple} = read(ObjectType(), buf, pos, len, b, T, Symbol, Any)
 @inline read(::ObjectType, buf, pos, len, b, ::Type{Dict}) = read(ObjectType(), buf, pos, len, b, Dict, String, Any)
 @inline read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T <: AbstractDict} = read(ObjectType(), buf, pos, len, b, T, keytype(T), valtype(T))
