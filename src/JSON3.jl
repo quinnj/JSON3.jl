@@ -2,19 +2,19 @@ module JSON3
 
 using Parsers, Mmap
 
-struct Object{S <: AbstractVector{UInt8}} <: AbstractDict{Symbol, Any}
+struct Object{S <: AbstractVector{UInt8}, TT <: AbstractVector{UInt64}} <: AbstractDict{Symbol, Any}
     buf::S
-    tape::Vector{UInt64}
+    tape::TT
 end
 
 Object() = Object(codeunits(""), UInt64[object(2), 0])
 
-struct Array{T, S <: AbstractVector{UInt8}} <: AbstractVector{T}
+struct Array{T, S <: AbstractVector{UInt8}, TT <: AbstractVector{UInt64}} <: AbstractVector{T}
     buf::S
-    tape::Vector{UInt64}
+    tape::TT
 end
 
-Array{T}(buf::S, tape::Vector{UInt64}) where {T, S} = Array{T, S}(buf, tape)
+Array{T}(buf::S, tape::TT) where {T, S, TT} = Array{T, S, TT}(buf, tape)
 
 getbuf(j::Union{Object, Array}) = getfield(j, :buf)
 gettape(j::Union{Object, Array}) = getfield(j, :tape)

@@ -99,10 +99,9 @@ regularstride(T) = false
 regularstride(::Union{Type{Int64}, Type{Float64}, Type{Bool}, Type{Nothing}}) = true
 regularstride(::Type{Union{Int64, Float64}}) = true
 
-getvalue(::Type{Object}, buf, tape, tapeidx, t) = Object(buf,
-    unsafe_wrap(Base.Array, pointer(tape, tapeidx), getnontypemask(t)))
-getvalue(::Type{Array}, buf, tape, tapeidx, t) = Array{geteltype(tape[tapeidx+1])}(buf,
-    unsafe_wrap(Base.Array, pointer(tape, tapeidx), getnontypemask(t)))
+getvalue(::Type{Object}, buf, tape, tapeidx, t) = Object(buf, Base.unsafe_view(tape, tapeidx:tapeidx + getnontypemask(t)))
+getvalue(::Type{Array}, buf, tape, tapeidx, t) = Array{geteltype(tape[tapeidx+1])}(buf, Base.unsafe_view(tape, tapeidx:tapeidx + getnontypemask(t)))
+
 function getvalue(::Type{Symbol}, buf, tape, tapeidx, t)
     @inbounds t2 = tape[tapeidx + 1]
     if (t2 & ESCAPE_BIT) == ESCAPE_BIT
