@@ -536,4 +536,12 @@ x = Dict(:hey=>1)
 @test JSON3._isempty(nothing) === true
 @test JSON3._isempty("ho") === false
 
+# https://github.com/quinnj/JSON3.jl/issues/1
+txt = """
+{ "a" : { "b" : [ 1, 2 ],
+          "c" : [ 3, 4 ] } }
+"""
+
+@test JSON3.read(txt).a.b == [1,2]
+
 end # @testset "JSON3"
