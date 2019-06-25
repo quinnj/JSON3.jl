@@ -708,6 +708,7 @@ obj = JSON3.read("{\"\U0001d712\":\"\\ud835\\udf12\"}")
 struct t109
     i::Int
 end
+JSON3.StructType(::Type{t109}) = JSON3.Struct()
 
 let iob = IOBuffer()
     JSON3.write(iob, t109(1))

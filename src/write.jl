@@ -70,6 +70,9 @@ write(::NumberType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), bu
 write(::NullType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
 write(::BoolType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
 write(::AbstractType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::NoStructType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+
+write(::NoStructType, buf, pos, len, ::T) where {T} = throw(ArgumentError("$T doesn't have a defined `JSON3.StructType`"))
 
 # generic object writing
 @inline function write(::Union{Struct, Mutable}, buf, pos, len, x::T) where {T}
