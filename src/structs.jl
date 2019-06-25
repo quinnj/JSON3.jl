@@ -1,12 +1,15 @@
 abstract type StructType end
 
+"Default `JSON3.StructType` for types that don't have a `StructType` defined; this ensures any object going in/out of JSON3 has an explicit `StructType`"
+struct NoStructType <: StructType end
+
 # "Data" type: fields are json keys, field values are json values; use names, omitempties, excludes
 abstract type DataType <: StructType end
 
 """
     JSON3.StructType(::Type{MyType}) = JSON3.Struct()
 
-While the default `StructType` for custom types is `JSON3.Struct()`, it is less flexible, yet more performant. For reading a `JSON3.Struct()` from a JSON string input, each key-value pair is read in the order it is encountered in the JSON input, the keys are ignored, and the values are directly passed to the type at the end of the object parsing like `MyType(val1, val2, val3)`. Yes, the JSON specification says that Objects are specifically ***un-ordered*** collections of key-value pairs, but the truth is that many JSON libraries provide ways to maintain JSON Object key-value pair order when reading/writing. Because of the minimal processing done while parsing, and the "trusting" that the Julia type constructor will be able to handle fields being present, missing, or even extra fields that should be ignored, this is the fastest possible method for mapping a JSON input to a Julia structure. If your workflow interacts with non-Julia APIs for sending/receiving JSON, you should take care to test and confirm the use of `JSON3.Struct()` in the cases mentioned above: what if a field is missing when parsing? what if the key-value pairs are out of order? what if there extra fields get included that weren't anticipated? If your workflow is questionable on these points, or it would be too difficult to account for these scenarios in your type constructor, it would be better to consider the `JSON3.Mutable()` option.
+This `StructType` is less flexible, yet more performant than `JSON3.Mutable`. For reading a `JSON3.Struct()` from a JSON string input, each key-value pair is read in the order it is encountered in the JSON input, the keys are ignored, and the values are directly passed to the type at the end of the object parsing like `MyType(val1, val2, val3)`. Yes, the JSON specification says that Objects are specifically ***un-ordered*** collections of key-value pairs, but the truth is that many JSON libraries provide ways to maintain JSON Object key-value pair order when reading/writing. Because of the minimal processing done while parsing, and the "trusting" that the Julia type constructor will be able to handle fields being present, missing, or even extra fields that should be ignored, this is the fastest possible method for mapping a JSON input to a Julia structure. If your workflow interacts with non-Julia APIs for sending/receiving JSON, you should take care to test and confirm the use of `JSON3.Struct()` in the cases mentioned above: what if a field is missing when parsing? what if the key-value pairs are out of order? what if there extra fields get included that weren't anticipated? If your workflow is questionable on these points, or it would be too difficult to account for these scenarios in your type constructor, it would be better to consider the `JSON3.Mutable()` option.
 """
 struct Struct <: DataType end
 
@@ -35,7 +38,8 @@ There are a few additional helper methods that can be utilized by `JSON3.Mutable
 struct Mutable <: DataType end
 
 StructType(u::Union) = Struct()
-StructType(::Type{T}) where {T} = Struct()
+StructType(::Type{Any}) = Struct()
+StructType(::Type{T}) where {T} = NoStructType()
 StructType(x::T) where {T} = StructType(T)
 
 """
@@ -293,6 +297,8 @@ function read(str::AbstractString, ::Type{T}) where {T}
 @label invalid
     invalid(error, buf, pos, T)
 end
+
+read(::NoStructType, buf, pos, len, b, ::Type{T}) where {T} = throw(ArgumentError("$T doesn't have a defined `JSON3.StructType`"))
 
 function read(::Struct, buf, pos, len, b, U::Union)
     try

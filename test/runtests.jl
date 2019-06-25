@@ -225,10 +225,11 @@ x = JSON3.read("1", Union{Int, Float64})
 @test x === 1.0
 
 JSON3.construct(::Type{JSON3.PointerString}, ptr::Ptr{UInt8}, len::Int) = JSON3.PointerString(ptr, len)
-x = JSON3.read("\"hey\"", JSON3.PointerString);
+str = "\"hey\""
+x = JSON3.read(str, JSON3.PointerString);
 @test x == "hey"
 @test typeof(x) == JSON3.PointerString
-@test JSON3.write(x) == "\"hey\""
+@test JSON3.write(x) == str
 
 @test JSON3.read("\"apple\"", Fruit) == apple
 @test_throws Union{UndefVarError, ArgumentError} JSON3.read("\"watermelon\"", Fruit)
@@ -270,6 +271,8 @@ x = XInt(10)
 @test JSON3.read("{\"a\": 1, \"b\": 2}", NamedTuple{(:a, :b), Tuple{Float64, Float64}}) == (a=1.0, b=2.0)
 @test JSON3.write((a=1.0, b=2.0)) == "{\"a\":1.0,\"b\":2.0}"
 
+JSON3.StructType(::Type{A}) = JSON3.Struct()
+
 obj = JSON3.read("""
 { "a": 1,
   "b": 2,
@@ -287,6 +290,11 @@ obj = JSON3.read("""
 @test_throws ArgumentError JSON3.read("{\"a\"a", A)
 @test_throws ArgumentError JSON3.read("{\"a\": 1a", A)
 @test_throws ArgumentError JSON3.read("{\"a\": 1, a", A)
+
+@test_throws ArgumentError JSON3.read("{}", C)
+@test_throws ArgumentError JSON3.write(C())
+
+JSON3.StructType(::Type{C}) = JSON3.Struct()
 
 @test JSON3.read("{}", C) == C()
 @test JSON3.write(obj) == "{\"a\":1,\"b\":2,\"c\":3,\"d\":4}"
@@ -400,6 +408,9 @@ b = JSON3.read("""
 JSON3.StructType(::Type{Vehicle}) = JSON3.AbstractType()
 JSON3.subtypes(::Type{Vehicle}) = (car=Car, truck=Truck)
 
+JSON3.StructType(::Type{Car}) = JSON3.Struct()
+JSON3.StructType(::Type{Truck}) = JSON3.Struct()
+
 car = JSON3.read("""
 {
     "type": "car",
@@ -439,6 +450,9 @@ truck = JSON3.read("""
 JSON3.StructType(::Type{Expression}) = JSON3.AbstractType()
 JSON3.subtypes(::Type{Expression}) = (AND=AndFunction, LITERAL=LiteralValue)
 JSON3.subtypekey(::Type{Expression}) = :exprType
+
+JSON3.StructType(::Type{AndFunction}) = JSON3.Struct()
+JSON3.StructType(::Type{LiteralValue}) = JSON3.Struct()
 
 expr = JSON3.read("""
 {
