@@ -47,8 +47,9 @@ end
 end
 
 function Base.get(obj::Object, key)
+    k2 = Symbol(key)
     for (k, v) in obj
-        k == key && return v
+        k == k2 && return v
     end
     throw(KeyError(key))
 end
@@ -61,22 +62,25 @@ function Base.get(obj::Object, ::Type{T}, key)::T where {T}
 end
 
 function Base.get(obj::Object, key, default)
+    k2 = Symbol(key)
     for (k, v) in obj
-        k == key && return v
+        k == k2 && return v
     end
     return default
 end
 
 function Base.get(obj::Object, ::Type{T}, key, default::T)::T where {T}
+    k2 = Symbol(key)
     for (k, v) in obj
-        k == key && return v
+        k == k2 && return v
     end
     return default
 end
 
 function Base.get(default::Base.Callable, obj::Object, key)
+    k2 = Symbol(key)
     for (k, v) in obj
-        k == key && return v
+        k == k2 && return v
     end
     return default()
 end
