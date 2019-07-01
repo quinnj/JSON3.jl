@@ -1,4 +1,4 @@
-using Test, JSON3
+using Test, JSON3, UUIDs
 
 @enum Fruit apple banana
 
@@ -562,5 +562,9 @@ txt = """
 @test eltype(JSON3.read("[1.2, 2.0]")) === Float64
 @test eltype(JSON3.read("[1.2, 2.0, 3.3]")) === Float64
 
+# https://github.com/quinnj/JSON3.jl/issues/9
+d = Dict(uuid1() => i for i in 1:3)
+t = JSON3.write(d)
+@test JSON3.read(t, Dict{UUID, Int}) == d
 
 end # @testset "JSON3"

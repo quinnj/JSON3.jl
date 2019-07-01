@@ -510,7 +510,7 @@ construct(::Type{NamedTuple{names}}, x::Dict) where {names} = NamedTuple{names}(
 construct(::Type{NamedTuple{names, types}}, x::Dict) where {names, types} = NamedTuple{names, types}(Tuple(x[nm] for nm in names))
 
 keyvalue(::Type{Symbol}, escaped, ptr, len) = escaped ? Symbol(unescape(PointerString(ptr, len))) : _symbol(ptr, len)
-keyvalue(::Type{String}, escaped, ptr, len) = escaped ? unescape(PointerString(ptr, len)) : unsafe_string(ptr, len)
+keyvalue(::Type{T}, escaped, ptr, len) where {T} = escaped ? construct(T, unescape(PointerString(ptr, len))) : construct(T, unsafe_string(ptr, len))
 
 @inline read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T} = read(ObjectType(), buf, pos, len, b, T, Symbol, Any)
 @inline read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T <: NamedTuple} = read(ObjectType(), buf, pos, len, b, T, Symbol, Any)
@@ -570,7 +570,7 @@ keyvalue(::Type{String}, escaped, ptr, len) = escaped ? unescape(PointerString(p
         @wh
         # now positioned at start of value
         pos, y = read(StructType(V), buf, pos, len, b, V)
-        x[K(key)] = y
+        x[key] = y
         @eof
         b = getbyte(buf, pos)
         @wh
