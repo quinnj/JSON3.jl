@@ -78,10 +78,10 @@ function promoteeltype(A, B)
         return B
     elseif (A | B) == A
         return A
-    elseif A == INT && B == FLOAT
-        return A | B
-    elseif A == FLOAT && B == INT
-        return A | B
+    elseif A & INT == INT && B == FLOAT
+        return A & ~INT | FLOAT
+    elseif A & FLOAT == FLOAT && B == INT
+        return A
     elseif A == NULL || B == NULL
         return A | B
     else

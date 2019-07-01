@@ -98,7 +98,7 @@ function Base.iterate(arr::Array{T}, (i, tapeidx)=(1, 3)) where {T}
     i > length(arr) && return nothing
     tape = gettape(arr)
     @inbounds t = tape[tapeidx]
-    val = getvalue(T, getbuf(arr), tape, tapeidx, t)
+    val = getvalue(Any, getbuf(arr), tape, tapeidx, t)
     tapeidx += gettapelen(T, t)
     return val, (i + 1, tapeidx)
 end
@@ -110,7 +110,7 @@ end
     if regularstride(T)
         tapeidx = 1 + 2 * i
         @inbounds t = tape[tapeidx]
-        return getvalue(T, buf, tape, tapeidx, t)
+        return getvalue(Any, buf, tape, tapeidx, t)
     else
         tapeidx = 3
         idx = 1
