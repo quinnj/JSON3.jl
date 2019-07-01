@@ -46,7 +46,22 @@ end
     return x, (i + 1, tapeidx)
 end
 
+function Base.get(obj::Object, key::Symbol)
+    for (k, v) in obj
+        k == key && return v
+    end
+    throw(KeyError(key))
+end
+
 function Base.get(obj::Object, key)
+    k2 = Base.string(key)
+    for (k, v) in obj
+        String(k) == k2 && return v
+    end
+    throw(KeyError(key))
+end
+
+function Base.get(obj::Object, ::Type{T}, key::Symbol)::T where {T}
     for (k, v) in obj
         k == key && return v
     end
@@ -54,13 +69,29 @@ function Base.get(obj::Object, key)
 end
 
 function Base.get(obj::Object, ::Type{T}, key)::T where {T}
+    k2 = Base.string(key)
     for (k, v) in obj
-        k == key && return v
+        String(k) == k2 && return v
     end
     throw(KeyError(key))
 end
 
+function Base.get(obj::Object, key::Symbol, default)
+    for (k, v) in obj
+        k == key && return v
+    end
+    return default
+end
+
 function Base.get(obj::Object, key, default)
+    k2 = Base.string(key)
+    for (k, v) in obj
+        String(k) == k2 && return v
+    end
+    return default
+end
+
+function Base.get(obj::Object, ::Type{T}, key::Symbol, default::T)::T where {T}
     for (k, v) in obj
         k == key && return v
     end
@@ -68,15 +99,24 @@ function Base.get(obj::Object, key, default)
 end
 
 function Base.get(obj::Object, ::Type{T}, key, default::T)::T where {T}
+    k2 = Base.string(key)
     for (k, v) in obj
-        k == key && return v
+        String(k) == k2 && return v
     end
     return default
 end
 
-function Base.get(default::Base.Callable, obj::Object, key)
+function Base.get(default::Base.Callable, obj::Object, key::Symbol)
     for (k, v) in obj
         k == key && return v
+    end
+    return default()
+end
+
+function Base.get(default::Base.Callable, obj::Object, key)
+    k2 = Base.string(key)
+    for (k, v) in obj
+        String(k) == k2 && return v
     end
     return default()
 end

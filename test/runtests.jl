@@ -567,4 +567,8 @@ d = Dict(uuid1() => i for i in 1:3)
 t = JSON3.write(d)
 @test JSON3.read(t, Dict{UUID, Int}) == d
 
+# get issue
+obj = JSON3.read("{\"hey\":1}")
+@test get(obj, :hey) == get(obj, "hey") == get(obj, "hey", "") == get(()->"", obj, "hey")
+
 end # @testset "JSON3"
