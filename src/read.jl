@@ -43,7 +43,7 @@ function read(str::AbstractString)
     invalid(error, buf, pos, Any)
 end
 
-function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any})
+function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any}, checkint=true)
     if b == UInt8('{')
         return read!(buf, pos, len, b, tape, tapeidx, Object)
     elseif b == UInt8('[')
@@ -59,10 +59,15 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any})
     elseif (UInt8('0') <= b <= UInt8('9')) || b == UInt8('-') || b == UInt8('+')
         float, code, floatpos = Parsers.typeparser(Float64, buf, pos, len, b, Int16(0), Parsers.OPTIONS)
         if code > 0
-            int = unsafe_trunc(Int64, float)
-            if int == float
-                @inbounds tape[tapeidx] = INT
-                @inbounds tape[tapeidx + 1] = Core.bitcast(UInt64, int)
+            if checkint
+                int = unsafe_trunc(Int64, float)
+                if int == float
+                    @inbounds tape[tapeidx] = INT
+                    @inbounds tape[tapeidx + 1] = Core.bitcast(UInt64, int)
+                else
+                    @inbounds tape[tapeidx] = FLOAT
+                    @inbounds tape[tapeidx + 1] = Core.bitcast(UInt64, float)
+                end
             else
                 @inbounds tape[tapeidx] = FLOAT
                 @inbounds tape[tapeidx + 1] = Core.bitcast(UInt64, float)
@@ -256,7 +261,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Array})
     while true
         # positioned at start of value
         prevtapeidx = tapeidx
-        pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any)
+        pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any, eT != FLOAT)
         @eof
         b = getbyte(buf, pos)
         @wh

@@ -558,4 +558,9 @@ txt = """
 
 @test JSON3.read(txt).a.b == [1,2]
 
+# https://github.com/quinnj/JSON3.jl/issues/8
+@test eltype(JSON3.read("[1.2, 2.0]")) === Float64
+@test eltype(JSON3.read("[1.2, 2.0, 3.3]")) === Float64
+
+
 end # @testset "JSON3"
