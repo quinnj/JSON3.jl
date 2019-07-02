@@ -261,7 +261,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Array})
     while true
         # positioned at start of value
         prevtapeidx = tapeidx
-        pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any, eT != FLOAT)
+        pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any, eT != FLOAT && eT != (FLOAT | NULL))
         @eof
         b = getbyte(buf, pos)
         @wh
