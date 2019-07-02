@@ -561,6 +561,8 @@ txt = """
 # https://github.com/quinnj/JSON3.jl/issues/8
 @test eltype(JSON3.read("[1.2, 2.0]")) === Float64
 @test eltype(JSON3.read("[1.2, 2.0, 3.3]")) === Float64
+@test eltype(JSON3.read("[1.2, null, 3.3]")) === Union{Float64, Nothing}
+@test eltype(JSON3.read("[1.2, null, 3.0]")) === Union{Float64, Nothing}
 
 # https://github.com/quinnj/JSON3.jl/issues/9
 d = Dict(uuid1() => i for i in 1:3)
