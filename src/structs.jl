@@ -33,7 +33,7 @@ There are a few additional helper methods that can be utilized by `JSON3.Mutable
 
 * `JSON3.names(::Type{MyType}) = ((:field1, :json1), (:field2, :json2))`: provides a mapping of Julia field name to expected JSON object key name. This affects both reading and writing. When reading the `json1` key, the `field1` field of `MyType` will be set. When writing the `field2` field of `MyType`, the JSON key will be `json2`.
 * `JSON3.excludes(::Type{MyType}) = (:field1, :field2)`: specify fields of `MyType` to ignore when reading and writing, provided as a `Tuple` of `Symbol`s. When reading, if `field1` is encountered as a JSON key, it's value will be read, but the field will not be set in `MyType`. When writing, `field1` will be skipped when writing out `MyType` fields as key-value pairs.
-* `JSON3.omitempties(::Type{MyType}) = (:field1, :field2)`: specify fields of `MyType` that shouldn't be written if they are "empty", provided as a `Tuple` of `Symbol`s. This only affects writing. If a field is a collection (AbstractDict, AbstractArray, etc.) and `isempty(x) === true`, then it will not be written. If a field is `#undef`, it will not be written. If a field is `nothing`, it will not be written. 
+* `JSON3.omitempties(::Type{MyType}) = (:field1, :field2)`: specify fields of `MyType` that shouldn't be written if they are "empty", provided as a `Tuple` of `Symbol`s. This only affects writing. If a field is a collection (AbstractDict, AbstractArray, etc.) and `isempty(x) === true`, then it will not be written. If a field is `#undef`, it will not be written. If a field is `nothing`, it will not be written.
 """
 struct Mutable <: DataType end
 
@@ -84,11 +84,11 @@ excludes(::Type{T}) where {T} = ()
     JSON3.omitempties(::Type{MyType}) = (:field1, :field2)
 
 Specify for a `JSON3.Mutable` `StructType` the fields, given as a `Tuple` of `Symbol`s, that should not be written if they're considered "empty".
-If a field is a collection (AbstractDict, AbstractArray, etc.) and `isempty(x) === true`, then it will not be written. If a field is `#undef`, it will not be written. If a field is `nothing`, it will not be written. 
+If a field is a collection (AbstractDict, AbstractArray, etc.) and `isempty(x) === true`, then it will not be written. If a field is `#undef`, it will not be written. If a field is `nothing`, it will not be written.
 """
 function omitempties end
 
-# Julia struct field names as symbols 
+# Julia struct field names as symbols
 omitempties(x::T) where {T} = omitempties(T)
 omitempties(::Type{T}) where {T} = ()
 
@@ -613,6 +613,7 @@ end
         error = ExpectedOpeningQuoteChar
         @goto invalid
     end
+    N = fieldcount(T)
     nms = names(T)
     excl = excludes(T)
     pos += 1
@@ -652,10 +653,13 @@ end
         # read value
         ind = Base.fieldindex(T, key, false)
         if ind > 0
-            FT = fieldtype(T, key)
-            pos, y = read(StructType(FT), buf, pos, len, b, FT)
-            if !symbolin(excl, key)
-                setfield!(x, key, y)
+            is_included = !symbolin(excl, key)
+            Base.@nexprs 32 i -> begin
+                if i <= N && fieldname(T, i) === key
+                    FT = fieldtype(T, i)
+                    pos, y = read(StructType(FT), buf, pos, len, b, FT)
+                    is_included && setfield!(x, key, y)
+                end
             end
         else
             # read the unknown key's value, but ignore it
