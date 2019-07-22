@@ -126,6 +126,14 @@ Base.propertynames(obj::Object) = collect(keys(obj))
 Base.getproperty(obj::Object, prop::Symbol) = get(obj, prop)
 Base.getindex(obj::Object, str::String) = get(obj, Symbol(str))
 
+function Base.copy(obj::Object)
+    dict = Dict{Symbol, Any}()
+    for (k, v) in obj
+        dict[k] = copy(v)
+    end
+    return dict
+end
+
 # AbstractArray interface
 Base.IndexStyle(::Type{<:Array}) = Base.IndexLinear()
 
@@ -165,6 +173,8 @@ end
         end
     end
 end
+
+Base.copy(arr::Array) = map(copy, arr)
 
 include("read.jl")
 include("strings.jl")
