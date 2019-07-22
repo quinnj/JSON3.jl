@@ -3,16 +3,23 @@ struct PointerString <: AbstractString
     len::Int
 end
 
+Base.@pure function symbol_to_string(s::Symbol)
+    ptr = Base.unsafe_convert(Ptr{UInt8}, s)
+    len = ccall(:strlen, Cint, (Ptr{UInt8},), ptr)
+    return PointerString(ptr, len)
+end
+
 function Base.hash(s::PointerString, h::UInt)
     h += Base.memhash_seed
     ccall(Base.memhash, UInt, (Ptr{UInt8}, Csize_t, UInt32), s.ptr, s.len, h % UInt32) + h
 end
 
 import Base: ==
-function ==(x::String, y::PointerString)
-    sizeof(x) == y.len && ccall(:memcmp, Cint, (Ptr{UInt8}, Ptr{UInt8}, Csize_t), pointer(x), y.ptr, y.len) == 0
-end
+==(x::String, y::PointerString) = PointerString(pointer(x), length(x)) == y
 ==(y::PointerString, x::String) = x == y
+function ==(x::PointerString, y::PointerString)
+    x.len == y.len && ccall(:memcmp, Cint, (Ptr{UInt8}, Ptr{UInt8}, Csize_t), x.ptr, y.ptr, y.len) == 0
+end
 
 Base.codeunit(s::PointerString) = UInt8
 Base.ncodeunits(s::PointerString) = s.len

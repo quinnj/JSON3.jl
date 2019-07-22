@@ -56,9 +56,9 @@ function names end
 names(x::T) where {T} = names(T)
 names(::Type{T}) where {T} = ()
 
-Base.@pure function julianame(names::Tuple{Vararg{Tuple{Symbol, Symbol}}}, jsonname::Symbol)
+Base.@pure function julianame(names::Tuple{Vararg{Tuple{Symbol, Symbol}}}, jsonname::PointerString)
     for nm in names
-        nm[2] === jsonname && return nm[1]
+        symbol_to_string(nm[2]) === jsonname && return symbol_to_string(nm[1])
     end
     return jsonname
 end
@@ -519,6 +519,7 @@ construct(::Type{NamedTuple{names}}, x::Dict) where {names} = NamedTuple{names}(
 construct(::Type{NamedTuple{names, types}}, x::Dict) where {names, types} = NamedTuple{names, types}(Tuple(x[nm] for nm in names))
 
 keyvalue(::Type{Symbol}, escaped, ptr, len) = escaped ? Symbol(unescape(PointerString(ptr, len))) : _symbol(ptr, len)
+keyvalue(::Type{PointerString}, escaped, ptr, len) where {T} = escaped ? unescape(PointerString(ptr, len)) : PointerString(ptr, len)
 keyvalue(::Type{T}, escaped, ptr, len) where {T} = escaped ? construct(T, unescape(PointerString(ptr, len))) : construct(T, unsafe_string(ptr, len))
 
 @inline read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T} = read(ObjectType(), buf, pos, len, b, T, Symbol, Any)
@@ -624,7 +625,7 @@ end
     end
     N = fieldcount(T)
     nms = names(T)
-    excl = excludes(T)
+    excl = map(symbol_to_string, excludes(T))
     pos += 1
     @eof
     while true
@@ -645,7 +646,7 @@ end
             @eof
             b = getbyte(buf, pos)
         end
-        key = keyvalue(Symbol, escaped, pointer(buf, keypos), keylen)
+        key = keyvalue(PointerString, escaped, pointer(buf, keypos), keylen)
         key = julianame(nms, key)
         pos += 1
         @eof
@@ -659,11 +660,11 @@ end
         @eof
         b = getbyte(buf, pos)
         @wh
-        is_included = !symbolin(excl, key)
+        is_included = !(key in excl)
         # unroll the first 32 field checks to avoid dynamic dispatch if possible
         Base.@nif(
             32,
-            i -> (i <= N && fieldname(T, i) === key),
+            i -> (i <= N && symbol_to_string(fieldname(T, i)) == key),
             i -> begin
                 FT_i = fieldtype(T, i)
                 pos, y_i = read(StructType(FT_i), buf, pos, len, b, FT_i)
@@ -672,7 +673,7 @@ end
             i -> begin
                 is_field_still_unread = true
                 for j in 33:N
-                    fieldname(T, j) === key || continue
+                    symbol_to_string(fieldname(T, j)) == key || continue
                     FT_j = fieldtype(T, j)
                     pos, y_j = read(StructType(FT_j), buf, pos, len, b, FT_j)
                     is_included && setfield!(x, j, y_j)
@@ -813,7 +814,7 @@ end
     pos += 1
     @eof
     types = subtypes(T)
-    skey = subtypekey(T)
+    skey = symbol_to_string(subtypekey(T))
     while true
         keypos = pos
         keylen = 0
@@ -832,7 +833,7 @@ end
             @eof
             b = getbyte(buf, pos)
         end
-        key = keyvalue(Symbol, escaped, pointer(buf, keypos), keylen)
+        key = keyvalue(PointerString, escaped, pointer(buf, keypos), keylen)
         pos += 1
         @eof
         b = getbyte(buf, pos)
