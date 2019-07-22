@@ -301,6 +301,15 @@ end
 read(::NoStructType, buf, pos, len, b, ::Type{T}) where {T} = throw(ArgumentError("$T doesn't have a defined `JSON3.StructType`"))
 
 function read(::Struct, buf, pos, len, b, U::Union)
+    # Julia implementation detail: Unions are sorted :)
+    # This lets us avoid the below try-catch when U <: Union{Missing,T}
+    if U.a === Nothing || U.a === Missing
+        if buf[pos] == UInt8('n')
+            return read(StructType(U.a), buf, pos, len, b, U.a)
+        else
+            return read(StructType(U.b), buf, pos, len, b, U.b)
+        end
+    end
     try
         return read(StructType(U.a), buf, pos, len, b, U.a)
     catch e
