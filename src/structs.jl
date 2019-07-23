@@ -666,16 +666,21 @@ end
             32,
             i -> (i <= N && fieldname(T, i) === key),
             i -> begin
-                FT = fieldtype(T, i)
-                pos, y_i = read(StructType(FT), buf, pos, len, b, FT)
-                is_included && setfield!(x, key, y_i)
+                FT_i = fieldtype(T, i)
+                pos, y_i = read(StructType(FT_i), buf, pos, len, b, FT_i)
+                is_included && setfield!(x, i, y_i)
             end,
             i -> begin
-                j = Base.fieldindex(T, key, false)
-                if j > 0
-                    pos, y_j = read(StructType(FT), buf, pos, len, b, FT)
-                    is_included && setfield!(x, key, y_j)
-                else
+                is_field_still_unread = true
+                for j in 33:N
+                    fieldname(T, j) === key || continue
+                    FT_j = fieldtype(T, j)
+                    pos, y_j = read(StructType(FT_j), buf, pos, len, b, FT_j)
+                    is_included && setfield!(x, j, y_j)
+                    is_field_still_unread = false
+                    break
+                end
+                if is_field_still_unread
                     pos, _ = read(Struct(), buf, pos, len, b, Any)
                 end
             end
