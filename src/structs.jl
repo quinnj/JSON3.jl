@@ -605,6 +605,8 @@ keyvalue(::Type{T}, escaped, ptr, len) where {T} = escaped ? construct(T, unesca
     invalid(error, buf, pos, Object)
 end
 
+@noinline _throw_100_field_error() = error("JSON3 does not yet support struct-based deserialization for structs with more than 100 fields")
+
 @inline function read(::Mutable, buf, pos, len, b, ::Type{T}) where {T}
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
@@ -623,6 +625,7 @@ end
         @goto invalid
     end
     N = fieldcount(T)
+    N > 100 && _throw_100_field_error()
     nms = names(T)
     excl = excludes(T)
     pos += 1
@@ -659,18 +662,17 @@ end
         @eof
         b = getbyte(buf, pos)
         @wh
-        # read value
-        ind = Base.fieldindex(T, key, false)
-        if ind > 0
-            is_included = !symbolin(excl, key)
-            Base.@nexprs 32 i -> begin
-                if i <= N && fieldname(T, i) === key
-                    FT = fieldtype(T, i)
-                    pos, y = read(StructType(FT), buf, pos, len, b, FT)
-                    is_included && setfield!(x, key, y)
-                end
+        is_included = !symbolin(excl, key)
+        is_field_still_unread = true
+        Base.@nexprs 100 i -> begin
+            if i <= N && fieldname(T, i) === key
+                FT = fieldtype(T, i)
+                pos, y = read(StructType(FT), buf, pos, len, b, FT)
+                is_included && setfield!(x, key, y)
+                is_field_still_unread = false
             end
-        else
+        end
+        if is_field_still_unread
             # read the unknown key's value, but ignore it
             pos, _ = read(Struct(), buf, pos, len, b, Any)
         end
