@@ -605,8 +605,6 @@ keyvalue(::Type{T}, escaped, ptr, len) where {T} = escaped ? construct(T, unesca
     invalid(error, buf, pos, Object)
 end
 
-@noinline _throw_100_field_error() = error("JSON3 does not yet support struct-based deserialization for structs with more than 100 fields")
-
 @inline function read(::Mutable, buf, pos, len, b, ::Type{T}) where {T}
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
@@ -662,6 +660,7 @@ end
         b = getbyte(buf, pos)
         @wh
         is_included = !symbolin(excl, key)
+        # unroll the first 32 field checks to avoid dynamic dispatch if possible
         Base.@nif(
             32,
             i -> (i <= N && fieldname(T, i) === key),
