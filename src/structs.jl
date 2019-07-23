@@ -663,19 +663,18 @@ end
         b = getbyte(buf, pos)
         @wh
         is_included = !symbolin(excl, key)
-        is_field_still_unread = true
-        Base.@nexprs 100 i -> begin
-            if i <= N && fieldname(T, i) === key
+        Base.@nif(
+            100,
+            i -> (i <= N && fieldname(T, i) === key),
+            i -> begin
                 FT = fieldtype(T, i)
                 pos, y = read(StructType(FT), buf, pos, len, b, FT)
                 is_included && setfield!(x, key, y)
-                is_field_still_unread = false
+            end,
+            i -> begin
+                pos, _ = read(Struct(), buf, pos, len, b, Any)
             end
-        end
-        if is_field_still_unread
-            # read the unknown key's value, but ignore it
-            pos, _ = read(Struct(), buf, pos, len, b, Any)
-        end
+        )
         @eof
         b = getbyte(buf, pos)
         @wh
