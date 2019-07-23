@@ -625,7 +625,6 @@ end
         @goto invalid
     end
     N = fieldcount(T)
-    N > 100 && _throw_100_field_error()
     nms = names(T)
     excl = excludes(T)
     pos += 1
@@ -664,15 +663,21 @@ end
         @wh
         is_included = !symbolin(excl, key)
         Base.@nif(
-            100,
+            32,
             i -> (i <= N && fieldname(T, i) === key),
             i -> begin
                 FT = fieldtype(T, i)
-                pos, y = read(StructType(FT), buf, pos, len, b, FT)
-                is_included && setfield!(x, key, y)
+                pos, y_i = read(StructType(FT), buf, pos, len, b, FT)
+                is_included && setfield!(x, key, y_i)
             end,
             i -> begin
-                pos, _ = read(Struct(), buf, pos, len, b, Any)
+                j = Base.fieldindex(T, key, false)
+                if j > 0
+                    pos, y_j = read(StructType(FT), buf, pos, len, b, FT)
+                    is_included && setfield!(x, key, y_j)
+                else
+                    pos, _ = read(Struct(), buf, pos, len, b, Any)
+                end
             end
         )
         @eof
