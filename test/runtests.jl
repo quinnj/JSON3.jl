@@ -324,6 +324,7 @@ JSON3.StructType(::Type{C}) = JSON3.Struct()
 @test JSON3.read("[1,2,3]", Base.Array{Any}) == [1,2,3]
 @test JSON3.read("[]", Vector{Any}) == []
 @test JSON3.read("{}", Dict{Symbol, Any}) == Dict{Symbol, Any}()
+@test JSON3.read("{\"a\":\"b\\/c\"}").a == "b/c"
 
 @test_throws ArgumentError JSON3.read("hey", Any)
 @test_throws ArgumentError JSON3.read("hey", String)
