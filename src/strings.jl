@@ -23,7 +23,7 @@ end
 Base.String(x::PointerString) = unsafe_string(x.ptr, x.len)
 
 function reverseescapechar(b)
-    b == UInt8('"')     && return UInt8('"')
+    b == UInt8('"')  && return UInt8('"')
     b == UInt8('\\') && return UInt8('\\')
     b == UInt8('/')  && return UInt8('/')
     b == UInt8('b')  && return UInt8('\b')
