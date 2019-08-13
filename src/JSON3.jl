@@ -7,7 +7,7 @@ struct Object{S <: AbstractVector{UInt8}, TT <: AbstractVector{UInt64}} <: Abstr
     tape::TT
 end
 
-Object() = Object(codeunits(""), UInt64[object(2), 0])
+Object() = Object(codeunits(""), UInt64[object(Int64(2)), 0])
 
 struct Array{T, S <: AbstractVector{UInt8}, TT <: AbstractVector{UInt64}} <: AbstractVector{T}
     buf::S

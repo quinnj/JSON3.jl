@@ -30,7 +30,7 @@ function read(str::AbstractString)
     @wh
     tape = len > div(Mmap.PAGESIZE, 2) ? Mmap.mmap(Vector{UInt64}, len) :
         Vector{UInt64}(undef, len + 2)
-    pos, tapeidx = read!(buf, 1, len, b, tape, 1, Any)
+    pos, tapeidx = read!(buf, Int64(1), len, b, tape, Int64(1), Any)
     @inbounds t = tape[1]
     if isobject(t)
         return Object(buf, tape)
@@ -83,7 +83,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{String})
     pos += 1
     @eof
     strpos = pos
-    strlen = 0
+    strlen = Int64(0)
     escaped = false
     b = getbyte(buf, pos)
     while b != UInt8('"')
@@ -159,8 +159,8 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Object})
     b = getbyte(buf, pos)
     @wh
     if b == UInt8('}')
-        @inbounds tape[tapeidx] = object(2)
-        @inbounds tape[tapeidx+1] = eltypelen(eT, 0)
+        @inbounds tape[tapeidx] = object(Int64(2))
+        @inbounds tape[tapeidx+1] = eltypelen(eT, Int64(0))
         tapeidx += 2
         pos += 1
         @goto done
@@ -171,10 +171,10 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Object})
     pos += 1
     @eof
     tapeidx += 2
-    nelem = 0
+    nelem = Int64(0)
     while true
         keypos = pos
-        keylen = 0
+        keylen = Int64(0)
         escaped = false
         # read first key character
         b = getbyte(buf, pos)
@@ -250,14 +250,14 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Array})
     b = getbyte(buf, pos)
     @wh
     if b == UInt8(']')
-        @inbounds tape[tapeidx] = array(2)
-        @inbounds tape[tapeidx+1] = eltypelen(eT, 0)
+        @inbounds tape[tapeidx] = array(Int64(2))
+        @inbounds tape[tapeidx+1] = eltypelen(eT, Int64(0))
         tapeidx += 2
         pos += 1
         @goto done
     end
     tapeidx += 2
-    nelem = 0
+    nelem = Int64(0)
     while true
         # positioned at start of value
         prevtapeidx = tapeidx

@@ -64,11 +64,9 @@ end
 
 @test_throws ArgumentError JSON3.read("")
 @test JSON3.read("{\"hey\":1}").hey == 1
-show(JSON3.read("{\"hey\":1}"))
 @test JSON3.read("[\"hey\",1]") == ["hey",1]
-show(JSON3.read("[\"hey\",1]"))
-@test JSON3.read("1.0") === 1
-@test JSON3.read("1") === 1
+@test JSON3.read("1.0") === Int64(1)
+@test JSON3.read("1") === Int64(1)
 @test JSON3.read("1.1") === 1.1
 @test JSON3.read("+1.1") === 1.1
 @test JSON3.read("-1.1") === -1.1
