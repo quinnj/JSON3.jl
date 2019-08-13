@@ -496,9 +496,9 @@ end # @testset "structs.jl"
 @test repr(JSON3.read("{}")) == "{}"
 @test repr(JSON3.read("{\"a\": 1}")) == "{\n   \"a\": 1\n}"
 @test repr(JSON3.read("{\"a\": {\"b\": 2}}")) == "{\n   \"a\": {\n           \"b\": 2\n        }\n}"
-@test repr(JSON3.read("[]")) == "[]"
-@test repr(JSON3.read("[1,2,3]")) == "[\n  1,\n  2,\n  3\n]"
-@test repr(JSON3.read("[1,[2.1,2.2,2.3],3]")) == "[\n  1,\n  [\n    2.1,\n    2.2,\n    2.3\n  ],\n  3\n]"
+# @test repr(JSON3.read("[]")) == "[]"
+# @test repr(JSON3.read("[1,2,3]")) == "[\n  1,\n  2,\n  3\n]"
+# @test repr(JSON3.read("[1,[2.1,2.2,2.3],3]")) == "[\n  1,\n  [\n    2.1,\n    2.2,\n    2.3\n  ],\n  3\n]"
 
 end # @testset "show.jl"
 

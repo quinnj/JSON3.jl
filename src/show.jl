@@ -1,5 +1,6 @@
 Base.show(io::IO, j::Object) = _show(io, j)
-Base.show(io::IO, j::Array) = _show(io, j)
+# use the Base fallback AbstractArray show method instead
+# Base.show(io::IO, j::Array) = _show(io, j)
 _show(io::IO, x, indent=0, offset=0) = show(io, x)
 
 function _show(io::IO, obj::Object, indent=0, offset=0)
