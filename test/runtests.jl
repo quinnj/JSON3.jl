@@ -64,11 +64,9 @@ end
 
 @test_throws ArgumentError JSON3.read("")
 @test JSON3.read("{\"hey\":1}").hey == 1
-show(JSON3.read("{\"hey\":1}"))
 @test JSON3.read("[\"hey\",1]") == ["hey",1]
-show(JSON3.read("[\"hey\",1]"))
-@test JSON3.read("1.0") === 1
-@test JSON3.read("1") === 1
+@test JSON3.read("1.0") === Int64(1)
+@test JSON3.read("1") === Int64(1)
 @test JSON3.read("1.1") === 1.1
 @test JSON3.read("+1.1") === 1.1
 @test JSON3.read("-1.1") === -1.1
@@ -492,6 +490,17 @@ expr = JSON3.read("""
 @test JSON3.write(Vehicle) == "\"Vehicle\""
 
 end # @testset "structs.jl"
+
+@testset "show.jl" begin
+
+@test repr(JSON3.read("{}")) == "{}"
+@test repr(JSON3.read("{\"a\": 1}")) == "{\n   \"a\": 1\n}"
+@test repr(JSON3.read("{\"a\": {\"b\": 2}}")) == "{\n   \"a\": {\n           \"b\": 2\n        }\n}"
+# @test repr(JSON3.read("[]")) == "[]"
+# @test repr(JSON3.read("[1,2,3]")) == "[\n  1,\n  2,\n  3\n]"
+# @test repr(JSON3.read("[1,[2.1,2.2,2.3],3]")) == "[\n  1,\n  [\n    2.1,\n    2.2,\n    2.3\n  ],\n  3\n]"
+
+end # @testset "show.jl"
 
 include("json.jl")
 
