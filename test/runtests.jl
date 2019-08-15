@@ -583,4 +583,8 @@ t = JSON3.write(d)
 obj = JSON3.read("{\"hey\":1}")
 @test get(obj, :hey) == get(obj, "hey") == get(obj, "hey", "") == get(()->"", obj, "hey")
 
+# copy issue
+obj = JSON3.read("{\"a\":\"b\", \"b\":null, \"c\":[null,null]}")
+@test copy(obj) == Dict(:a => "b", :b => nothing, :c => [nothing, nothing])
+
 end # @testset "JSON3"

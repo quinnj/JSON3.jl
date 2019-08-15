@@ -129,7 +129,7 @@ Base.getindex(obj::Object, str::String) = get(obj, Symbol(str))
 function Base.copy(obj::Object)
     dict = Dict{Symbol, Any}()
     for (k, v) in obj
-        dict[k] = copy(v)
+        dict[k] = v isa Object || v isa Array ? copy(v) : v
     end
     return dict
 end
@@ -174,7 +174,7 @@ end
     end
 end
 
-Base.copy(arr::Array) = map(copy, arr)
+Base.copy(arr::Array) = map(x->x isa Object || x isa Array ? copy(x) : x, arr)
 
 include("read.jl")
 include("strings.jl")
