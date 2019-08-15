@@ -1,7 +1,7 @@
 name = "JSON3"
 uuid = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 authors = ["Jacob Quinn <quinn.jacobd@gmail.com>"]
-version = "0.1.8"
+version = "0.1.9"
 
 [deps]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
