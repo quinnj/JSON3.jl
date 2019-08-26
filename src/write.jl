@@ -15,7 +15,7 @@ function write(io::IO, obj::T) where {T}
     len = defaultminimum(obj)
     buf = Base.StringVector(len)
     buf, pos, len = write(StructType(obj), buf, 1, length(buf), obj)
-    return write(io, resize!(buf, pos - 1))
+    return Base.write(io, resize!(buf, pos - 1))
 end
 
 function write(obj::T) where {T}
