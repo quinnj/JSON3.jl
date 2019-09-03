@@ -1,5 +1,6 @@
 defaultminimum(::Union{Nothing, Missing}) = 4
 defaultminimum(::Number) = 20
+defaultminimum(::T) where {T <: Base.IEEEFloat} = Parsers.neededdigits(T)
 defaultminimum(x::Bool) = ifelse(x, 4, 5)
 defaultminimum(x::AbstractString) = ncodeunits(x) + 2
 defaultminimum(x::Symbol) = ccall(:strlen, Csize_t, (Cstring,), x) + 2
@@ -12,16 +13,16 @@ defaultminimum(x) = max(2, sizeof(x))
 
 function write(io::IO, obj::T) where {T}
     len = defaultminimum(obj)
-    buf = len < Mmap.PAGESIZE ? zeros(UInt8, len) : Mmap.mmap(Vector{UInt8}, len)
+    buf = Base.StringVector(len)
     buf, pos, len = write(StructType(obj), buf, 1, length(buf), obj)
-    return GC.@preserve buf Base.unsafe_write(io, pointer(buf), pos - 1)
+    return Base.write(io, resize!(buf, pos - 1))
 end
 
 function write(obj::T) where {T}
     len = defaultminimum(obj)
-    buf = len < Mmap.PAGESIZE ? zeros(UInt8, len) : Mmap.mmap(Vector{UInt8}, len)
+    buf = Base.StringVector(len)
     buf, pos, len = write(StructType(obj), buf, 1, length(buf), obj)
-    return GC.@preserve buf unsafe_string(pointer(buf), pos - 1)
+    return String(resize!(buf, pos - 1))
 end
 
 _getfield(x, i) = isdefined(x, i) ? Core.getfield(x, i) : nothing
@@ -33,7 +34,7 @@ _isempty(x) = false
 
 @noinline function realloc!(buf, len, n)
     # println("re-allocing...")
-    new = Mmap.mmap(Vector{UInt8}, max(n, trunc(Int, len * 1.25)))
+    new = zeros(UInt8, max(n, trunc(Int, len * 1.25)))
     copyto!(new, 1, buf, 1, len)
     return new, length(new)
 end
@@ -192,6 +193,16 @@ function write(::NumberType, buf, pos, len, x::AbstractFloat)
         @inbounds @writechar bytes[i]
     end
 
+    return buf, pos, len
+end
+
+@inline function write(::NumberType, buf, pos, len, x::T) where {T <: Base.IEEEFloat}
+    if !isfinite(x)
+        @writechar 'n' 'u' 'l' 'l'
+        return buf, pos, len
+    end
+    @check Parsers.neededdigits(T)
+    pos = Parsers.writeshortest(buf, pos, x)
     return buf, pos, len
 end
 
