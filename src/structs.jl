@@ -371,6 +371,7 @@ function construct(::Type{E}, ptr::Ptr{UInt8}, len::Int) where {E <: Enum}
 end
 
 construct(T, str::String) = T(str)
+construct(::Type{Int}, str::String) = Parsers.parse(Int, str)
 construct(T, ptr::Ptr{UInt8}, len::Int) = construct(T, unsafe_string(ptr, len))
 construct(::Type{Symbol}, ptr::Ptr{UInt8}, len::Int) = _symbol(ptr, len)
 
