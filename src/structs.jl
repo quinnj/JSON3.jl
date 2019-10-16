@@ -468,8 +468,10 @@ StructType(::Type{<:Tuple}) = ArrayType()
 construct(T, x::Vector{S}) where {S} = T(x)
 
 @inline read(::ArrayType, buf, pos, len, b, ::Type{T}) where {T} = read(ArrayType(), buf, pos, len, b, T, Base.IteratorEltype(T) == Base.HasEltype() ? eltype(T) : Any)
+@inline read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T, eT} = readarray(buf, pos, len, b, T, eT)
+read(::ArrayType, buf, pos, len, b, ::Type{Tuple}, ::Type{eT}) where {eT} = readarray(buf, pos, len, b, Tuple, eT)
 
-@inline function read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T, eT}
+@inline function readarray(buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T, eT}
     if b != UInt8('[')
         error = ExpectedOpeningArrayChar
         @goto invalid
