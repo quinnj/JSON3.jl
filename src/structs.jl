@@ -468,8 +468,10 @@ StructType(::Type{<:Tuple}) = ArrayType()
 construct(T, x::Vector{S}) where {S} = T(x)
 
 @inline read(::ArrayType, buf, pos, len, b, ::Type{T}) where {T} = read(ArrayType(), buf, pos, len, b, T, Base.IteratorEltype(T) == Base.HasEltype() ? eltype(T) : Any)
+@inline read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T, eT} = readarray(buf, pos, len, b, T, eT)
+read(::ArrayType, buf, pos, len, b, ::Type{Tuple}, ::Type{eT}) where {eT} = readarray(buf, pos, len, b, Tuple, eT)
 
-@inline function read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T, eT}
+@inline function readarray(buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T, eT}
     if b != UInt8('[')
         error = ExpectedOpeningArrayChar
         @goto invalid
@@ -480,7 +482,7 @@ construct(T, x::Vector{S}) where {S} = T(x)
     @wh
     vals = Vector{eT}(undef, 0)
     if b == UInt8(']')
-        return pos + 1, T(vals)
+        return pos + 1, construct(T, vals)
     end
     while true
         # positioned at start of value
@@ -500,6 +502,70 @@ construct(T, x::Vector{S}) where {S} = T(x)
         b = getbyte(buf, pos)
         @wh
     end
+
+@label invalid
+    invalid(error, buf, pos, T)
+end
+
+@inline function read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T <: Tuple, eT}
+    if b != UInt8('[')
+        error = ExpectedOpeningArrayChar
+        @goto invalid
+    end
+    pos += 1
+    @eof
+    b = getbyte(buf, pos)
+    @wh
+    if b == UInt8(']')
+        pos += 1
+        return pos, T()
+    end
+    N = fieldcount(T)
+    Base.@nexprs 32 i -> begin
+        # positioned at start of value
+        eT_i = fieldtype(T, i)
+        pos, x_i = read(StructType(eT_i), buf, pos, len, b, eT_i)
+        @eof
+        b = getbyte(buf, pos)
+        @wh
+        if N == i
+            if b == UInt8(']')
+                return pos, Base.@ncall i tuple x
+            else
+                error = ExpectedClosingArrayChar
+                @goto invalid
+            end
+        elseif b != UInt8(',')
+            error = ExpectedComma
+            @goto invalid
+        end
+        pos += 1
+        @eof
+        b = getbyte(buf, pos)
+        @wh
+    end
+    vals = []
+    for i = 33:N
+        eT_i = fieldtype(T, i)
+        pos, y = read(StructType(eT_i), buf, pos, len, b, eT_i)
+        push!(vals, y)
+        @eof
+        b = getbyte(buf, pos)
+        @wh
+        if b == UInt8(']')
+            pos += 1
+            break
+        elseif b != UInt8(',')
+            error = ExpectedComma
+            @goto invalid
+        end
+        pos += 1
+        @eof
+        b = getbyte(buf, pos)
+        @wh
+    end
+    return pos, (x_1, x_2, x_3, x_4, x_5, x_6, x_7, x_8, x_9, x_10, x_11, x_12, x_13, x_14, x_15, x_16,
+                  x_17, x_18, x_19, x_20, x_21, x_22, x_23, x_24, x_25, x_26, x_27, x_28, x_29, x_30, x_31, x_32, vals...)
 
 @label invalid
     invalid(error, buf, pos, T)
@@ -741,8 +807,8 @@ end
         pos, y = readvalue(buf, pos, len, fieldtype(T, i))
         push!(vals, y)
     end
-    return pos, T(x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16,
-                  x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, vals...)
+    return pos, T(x_1, x_2, x_3, x_4, x_5, x_6, x_7, x_8, x_9, x_10, x_11, x_12, x_13, x_14, x_15, x_16,
+                  x_17, x_18, x_19, x_20, x_21, x_22, x_23, x_24, x_25, x_26, x_27, x_28, x_29, x_30, x_31, x_32, vals...)
 
 @label invalid
     invalid(error, buf, pos, T)

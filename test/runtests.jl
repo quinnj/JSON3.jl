@@ -58,6 +58,44 @@ struct AndFunction <: BinaryFunction
     rhs::Expression
 end
 
+struct LotsOfFields
+    x1::String
+    x2::String
+    x3::String
+    x4::String
+    x5::String
+    x6::String
+    x7::String
+    x8::String
+    x9::String
+    x10::String
+    x11::String
+    x12::String
+    x13::String
+    x14::String
+    x15::String
+    x16::String
+    x17::String
+    x18::String
+    x19::String
+    x20::String
+    x21::String
+    x22::String
+    x23::String
+    x24::String
+    x25::String
+    x26::String
+    x27::String
+    x28::String
+    x29::String
+    x30::String
+    x31::String
+    x32::String
+    x33::String
+    x34::String
+    x35::String
+end
+
 @testset "JSON3" begin
 
 @testset "read.jl" begin
@@ -489,6 +527,12 @@ expr = JSON3.read("""
 @test JSON3.write(B) == "\"B\""
 @test JSON3.write(Vehicle) == "\"Vehicle\""
 
+JSON3.StructType(::Type{LotsOfFields}) = JSON3.Struct()
+lotsoffields = LotsOfFields(fill("hey", 35)...)
+jlots = JSON3.write(lotsoffields)
+@test jlots == "{\"x1\":\"hey\",\"x2\":\"hey\",\"x3\":\"hey\",\"x4\":\"hey\",\"x5\":\"hey\",\"x6\":\"hey\",\"x7\":\"hey\",\"x8\":\"hey\",\"x9\":\"hey\",\"x10\":\"hey\",\"x11\":\"hey\",\"x12\":\"hey\",\"x13\":\"hey\",\"x14\":\"hey\",\"x15\":\"hey\",\"x16\":\"hey\",\"x17\":\"hey\",\"x18\":\"hey\",\"x19\":\"hey\",\"x20\":\"hey\",\"x21\":\"hey\",\"x22\":\"hey\",\"x23\":\"hey\",\"x24\":\"hey\",\"x25\":\"hey\",\"x26\":\"hey\",\"x27\":\"hey\",\"x28\":\"hey\",\"x29\":\"hey\",\"x30\":\"hey\",\"x31\":\"hey\",\"x32\":\"hey\",\"x33\":\"hey\",\"x34\":\"hey\",\"x35\":\"hey\"}"
+@test JSON3.read(jlots, LotsOfFields) == lotsoffields
+
 end # @testset "structs.jl"
 
 @testset "show.jl" begin
@@ -586,5 +630,10 @@ obj = JSON3.read("{\"hey\":1}")
 # copy issue
 obj = JSON3.read("{\"a\":\"b\", \"b\":null, \"c\":[null,null]}")
 @test copy(obj) == Dict(:a => "b", :b => nothing, :c => [nothing, nothing])
+
+# better Tuple reading support
+@test JSON3.read("[\"car\",\"Mercedes\"]", Tuple{Symbol, String}) == (:car, "Mercedes")
+@test JSON3.read("[\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\"]", NTuple{35, String}) ==
+    ("hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey")
 
 end # @testset "JSON3"

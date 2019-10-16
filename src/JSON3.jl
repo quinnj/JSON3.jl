@@ -26,7 +26,7 @@ invalid JSON at byte position $pos while parsing type $T: $error
 $(String(buf[max(1, pos-25):min(end, pos+25)]))
 """))
 
-@enum Error UnexpectedEOF ExpectedOpeningObjectChar ExpectedOpeningQuoteChar ExpectedOpeningArrayChar ExpectedComma ExpectedSemiColon InvalidChar
+@enum Error UnexpectedEOF ExpectedOpeningObjectChar ExpectedOpeningQuoteChar ExpectedOpeningArrayChar ExpectedClosingArrayChar ExpectedComma ExpectedSemiColon InvalidChar
 
 # AbstractDict interface
 function Base.length(obj::Object)
