@@ -530,7 +530,7 @@ end
         @wh
         if N == i
             if b == UInt8(']')
-                return pos, Base.@ncall i tuple x
+                return pos + 1, Base.@ncall i tuple x
             else
                 error = ExpectedClosingArrayChar
                 @goto invalid
@@ -842,6 +842,7 @@ end
         pos += 1
         return pos, y
     elseif b != UInt8(',')
+        @show pos, y, Char(b)
         error = ExpectedComma
         @goto invalid
     end

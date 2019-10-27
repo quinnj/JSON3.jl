@@ -1,5 +1,9 @@
 using Test, JSON3, UUIDs
 
+struct data
+    t :: Tuple{Symbol, String}
+end
+
 @enum Fruit apple banana
 
 struct XInt
@@ -635,5 +639,8 @@ obj = JSON3.read("{\"a\":\"b\", \"b\":null, \"c\":[null,null]}")
 @test JSON3.read("[\"car\",\"Mercedes\"]", Tuple{Symbol, String}) == (:car, "Mercedes")
 @test JSON3.read("[\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\"]", NTuple{35, String}) ==
     ("hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey")
+
+JSON3.StructType(::Type{data}) = JSON3.Struct()
+@test JSON3.read("{\"t\":[\"car\",\"Mercedes\"]}", data) == data((:car, "Mercedes"))
 
 end # @testset "JSON3"
