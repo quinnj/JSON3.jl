@@ -12,7 +12,7 @@ JSON3.read(json_string)
 JSON3.write(x)
 
 # custom types
-JSON3.read(json_string, T)
+JSON3.read(json_string, T; kw...)
 JSON3.write(x)
 ```
 
@@ -32,9 +32,10 @@ semi-lazy parsing of JSON to the `JSON3.Object` or `JSON3.Array` types. The tech
 the ***positions*** of objects, arrays, and strings in a JSON structure, while avoiding the cost of ***materializing*** such
 objects. For "scalar" types (number, bool, and null), the values are parsed immediately and stored inline in the "tape". This can result in best of both worlds performance: very fast initial parsing of a JSON input, and very cheap access afterwards. It also enables efficiencies in workflows where only small pieces of a JSON structure are needed, because expensive objects, arrays, and strings aren't materialized unless accessed. One additional advantage this technique allows is strong typing of `JSON3.Array{T}`; because the type of each element is noted while parsing, the `JSON3.Array` object can then be constructed with the most narrow type possible without having to reallocate any underlying data (since all data is stored in a type-less "tape" anyway).
 
-The `JSON3.Object` supports the `AbstactDict` interface, but is read-only (it represents a ***view*** into the JSON string input), thus it supports `obj[:x]` and `obj["x"]`, as well as `obj.x` for accessing fields. It supports `keys(obj)` to see available keys in the object structure. You can call `length(obj)` to see how many key-value pairs there are, and it iterates `(k, v)` pairs like a normal `Dict`. It also supports the regular `get(obj, key, default)` family of methods.
+The `JSON3.Object` supports the `AbstactDict` interface, but is read-only (it represents a ***view*** into the JSON string input), thus it supports `obj[:x]` and `obj["x"]`, as well as `obj.x` for accessing fields. It supports `keys(obj)` to see available keys in the object structure. You can call `length(obj)` to see how many key-value pairs there are, and it iterates `(k, v)` pairs like a normal `Dict`. It also supports the regular `get(obj, key, default)` family of methods. PLEASE NOTE that iterating key-value pairs from `JSON3.Object` will be much more performant than calling `getindex` or `get`on each key due to the internal "view" nature of the object.
 
-The `JSON3.Array{T}` supports the `AbstractArray` interface, but like `JSON3.Object` is a ***view*** into the input JSON, hence is read-only. It supports normal array methods like `length(A)`, `size(A)`, iteration, and `A[i]` `getindex` methods.
+The `JSON3.Array{T}` supports the `AbstractArray` interface, but like `JSON3.Object` is a ***view*** into the input JSON, hence is read-only. It supports normal array methods like `length(A)`, `size(A)`, iteration, and `A[i]` `getindex` methods. PLEASE NOTE that iterating a `JSON3.Array` will be much more performant than calling `getindex` on
+each index due to the internal "view" nature of the array.
 
 ## Struct API
 
@@ -78,6 +79,10 @@ There are a few additional helper methods that can be utilized by `JSON3.Mutable
 * `JSON3.names(::Type{MyType}) = ((:field1, :json1), (:field2, :json2))`: provides a mapping of Julia field name to expected JSON object key name. This affects both reading and writing. When reading the `json1` key, the `field1` field of `MyType` will be set. When writing the `field2` field of `MyType`, the JSON key will be `json2`.
 * `JSON3.excludes(::Type{MyType}) = (:field1, :field2)`: specify fields of `MyType` to ignore when reading and writing, provided as a `Tuple` of `Symbol`s. When reading, if `field1` is encountered as a JSON key, it's value will be read, but the field will not be set in `MyType`. When writing, `field1` will be skipped when writing out `MyType` fields as key-value pairs.
 * `JSON3.omitempties(::Type{MyType}) = (:field1, :field2)`: specify fields of `MyType` that shouldn't be written if they are "empty", provided as a `Tuple` of `Symbol`s. This only affects writing. If a field is a collection (AbstractDict, AbstractArray, etc.) and `isempty(x) === true`, then it will not be written. If a field is `#undef`, it will not be written. If a field is `nothing`, it will not be written. 
+* `JSON3.keywordargs(::Type{MyType}) = (field1=(dateformat=dateformat"mm/dd/yyyy",), field2=(dateformat=dateformat"HH MM SS",))`: Specify for a `JSON3.Mutable` `StructType` the keyword arguments by field, given as a `NamedTuple` of `NamedTuple`s, that should be passed
+to the `JSON3.construct` method when deserializing `MyType`. This essentially allows defining specific keyword arguments you'd like to be passed for each field
+in your struct. Note that keyword arguments can be passed when reading, like `JSON3.read(source, MyType; dateformat=...)` and they will be passed down to each `JSON3.construct` method.
+`JSON3.keywordargs` just allows the defining of specific keyword arguments per field.
 
 ### JSONTypes
 
@@ -109,7 +114,7 @@ So if your type subtypes `AbstractDict` and implements its interface, then JSON 
 Otherwise, the interface to satisfy `JSON3.ObjectType()` for reading is:
 
   * `MyType(x::Dict{Symbol, Any})`: implement a constructor that takes a `Dict{Symbol, Any}` of key-value pairs parsed from JSOn
-  * `JSON3.construct(::Type{MyType}, x::Dict)`: alternatively, you may overload the `JSON3.construct` method for your type if defining a constructor is undesirable (or would cause other clashes or ambiguities)
+  * `JSON3.construct(::Type{MyType}, x::Dict; kw...)`: alternatively, you may overload the `JSON3.construct` method for your type if defining a constructor is undesirable (or would cause other clashes or ambiguities)
 
 The interface to satisfy for writing is:
 
@@ -132,7 +137,7 @@ So if your type already subtypes these and satifies the interface, things should
 Otherwise, the interface to satisfy `JSON3.ArrayType()` for reading is:
 
   * `MyType(x::Vector)`: implement a constructo that takes a `Vector` argument of values and constructs a `MyType`
-  * `JSON3.construct(::Type{MyType}, x::Vector)`: alternatively, you may overload the `JSON3.construct` method for your type if defining a constructor isn't possible
+  * `JSON3.construct(::Type{MyType}, x::Vector; kw...)`: alternatively, you may overload the `JSON3.construct` method for your type if defining a constructor isn't possible
   * Optional: `Base.IteratorEltype(::Type{MyType})` and `Base.eltype(x::MyType)`: this can be used to signal to JSON3 that elements for your type are expected to be a single type and JSON3 will attempt to parse as such
 
 The interface to satisfy for writing is:
@@ -156,8 +161,8 @@ So if your type is an `AbstractString` or `Enum`, then things should already wor
 Otherwise, the interface to satisfy `JSON3.StringType()` for reading is:
 
   * `MyType(x::String)`: define a constructor for your type that takes a single String argument
-  * `JSON3.construct(::Type{MyType}, x::String)`: alternatively, you may overload `JSON3.construct` for your type
-  * `JSON3.construct(::Type{MyType}, ptr::Ptr{UInt8}, len::Int)`: another option is to overload `JSON3.construct` with pointer and length arguments, if it's possible for your custom type to take advantage of avoiding the full string materialization; note that your type should implement both `JSON3.construct` methods, since JSON strings with escape characters in them will be fully unescaped before calling `JSON3.construct(::Type{MyType}, x::String)`, i.e. there is no direct pointer/length method for escaped strings
+  * `JSON3.construct(::Type{MyType}, x::String; kw...)`: alternatively, you may overload `JSON3.construct` for your type
+  * `JSON3.construct(::Type{MyType}, ptr::Ptr{UInt8}, len::Int; kw...)`: another option is to overload `JSON3.construct` with pointer and length arguments, if it's possible for your custom type to take advantage of avoiding the full string materialization; note that your type should implement both `JSON3.construct` methods, since JSON strings with escape characters in them will be fully unescaped before calling `JSON3.construct(::Type{MyType}, x::String)`, i.e. there is no direct pointer/length method for escaped strings
 
 The interface to satisfy for writing is:
 
@@ -179,7 +184,7 @@ In addition to declaring `JSON3.NumberType()`, custom types can also specify a s
 JSON3.numbertype(::Type{MyType}) = Float64
 ```
 
-In this case, I'm declaring the `MyType` should map to an already-supported number type `Float64`. This means that when reading, JSON3 will first parse a `Float64` value, and then call `MyType(x::Float64)`. Note that custom types may also overload `JSON3.construct(::Type{MyType}, x::Float64)` if using a constructor isn't possible. Also note that the default for any type declared as `JSON3.NumberType()` is `Float64`.
+In this case, I'm declaring the `MyType` should map to an already-supported number type `Float64`. This means that when reading, JSON3 will first parse a `Float64` value, and then call `MyType(x::Float64)`. Note that custom types may also overload `JSON3.construct(::Type{MyType}, x::Float64; kw...)` if using a constructor isn't possible. Also note that the default for any type declared as `JSON3.NumberType()` is `Float64`.
 
 Similarly for writing, JSON3 will first call `Float64(x::MyType)` before writing the resulting `Float64` value out as a JSON number.
 
@@ -194,7 +199,7 @@ Types already declared as `JSON3.BoolType()` include:
 
 The interface to satisfy for reading is:
   * `MyType(x::Bool)`: define a constructor that takes a single `Bool` value
-  * `JSON3.construct(::Type{MyType}, x::Bool)`: alternatively, you may overload `JSON3.construct`
+  * `JSON3.construct(::Type{MyType}, x::Bool; kw...)`: alternatively, you may overload `JSON3.construct`
 
 The interface to satisfy for writing is:
   * `Bool(x::MyType)`: define a conversion to `Bool` method
@@ -211,7 +216,7 @@ Types already declared as `JSON3.NullType()` include:
 
 The interface to satisfy for reading is:
   * `MyType()`: an empty constructor for `MyType`
-  * `JSON3.construct(::Type{MyType}, x::Nothing)`: alternatively, you may overload `JSON3.construct`
+  * `JSON3.construct(::Type{MyType}, x::Nothing; kw...)`: alternatively, you may overload `JSON3.construct`
 
 There is no interface for writing; if a custom type is declared as `JSON3.NullType()`, then the JSON value `null` will be written.
 
