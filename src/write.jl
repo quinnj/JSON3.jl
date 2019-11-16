@@ -11,17 +11,17 @@ defaultminimum(x::Union{Tuple, AbstractSet, AbstractArray}) = isempty(x) ? 2 : s
 defaultminimum(x::Union{AbstractDict, NamedTuple, Pair}) = isempty(x) ? 2 : sum(defaultminimum(k) + defaultminimum(v) for (k, v) in keyvaluepairs(x))
 defaultminimum(x) = max(2, sizeof(x))
 
-function write(io::IO, obj::T) where {T}
+function write(io::IO, obj::T; kw...) where {T}
     len = defaultminimum(obj)
     buf = Base.StringVector(len)
-    buf, pos, len = write(StructType(obj), buf, 1, length(buf), obj)
+    buf, pos, len = write(StructType(obj), buf, 1, length(buf), obj; kw...)
     return Base.write(io, resize!(buf, pos - 1))
 end
 
-function write(obj::T) where {T}
+function write(obj::T; kw...) where {T}
     len = defaultminimum(obj)
     buf = Base.StringVector(len)
-    buf, pos, len = write(StructType(obj), buf, 1, length(buf), obj)
+    buf, pos, len = write(StructType(obj), buf, 1, length(buf), obj; kw...)
     return String(resize!(buf, pos - 1))
 end
 
@@ -62,26 +62,27 @@ macro writechar(chars...)
 end
 
 # we need to special-case writing Type{T} because of ambiguities w/ StructTypes
-write(::Struct, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
-write(::Mutable, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
-write(::ObjectType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
-write(::ArrayType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
-write(::StringType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
-write(::NumberType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
-write(::NullType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
-write(::BoolType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
-write(::AbstractType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
-write(::NoStructType, buf, pos, len, ::Type{T}) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::Struct, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::Mutable, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::ObjectType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::ArrayType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::StringType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::NumberType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::NullType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::BoolType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::AbstractType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::NoStructType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
 
-write(::NoStructType, buf, pos, len, ::T) where {T} = throw(ArgumentError("$T doesn't have a defined `JSON3.StructType`"))
+write(::NoStructType, buf, pos, len, ::T; kw...) where {T} = throw(ArgumentError("$T doesn't have a defined `JSON3.StructType`"))
 
 # generic object writing
-@inline function write(::Union{Struct, Mutable}, buf, pos, len, x::T) where {T}
+@inline function write(::Union{Struct, Mutable}, buf, pos, len, x::T; kw...) where {T}
     @writechar '{'
     N = fieldcount(T)
     N == 0 && @goto done
     excl = excludes(T)
     nms = names(T)
+    kwargs = keywordargs(T)
     emp = omitempties(T)
     afterfirst = false
     Base.@nexprs 32 i -> begin
@@ -89,10 +90,14 @@ write(::NoStructType, buf, pos, len, ::T) where {T} = throw(ArgumentError("$T do
         if !symbolin(excl, k_i) && (!symbolin(emp, k_i) || !_isempty(x, i))
             afterfirst && @writechar ','
             afterfirst = true
-            buf, pos, len = write(StringType(), buf, pos, len, jsonname(nms, k_i))
+            buf, pos, len = write(StringType(), buf, pos, len, jsonname(nms, k_i); kw...)
             @writechar ':'
             y = _getfield(x, i)
-            buf, pos, len = write(StructType(y), buf, pos, len, y)
+            if isempty(kwargs)
+                buf, pos, len = write(StructType(y), buf, pos, len, y; kw...)
+            else
+                buf, pos, len = write(StructType(y), buf, pos, len, y; kwargs[fieldname(T, i)]...)
+            end
         end
         N == i && @goto done
     end
@@ -101,10 +106,14 @@ write(::NoStructType, buf, pos, len, ::T) where {T} = throw(ArgumentError("$T do
             k_i = fieldname(T, i)
             if !symbolin(excl, k_i) && (!symbolin(emp, k_i) || !_isempty(x, i))
                 @writechar ','
-                buf, pos, len = write(StringType(), buf, pos, len, jsonname(nms, k_i))
+                buf, pos, len = write(StringType(), buf, pos, len, jsonname(nms, k_i); kw...)
                 @writechar ':'
                 y = _getfield(x, i)
-                buf, pos, len = write(StructType(y), buf, pos, len, y)
+                if isempty(kwargs)
+                    buf, pos, len = write(StructType(y), buf, pos, len, y; kw...)
+                else
+                    buf, pos, len = write(StructType(y), buf, pos, len, y; kwargs[fieldname(T, i)]...)
+                end
             end
         end
     end
@@ -114,7 +123,7 @@ write(::NoStructType, buf, pos, len, ::T) where {T} = throw(ArgumentError("$T do
     return buf, pos, len
 end
 
-function write(::ObjectType, buf, pos, len, x::T) where {T}
+function write(::ObjectType, buf, pos, len, x::T; kw...) where {T}
     @writechar '{'
     pairs = keyvaluepairs(x)
     n = length(pairs)
@@ -122,7 +131,7 @@ function write(::ObjectType, buf, pos, len, x::T) where {T}
     for (k, v) in pairs
         buf, pos, len = write(StringType(), buf, pos, len, Base.string(k))
         @writechar ':'
-        buf, pos, len = write(StructType(v), buf, pos, len, v)
+        buf, pos, len = write(StructType(v), buf, pos, len, v; kw...)
         if i < n
             @writechar ','
         end
@@ -134,12 +143,12 @@ function write(::ObjectType, buf, pos, len, x::T) where {T}
     return buf, pos, len
 end
 
-function write(::ArrayType, buf, pos, len, x::T) where {T}
+function write(::ArrayType, buf, pos, len, x::T; kw...) where {T}
     @writechar '['
     n = length(x)
     i = 1
     for y in x
-        buf, pos, len = write(StructType(y), buf, pos, len, y)
+        buf, pos, len = write(StructType(y), buf, pos, len, y; kw...)
         if i < n
             @writechar ','
         end
@@ -149,13 +158,13 @@ function write(::ArrayType, buf, pos, len, x::T) where {T}
     return buf, pos, len
 end
 
-function write(::NullType, buf, pos, len, x)
+function write(::NullType, buf, pos, len, x; kw...)
     @writechar 'n' 'u' 'l' 'l'
     return buf, pos, len
 end
 
-write(::BoolType, buf, pos, len, x) = write(BoolType(), buf, pos, len, Bool(x))
-function write(::BoolType, buf, pos, len, x::Bool)
+write(::BoolType, buf, pos, len, x; kw...) = write(BoolType(), buf, pos, len, Bool(x); kw...)
+function write(::BoolType, buf, pos, len, x::Bool; kw...)
     if x
         @writechar 't' 'r' 'u' 'e'
     else
@@ -165,7 +174,7 @@ function write(::BoolType, buf, pos, len, x::Bool)
 end
 
 # adapted from base/intfuncs.jl
-function write(::NumberType, buf, pos, len, y::Integer)
+function write(::NumberType, buf, pos, len, y::Integer; kw...)
     x, neg = Base.split_sign(y)
     if neg
         @inbounds @writechar UInt8('-')
@@ -180,8 +189,8 @@ function write(::NumberType, buf, pos, len, y::Integer)
     return buf, pos + n, len
 end
 
-write(::NumberType, buf, pos, len, x::T) where {T} = write(NumberType(), buf, pos, len, numbertype(T)(x))
-function write(::NumberType, buf, pos, len, x::AbstractFloat)
+write(::NumberType, buf, pos, len, x::T; kw...) where {T} = write(NumberType(), buf, pos, len, numbertype(T)(x); kw...)
+function write(::NumberType, buf, pos, len, x::AbstractFloat; kw...)
     if !isfinite(x)
         @writechar 'n' 'u' 'l' 'l'
         return buf, pos, len
@@ -196,7 +205,7 @@ function write(::NumberType, buf, pos, len, x::AbstractFloat)
     return buf, pos, len
 end
 
-@inline function write(::NumberType, buf, pos, len, x::T) where {T <: Base.IEEEFloat}
+@inline function write(::NumberType, buf, pos, len, x::T; kw...) where {T <: Base.IEEEFloat}
     if !isfinite(x)
         @writechar 'n' 'u' 'l' 'l'
         return buf, pos, len
@@ -246,8 +255,9 @@ function escapelength(str)
     return x
 end
 
-write(::StringType, buf, pos, len, x) = write(StringType(), buf, pos, len, Base.string(x))
-function write(::StringType, buf, pos, len, x::AbstractString)
+write(::StringType, buf, pos, len, x::T; dateformat::Dates.DateFormat=Dates.default_format(T), kw...) where {T <: Dates.TimeType} = write(StringType(), buf, pos, len, Dates.format(x, dateformat); kw...)
+write(::StringType, buf, pos, len, x; kw...) = write(StringType(), buf, pos, len, Base.string(x); kw...)
+function write(::StringType, buf, pos, len, x::AbstractString; kw...)
     sz = ncodeunits(x)
     el = escapelength(x)
     @check (el + 2)
@@ -270,7 +280,7 @@ function write(::StringType, buf, pos, len, x::AbstractString)
     return buf, pos, len
 end
 
-function write(::StringType, buf, pos, len, x::Symbol)
+function write(::StringType, buf, pos, len, x::Symbol; kw...)
     ptr = Base.unsafe_convert(Ptr{UInt8}, x)
     slen = ccall(:strlen, Csize_t, (Cstring,), ptr)
     @check (slen + 2)

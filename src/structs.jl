@@ -27,7 +27,7 @@ mutable struct MyType
     MyType() = new()
 end
 ```
-Note specifically that we're defining a `mutable struct` to allow field mutation, and providing a `MyType() = new()` inner constructor which constructs an "empty" `MyType` where isbits fields will be randomly initialied, and reference fields will be `#undef`. (Note that the inner constructor doesn't need to be ***exactly*** this, but at least needs to be callable like `MyType()`. If certain fields need to be intialized or zeroed out for security, then this should be accounted for in the inner constructor). For these mutable types, the type will first be initizlied like `MyType()`, then JSON parsing will parse each key-value pair in a JSON object, setting the field as the key is encountered, and converting the JSON value to the appropriate field value. This flow has the nice properties of: allowing parsing success even if fields are missing in the JSON structure, and if "extra" fields exist in the JSON structure that aren't apart of the Julia struct's fields, it will automatically be ignored. This allows for maximum robustness when mapping Julia types to arbitrary JSON objects that may be generated via web services, other language JSON libraries, etc.
+Note specifically that we're defining a `mutable struct` to allow field mutation, and providing a `MyType() = new()` inner constructor which constructs an "empty" `MyType` where isbits fields will be randomly initialized, and reference fields will be `#undef`. (Note that the inner constructor doesn't need to be ***exactly*** this, but at least needs to be callable like `MyType()`. If certain fields need to be intialized or zeroed out for security, then this should be accounted for in the inner constructor). For these mutable types, the type will first be initizlied like `MyType()`, then JSON parsing will parse each key-value pair in a JSON object, setting the field as the key is encountered, and converting the JSON value to the appropriate field value. This flow has the nice properties of: allowing parsing success even if fields are missing in the JSON structure, and if "extra" fields exist in the JSON structure that aren't apart of the Julia struct's fields, it will automatically be ignored. This allows for maximum robustness when mapping Julia types to arbitrary JSON objects that may be generated via web services, other language JSON libraries, etc.
 
 There are a few additional helper methods that can be utilized by `JSON3.Mutable()` types to hand-tune field reading/writing behavior:
 
@@ -93,6 +93,14 @@ omitempties(x::T) where {T} = omitempties(T)
 omitempties(::Type{T}) where {T} = ()
 
 """
+
+"""
+function keywordargs end
+
+keywordargs(x::T) where {T} = keywordargs(T)
+keywordargs(::Type{T}) where {T} = NamedTuple()
+
+"""
     JSON3.JSONType
 
 An abstract type used in the API for "interface types" to map Julia types to a specific JSON type. See docs for the following for more details:
@@ -120,8 +128,8 @@ So if your type subtypes `AbstractDict` and implements its interface, then JSON 
 
 Otherwise, the interface to satisfy `JSON3.ObjectType()` for reading is:
 
-  * `MyType(x::Dict{Symbol, Any})`: implement a constructor that takes a `Dict{Symbol, Any}` of key-value pairs parsed from JSOn
-  * `JSON3.construct(::Type{MyType}, x::Dict)`: alternatively, you may overload the `JSON3.construct` method for your type if defining a constructor is undesirable (or would cause other clashes or ambiguities)
+  * `MyType(x::Dict{Symbol, Any})`: implement a constructor that takes a `Dict{Symbol, Any}` of key-value pairs parsed from JSON
+  * `JSON3.construct(::Type{MyType}, x::Dict; kw...)`: alternatively, you may overload the `JSON3.construct` method for your type if defining a constructor is undesirable (or would cause other clashes or ambiguities)
 
 The interface to satisfy for writing is:
 
@@ -145,7 +153,7 @@ So if your type already subtypes these and satifies the interface, things should
 Otherwise, the interface to satisfy `JSON3.ArrayType()` for reading is:
 
   * `MyType(x::Vector)`: implement a constructo that takes a `Vector` argument of values and constructs a `MyType`
-  * `JSON3.construct(::Type{MyType}, x::Vector)`: alternatively, you may overload the `JSON3.construct` method for your type if defining a constructor isn't possible
+  * `JSON3.construct(::Type{MyType}, x::Vector; kw...)`: alternatively, you may overload the `JSON3.construct` method for your type if defining a constructor isn't possible
   * Optional: `Base.IteratorEltype(::Type{MyType})` and `Base.eltype(x::MyType)`: this can be used to signal to JSON3 that elements for your type are expected to be a single type and JSON3 will attempt to parse as such
 
 The interface to satisfy for writing is:
@@ -170,8 +178,8 @@ So if your type is an `AbstractString` or `Enum`, then things should already wor
 Otherwise, the interface to satisfy `JSON3.StringType()` for reading is:
 
   * `MyType(x::String)`: define a constructor for your type that takes a single String argument
-  * `JSON3.construct(::Type{MyType}, x::String)`: alternatively, you may overload `JSON3.construct` for your type
-  * `JSON3.construct(::Type{MyType}, ptr::Ptr{UInt8}, len::Int)`: another option is to overload `JSON3.construct` with pointer and length arguments, if it's possible for your custom type to take advantage of avoiding the full string materialization; note that your type should implement both `JSON3.construct` methods, since JSON strings with escape characters in them will be fully unescaped before calling `JSON3.construct(::Type{MyType}, x::String)`, i.e. there is no direct pointer/length method for escaped strings
+  * `JSON3.construct(::Type{MyType}, x::String; kw...)`: alternatively, you may overload `JSON3.construct` for your type
+  * `JSON3.construct(::Type{MyType}, ptr::Ptr{UInt8}, len::Int; kw...)`: another option is to overload `JSON3.construct` with pointer and length arguments, if it's possible for your custom type to take advantage of avoiding the full string materialization; note that your type should implement both `JSON3.construct` methods, since JSON strings with escape characters in them will be fully unescaped before calling `JSON3.construct(::Type{MyType}, x::String)`, i.e. there is no direct pointer/length method for escaped strings
 
 The interface to satisfy for writing is:
 
@@ -210,7 +218,7 @@ Types already declared as `JSON3.BoolType()` include:
 
 The interface to satisfy for reading is:
   * `MyType(x::Bool)`: define a constructor that takes a single `Bool` value
-  * `JSON3.construct(::Type{MyType}, x::Bool)`: alternatively, you may overload `JSON3.construct`
+  * `JSON3.construct(::Type{MyType}, x::Bool; kw...)`: alternatively, you may overload `JSON3.construct`
 
 The interface to satisfy for writing is:
   * `Bool(x::MyType)`: define a conversion to `Bool` method
@@ -228,7 +236,7 @@ Types already declared as `JSON3.NullType()` include:
 
 The interface to satisfy for reading is:
   * `MyType()`: an empty constructor for `MyType`
-  * `JSON3.construct(::Type{MyType}, x::Nothing)`: alternatively, you may overload `JSON3.construct`
+  * `JSON3.construct(::Type{MyType}, x::Nothing; kw...)`: alternatively, you may overload `JSON3.construct`
 
 There is no interface for writing; if a custom type is declared as `JSON3.NullType()`, then the JSON value `null` will be written.
 """
@@ -278,10 +286,10 @@ subtypekey(::Type{T}) where {T} = :type
 subtypes(x::T) where {T} = subtypes(T)
 subtypes(::Type{T}) where {T} = NamedTuple()
 
-read(io::IO, ::Type{T}) where {T} = read(Base.read(io, String), T)
-read(bytes::AbstractVector{UInt8}, ::Type{T}) where {T} = read(VectorString(bytes), T)
+read(io::IO, ::Type{T}; kw...) where {T} = read(Base.read(io, String), T; kw...)
+read(bytes::AbstractVector{UInt8}, ::Type{T}; kw...) where {T} = read(VectorString(bytes), T; kw...)
 
-function read(str::AbstractString, ::Type{T}) where {T}
+function read(str::AbstractString, ::Type{T}; kw...) where {T}
     buf = codeunits(str)
     len = length(buf)
     if len == 0
@@ -292,32 +300,32 @@ function read(str::AbstractString, ::Type{T}) where {T}
     pos = 1
     b = getbyte(buf, pos)
     @wh
-    pos, x = read(StructType(T), buf, pos, len, b, T)
+    pos, x = read(StructType(T), buf, pos, len, b, T; kw...)
     return x
 @label invalid
     invalid(error, buf, pos, T)
 end
 
-read(::NoStructType, buf, pos, len, b, ::Type{T}) where {T} = throw(ArgumentError("$T doesn't have a defined `JSON3.StructType`"))
+read(::NoStructType, buf, pos, len, b, ::Type{T}; kw...) where {T} = throw(ArgumentError("$T doesn't have a defined `JSON3.StructType`"))
 
-function read(::Struct, buf, pos, len, b, U::Union)
+function read(::Struct, buf, pos, len, b, U::Union; kw...)
     # Julia implementation detail: Unions are sorted :)
     # This lets us avoid the below try-catch when U <: Union{Missing,T}
     if U.a === Nothing || U.a === Missing
         if buf[pos] == UInt8('n')
             return read(StructType(U.a), buf, pos, len, b, U.a)
         else
-            return read(StructType(U.b), buf, pos, len, b, U.b)
+            return read(StructType(U.b), buf, pos, len, b, U.b; kw...)
         end
     end
     try
-        return read(StructType(U.a), buf, pos, len, b, U.a)
+        return read(StructType(U.a), buf, pos, len, b, U.a; kw...)
     catch e
-        return read(StructType(U.b), buf, pos, len, b, U.b)
+        return read(StructType(U.b), buf, pos, len, b, U.b; kw...)
     end
 end
 
-@inline function read(::Struct, buf, pos, len, b, ::Type{Any})
+@inline function read(::Struct, buf, pos, len, b, ::Type{Any}; kw...)
     if b == UInt8('{')
         return read(ObjectType(), buf, pos, len, b, Dict{String, Any})
     elseif b == UInt8('[')
@@ -349,8 +357,10 @@ StructType(::Type{<:AbstractString}) = StringType()
 StructType(::Type{Symbol}) = StringType()
 StructType(::Type{<:Enum}) = StringType()
 StructType(::Type{Char}) = StringType()
+StructType(::Type{UUID}) = StringType()
+StructType(::Type{T}) where {T <: Dates.TimeType} = StringType()
 
-function construct(::Type{Char}, str::String)
+function construct(::Type{Char}, str::String; kw...)
     if length(str) == 1
         return Char(str[1])
     else
@@ -358,7 +368,7 @@ function construct(::Type{Char}, str::String)
     end
 end
 
-function construct(::Type{E}, ptr::Ptr{UInt8}, len::Int) where {E <: Enum}
+function construct(::Type{E}, ptr::Ptr{UInt8}, len::Int; kw...) where {E <: Enum}
     @static if VERSION < v"1.2.0-DEV.272"
         Core.eval(parentmodule(E), _symbol(ptr, len))
     else
@@ -370,12 +380,12 @@ function construct(::Type{E}, ptr::Ptr{UInt8}, len::Int) where {E <: Enum}
     end
 end
 
-construct(T, str::String) = T(str)
-construct(::Type{Int}, str::String) = Parsers.parse(Int, str)
-construct(T, ptr::Ptr{UInt8}, len::Int) = construct(T, unsafe_string(ptr, len))
-construct(::Type{Symbol}, ptr::Ptr{UInt8}, len::Int) = _symbol(ptr, len)
+construct(T, str::String; kw...) = T(str)
+construct(T, ptr::Ptr{UInt8}, len::Int; kw...) = construct(T, unsafe_string(ptr, len); kw...)
+construct(::Type{Symbol}, ptr::Ptr{UInt8}, len::Int; kw...) = _symbol(ptr, len)
+construct(::Type{T}, str::String; dateformat::Dates.DateFormat=Dates.default_format(T), kw...) where {T <: Dates.TimeType} = T(str, dateformat)
 
-@inline function read(::StringType, buf, pos, len, b, ::Type{T}) where {T}
+@inline function read(::StringType, buf, pos, len, b, ::Type{T}; kw...) where {T}
     if b != UInt8('"')
         error = ExpectedOpeningQuoteChar
         @goto invalid
@@ -400,7 +410,7 @@ construct(::Type{Symbol}, ptr::Ptr{UInt8}, len::Int) = _symbol(ptr, len)
         b = getbyte(buf, pos)
     end
     ptr = pointer(buf, strpos)
-    return pos + 1, escaped ? construct(T, unescape(PointerString(ptr, strlen))) : construct(T, ptr, strlen)
+    return pos + 1, escaped ? construct(T, unescape(PointerString(ptr, strlen)); kw...) : construct(T, ptr, strlen; kw...)
 
 @label invalid
     invalid(error, buf, pos, T)
@@ -408,22 +418,22 @@ end
 
 StructType(::Type{Bool}) = BoolType()
 
-construct(T, bool::Bool) = T(bool)
+construct(T, bool::Bool; kw...) = T(bool)
 
-@inline function read(::BoolType, buf, pos, len, b, ::Type{T}) where {T}
+@inline function read(::BoolType, buf, pos, len, b, ::Type{T}; kw...) where {T}
     if pos + 3 <= len &&
         b            == UInt8('t') &&
         buf[pos + 1] == UInt8('r') &&
         buf[pos + 2] == UInt8('u') &&
         buf[pos + 3] == UInt8('e')
-        return pos + 4, construct(T, true)
+        return pos + 4, construct(T, true; kw...)
     elseif pos + 4 <= len &&
         b            == UInt8('f') &&
         buf[pos + 1] == UInt8('a') &&
         buf[pos + 2] == UInt8('l') &&
         buf[pos + 3] == UInt8('s') &&
         buf[pos + 4] == UInt8('e')
-        return pos + 5, construct(T, false)
+        return pos + 5, construct(T, false; kw...)
     else
         invalid(InvalidChar, buf, pos, Bool)
     end
@@ -432,15 +442,15 @@ end
 StructType(::Type{Nothing}) = NullType()
 StructType(::Type{Missing}) = NullType()
 
-construct(T, ::Nothing) = T()
+construct(T, ::Nothing; kw...) = T()
 
-@inline function read(::NullType, buf, pos, len, b, ::Type{T}) where {T}
+@inline function read(::NullType, buf, pos, len, b, ::Type{T}; kw...) where {T}
     if pos + 3 <= len &&
         b            == UInt8('n') &&
         buf[pos + 1] == UInt8('u') &&
         buf[pos + 2] == UInt8('l') &&
         buf[pos + 3] == UInt8('l')
-        return pos + 4, construct(T, nothing)
+        return pos + 4, construct(T, nothing; kw...)
     else
         invalid(InvalidChar, buf, pos, T)
     end
@@ -451,12 +461,12 @@ StructType(::Type{<:Signed}) = NumberType()
 StructType(::Type{<:AbstractFloat}) = NumberType()
 numbertype(::Type{T}) where {T <: Real} = T
 numbertype(x) = Float64
-construct(T, x::Real) = T(x)
+construct(T, x::Real; kw...) = T(x)
 
-@inline function read(::NumberType, buf, pos, len, b, ::Type{T}) where {T}
+@inline function read(::NumberType, buf, pos, len, b, ::Type{T}; kw...) where {T}
     x, code, pos = Parsers.typeparser(numbertype(T), buf, pos, len, b, Int16(0), Parsers.OPTIONS)
     if code > 0
-        return pos, construct(T, x)
+        return pos, construct(T, x; kw...)
     end
     invalid(InvalidChar, buf, pos, T)
 end
@@ -465,13 +475,13 @@ StructType(::Type{<:AbstractArray}) = ArrayType()
 StructType(::Type{<:AbstractSet}) = ArrayType()
 StructType(::Type{<:Tuple}) = ArrayType()
 
-construct(T, x::Vector{S}) where {S} = T(x)
+construct(T, x::Vector{S}; kw...) where {S} = T(x)
 
-@inline read(::ArrayType, buf, pos, len, b, ::Type{T}) where {T} = read(ArrayType(), buf, pos, len, b, T, Base.IteratorEltype(T) == Base.HasEltype() ? eltype(T) : Any)
-@inline read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T, eT} = readarray(buf, pos, len, b, T, eT)
-read(::ArrayType, buf, pos, len, b, ::Type{Tuple}, ::Type{eT}) where {eT} = readarray(buf, pos, len, b, Tuple, eT)
+@inline read(::ArrayType, buf, pos, len, b, ::Type{T}; kw...) where {T} = read(ArrayType(), buf, pos, len, b, T, Base.IteratorEltype(T) == Base.HasEltype() ? eltype(T) : Any; kw...)
+@inline read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}; kw...) where {T, eT} = readarray(buf, pos, len, b, T, eT; kw...)
+read(::ArrayType, buf, pos, len, b, ::Type{Tuple}, ::Type{eT}; kw...) where {eT} = readarray(buf, pos, len, b, Tuple, eT; kw...)
 
-@inline function readarray(buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T, eT}
+@inline function readarray(buf, pos, len, b, ::Type{T}, ::Type{eT}; kw...) where {T, eT}
     if b != UInt8('[')
         error = ExpectedOpeningArrayChar
         @goto invalid
@@ -482,17 +492,17 @@ read(::ArrayType, buf, pos, len, b, ::Type{Tuple}, ::Type{eT}) where {eT} = read
     @wh
     vals = Vector{eT}(undef, 0)
     if b == UInt8(']')
-        return pos + 1, construct(T, vals)
+        return pos + 1, construct(T, vals; kw...)
     end
     while true
         # positioned at start of value
-        pos, y = read(StructType(eT), buf, pos, len, b, eT)
+        pos, y = read(StructType(eT), buf, pos, len, b, eT; kw...)
         push!(vals, y)
         @eof
         b = getbyte(buf, pos)
         @wh
         if b == UInt8(']')
-            return pos + 1, construct(T, vals)
+            return pos + 1, construct(T, vals; kw...)
         elseif b != UInt8(',')
             error = ExpectedComma
             @goto invalid
@@ -507,7 +517,7 @@ read(::ArrayType, buf, pos, len, b, ::Type{Tuple}, ::Type{eT}) where {eT} = read
     invalid(error, buf, pos, T)
 end
 
-@inline function read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}) where {T <: Tuple, eT}
+@inline function read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}; kw...) where {T <: Tuple, eT}
     if b != UInt8('[')
         error = ExpectedOpeningArrayChar
         @goto invalid
@@ -524,7 +534,7 @@ end
     Base.@nexprs 32 i -> begin
         # positioned at start of value
         eT_i = fieldtype(T, i)
-        pos, x_i = read(StructType(eT_i), buf, pos, len, b, eT_i)
+        pos, x_i = read(StructType(eT_i), buf, pos, len, b, eT_i; kw...)
         @eof
         b = getbyte(buf, pos)
         @wh
@@ -547,7 +557,7 @@ end
     vals = []
     for i = 33:N
         eT_i = fieldtype(T, i)
-        pos, y = read(StructType(eT_i), buf, pos, len, b, eT_i)
+        pos, y = read(StructType(eT_i), buf, pos, len, b, eT_i; kw...)
         push!(vals, y)
         @eof
         b = getbyte(buf, pos)
@@ -578,22 +588,22 @@ StructType(::Type{<:Pair}) = ObjectType()
 keyvaluepairs(x) = pairs(x)
 keyvaluepairs(x::Pair) = (x,)
 
-construct(::Type{Dict{K, V}}, x::Dict{K, V}) where {K, V} = x
-construct(T, x::Dict{K, V}) where {K, V} = T(x)
+construct(::Type{Dict{K, V}}, x::Dict{K, V}; kw...) where {K, V} = x
+construct(T, x::Dict{K, V}; kw...) where {K, V} = T(x)
 
-construct(::Type{NamedTuple}, x::Dict) = NamedTuple{Tuple(keys(x))}(values(x))
-construct(::Type{NamedTuple{names}}, x::Dict) where {names} = NamedTuple{names}(Tuple(x[nm] for nm in names))
-construct(::Type{NamedTuple{names, types}}, x::Dict) where {names, types} = NamedTuple{names, types}(Tuple(x[nm] for nm in names))
+construct(::Type{NamedTuple}, x::Dict; kw...) = NamedTuple{Tuple(keys(x))}(values(x))
+construct(::Type{NamedTuple{names}}, x::Dict; kw...) where {names} = NamedTuple{names}(Tuple(x[nm] for nm in names))
+construct(::Type{NamedTuple{names, types}}, x::Dict; kw...) where {names, types} = NamedTuple{names, types}(Tuple(x[nm] for nm in names))
 
 keyvalue(::Type{Symbol}, escaped, ptr, len) = escaped ? Symbol(unescape(PointerString(ptr, len))) : _symbol(ptr, len)
 keyvalue(::Type{T}, escaped, ptr, len) where {T} = escaped ? construct(T, unescape(PointerString(ptr, len))) : construct(T, unsafe_string(ptr, len))
 
-@inline read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T} = read(ObjectType(), buf, pos, len, b, T, Symbol, Any)
-@inline read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T <: NamedTuple} = read(ObjectType(), buf, pos, len, b, T, Symbol, Any)
-@inline read(::ObjectType, buf, pos, len, b, ::Type{Dict}) = read(ObjectType(), buf, pos, len, b, Dict, String, Any)
-@inline read(::ObjectType, buf, pos, len, b, ::Type{T}) where {T <: AbstractDict} = read(ObjectType(), buf, pos, len, b, T, keytype(T), valtype(T))
+@inline read(::ObjectType, buf, pos, len, b, ::Type{T}; kw...) where {T} = read(ObjectType(), buf, pos, len, b, T, Symbol, Any; kw...)
+@inline read(::ObjectType, buf, pos, len, b, ::Type{T}; kw...) where {T <: NamedTuple} = read(ObjectType(), buf, pos, len, b, T, Symbol, Any; kw...)
+@inline read(::ObjectType, buf, pos, len, b, ::Type{Dict}; kw...) = read(ObjectType(), buf, pos, len, b, Dict, String, Any; kw...)
+@inline read(::ObjectType, buf, pos, len, b, ::Type{T}; kw...) where {T <: AbstractDict} = read(ObjectType(), buf, pos, len, b, T, keytype(T), valtype(T); kw...)
 
-@inline function read(::ObjectType, buf, pos, len, b, ::Type{T}, ::Type{K}, ::Type{V}) where {T, K, V}
+@inline function read(::ObjectType, buf, pos, len, b, ::Type{T}, ::Type{K}, ::Type{V}; kw...) where {T, K, V}
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
         @goto invalid
@@ -604,7 +614,7 @@ keyvalue(::Type{T}, escaped, ptr, len) where {T} = escaped ? construct(T, unesca
     @wh
     x = Dict{K, V}()
     if b == UInt8('}')
-        return pos + 1, construct(T, x)
+        return pos + 1, construct(T, x; kw...)
     elseif b != UInt8('"')
         error = ExpectedOpeningQuoteChar
         @goto invalid
@@ -645,13 +655,13 @@ keyvalue(::Type{T}, escaped, ptr, len) where {T} = escaped ? construct(T, unesca
         b = getbyte(buf, pos)
         @wh
         # now positioned at start of value
-        pos, y = read(StructType(V), buf, pos, len, b, V)
+        pos, y = read(StructType(V), buf, pos, len, b, V; kw...)
         x[key] = y
         @eof
         b = getbyte(buf, pos)
         @wh
         if b == UInt8('}')
-            return pos + 1, construct(T, x)
+            return pos + 1, construct(T, x; kw...)
         elseif b != UInt8(',')
             error = ExpectedComma
             @goto invalid
@@ -672,7 +682,7 @@ keyvalue(::Type{T}, escaped, ptr, len) where {T} = escaped ? construct(T, unesca
     invalid(error, buf, pos, Object)
 end
 
-@inline function read(::Mutable, buf, pos, len, b, ::Type{T}) where {T}
+@inline function read(::Mutable, buf, pos, len, b, ::Type{T}; kw...) where {T}
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
         @goto invalid
@@ -692,6 +702,7 @@ end
     N = fieldcount(T)
     nms = names(T)
     excl = excludes(T)
+    kwargs = keywordargs(T)
     pos += 1
     @eof
     while true
@@ -733,7 +744,11 @@ end
             i -> (i <= N && fieldname(T, i) === key),
             i -> begin
                 FT_i = fieldtype(T, i)
-                pos, y_i = read(StructType(FT_i), buf, pos, len, b, FT_i)
+                if isempty(kwargs)
+                    pos, y_i = read(StructType(FT_i), buf, pos, len, b, FT_i; kw...)
+                else
+                    pos, y_i = read(StructType(FT_i), buf, pos, len, b, FT_i; kwargs[fieldname(T, i)]...)
+                end
                 is_included && setfield!(x, i, y_i)
             end,
             i -> begin
@@ -741,7 +756,11 @@ end
                 for j in 33:N
                     fieldname(T, j) === key || continue
                     FT_j = fieldtype(T, j)
-                    pos, y_j = read(StructType(FT_j), buf, pos, len, b, FT_j)
+                    if isempty(kwargs)
+                        pos, y_j = read(StructType(FT_j), buf, pos, len, b, FT_j; kw...)
+                    else
+                        pos, y_j = read(StructType(FT_j), buf, pos, len, b, FT_j; kwargs[fieldname(T, j)]...)
+                    end
                     is_included && setfield!(x, j, y_j)
                     is_field_still_unread = false
                     break
@@ -777,7 +796,7 @@ end
     invalid(error, buf, pos, T)
 end
 
-@inline function read(::Struct, buf, pos, len, b, ::Type{T}) where {T}
+@inline function read(::Struct, buf, pos, len, b, ::Type{T}; kw...) where {T}
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
         @goto invalid
@@ -797,14 +816,14 @@ end
     @eof
     N = fieldcount(T)
     Base.@nexprs 32 i -> begin
-        pos, x_i = readvalue(buf, pos, len, fieldtype(T, i))
+        pos, x_i = readvalue(buf, pos, len, fieldtype(T, i); kw...)
         if N == i
             return pos, Base.@ncall i T x
         end
     end
     vals = []
     for i = 33:N
-        pos, y = readvalue(buf, pos, len, fieldtype(T, i))
+        pos, y = readvalue(buf, pos, len, fieldtype(T, i); kw...)
         push!(vals, y)
     end
     return pos, T(x_1, x_2, x_3, x_4, x_5, x_6, x_7, x_8, x_9, x_10, x_11, x_12, x_13, x_14, x_15, x_16,
@@ -814,7 +833,7 @@ end
     invalid(error, buf, pos, T)
 end
 
-@inline function readvalue(buf, pos, len, ::Type{T}) where {T}
+@inline function readvalue(buf, pos, len, ::Type{T}; kw...) where {T}
     b = getbyte(buf, pos)
     while b != UInt8('"')
         pos += ifelse(b == UInt8('\\'), 2, 1)
@@ -834,7 +853,7 @@ end
     b = getbyte(buf, pos)
     @wh
     # read value
-    pos, y = read(StructType(T), buf, pos, len, b, T)
+    pos, y = read(StructType(T), buf, pos, len, b, T; kw...)
     @eof
     b = getbyte(buf, pos)
     @wh
@@ -842,7 +861,6 @@ end
         pos += 1
         return pos, y
     elseif b != UInt8(',')
-        @show pos, y, Char(b)
         error = ExpectedComma
         @goto invalid
     end
@@ -861,7 +879,7 @@ end
     invalid(error, buf, pos, T)
 end
 
-@inline function read(::AbstractType, buf, pos, len, b, ::Type{T}) where {T}
+@inline function read(::AbstractType, buf, pos, len, b, ::Type{T}; kw...) where {T}
     startpos = pos
     startb = b
     if b != UInt8('{')
@@ -917,7 +935,7 @@ end
         pos, val = read(Struct(), buf, pos, len, b, Any)
         if key == skey
             TT = types[Symbol(val)]
-            return read(StructType(TT), buf, startpos, len, startb, TT)
+            return read(StructType(TT), buf, startpos, len, startb, TT; kw...)
         end
         @eof
         b = getbyte(buf, pos)

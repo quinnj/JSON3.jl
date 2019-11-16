@@ -1,4 +1,4 @@
-using Test, JSON3, UUIDs
+using Test, JSON3, UUIDs, Dates
 
 struct data
     t :: Tuple{Symbol, String}
@@ -99,6 +99,13 @@ struct LotsOfFields
     x34::String
     x35::String
 end
+
+mutable struct DateStruct
+    date::Date
+    datetime::DateTime
+    time::Time
+end
+DateStruct() = DateStruct(Date(0), DateTime(0), Time(0))
 
 @testset "JSON3" begin
 
@@ -626,6 +633,13 @@ txt = """
 d = Dict(uuid1() => i for i in 1:3)
 t = JSON3.write(d)
 @test JSON3.read(t, Dict{UUID, Int}) == d
+u = uuid1()
+@test JSON3.read(JSON3.write(u), UUID) == u
+
+d = Date(2019, 11, 16)
+@test JSON3.read(JSON3.write(d), Date) == d
+df = dateformat"dd-mm-yyyy"
+@test JSON3.read(JSON3.write(d; dateformat=df), Date; dateformat=df) == d
 
 # get issue
 obj = JSON3.read("{\"hey\":1}")
@@ -642,5 +656,13 @@ obj = JSON3.read("{\"a\":\"b\", \"b\":null, \"c\":[null,null]}")
 
 JSON3.StructType(::Type{data}) = JSON3.Struct()
 @test JSON3.read("{\"t\":[\"car\",\"Mercedes\"]}", data) == data((:car, "Mercedes"))
+
+# new JSON3.keywordargs option
+JSON3.StructType(::Type{DateStruct}) = JSON3.Mutable()
+JSON3.keywordargs(::Type{DateStruct}) = (date=(dateformat=dateformat"dd-mm-yyyy",), datetime=(dateformat=dateformat"dd-mm-yyyy HH:MM:SS",), time=(dateformat=dateformat"HH MM SS",))
+ds = DateStruct(Date(2019, 11, 16), DateTime(2019, 11, 16, 1, 25), Time(1, 26))
+@test JSON3.write(ds) == "{\"date\":\"16-11-2019\",\"datetime\":\"16-11-2019 01:25:00\",\"time\":\"01 26 00\"}"
+ds2 = JSON3.read(JSON3.write(ds), DateStruct)
+@test ds.date == ds2.date && ds.datetime == ds2.datetime && ds.time == ds2.time
 
 end # @testset "JSON3"
