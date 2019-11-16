@@ -93,7 +93,12 @@ omitempties(x::T) where {T} = omitempties(T)
 omitempties(::Type{T}) where {T} = ()
 
 """
+    JSON3.keywordargs(::Type{MyType}) = (field1=(dateformat=dateformat"mm/dd/yyyy",), field2=(dateformat=dateformat"HH MM SS",))
 
+Specify for a `JSON3.Mutable` `StructType` the keyword arguments by field, given as a `NamedTuple` of `NamedTuple`s, that should be passed
+to the `JSON3.construct` method when deserializing `MyType`. This essentially allows defining specific keyword arguments you'd like to be passed for each field
+in your struct. Note that keyword arguments can be passed when reading, like `JSON3.read(source, MyType; dateformat=...)` and they will be passed down to each `JSON3.construct` method.
+`JSON3.keywordargs` just allows the defining of specific keyword arguments per field.
 """
 function keywordargs end
 
