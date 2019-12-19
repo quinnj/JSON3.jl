@@ -1,6 +1,6 @@
 module JSON3
 
-using Parsers, Mmap, UUIDs, Dates
+using Parsers, Mmap, UUIDs, Dates, StructTypes
 
 struct Object{S <: AbstractVector{UInt8}, TT <: AbstractVector{UInt64}} <: AbstractDict{Symbol, Any}
     buf::S
