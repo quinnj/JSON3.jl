@@ -70,8 +70,8 @@ write(::NoStructType, buf, pos, len, ::T; kw...) where {T} = throw(ArgumentError
 
 mutable struct WriteClosure{T, KW}
     buf::T
-    pos::Int64
-    len::Int64
+    pos::Int
+    len::Int
     afterfirst::Bool
     kw::KW
 end

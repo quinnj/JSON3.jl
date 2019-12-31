@@ -179,8 +179,8 @@ end
 
 mutable struct TupleClosure{T, KW}
     buf::T
-    pos::Int64
-    len::Int64
+    pos::Int
+    len::Int
     b::UInt8
     kw::KW
 end
@@ -320,8 +320,8 @@ end
 
 mutable struct MutableClosure{T, KW}
     buf::T
-    pos::Int64
-    len::Int64
+    pos::Int
+    len::Int
     b::UInt8
     kw::KW
 end
@@ -417,8 +417,8 @@ end
 
 mutable struct StructClosure{T, KW}
     buf::T
-    pos::Int64
-    len::Int64
+    pos::Int
+    len::Int
     kw::KW
 end
 
