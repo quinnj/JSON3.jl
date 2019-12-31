@@ -8,7 +8,7 @@ defaultminimum(x::Enum) = 16
 defaultminimum(::Type{T}) where {T} = 16
 defaultminimum(x::Char) = 3
 defaultminimum(x::Union{Tuple, AbstractSet, AbstractArray}) = isempty(x) ? 2 : sum(defaultminimum, x)
-defaultminimum(x::Union{AbstractDict, NamedTuple, Pair}) = isempty(x) ? 2 : sum(defaultminimum(k) + defaultminimum(v) for (k, v) in keyvaluepairs(x))
+defaultminimum(x::Union{AbstractDict, NamedTuple, Pair}) = isempty(x) ? 2 : sum(defaultminimum(k) + defaultminimum(v) for (k, v) in StructTypes.keyvaluepairs(x))
 defaultminimum(x) = max(2, sizeof(x))
 
 function write(io::IO, obj::T; kw...) where {T}
@@ -24,13 +24,6 @@ function write(obj::T; kw...) where {T}
     buf, pos, len = write(StructType(obj), buf, 1, length(buf), obj; kw...)
     return String(resize!(buf, pos - 1))
 end
-
-_getfield(x, i) = isdefined(x, i) ? Core.getfield(x, i) : nothing
-_isempty(x, i) = !isdefined(x, i) || _isempty(getfield(x, i))
-_isempty(x::Union{Object, Array, AbstractDict, AbstractArray, AbstractString, Tuple, NamedTuple}) = isempty(x)
-_isempty(::Number) = false
-_isempty(::Nothing) = true
-_isempty(x) = false
 
 @noinline function realloc!(buf, len, n)
     # println("re-allocing...")
@@ -64,7 +57,7 @@ end
 # we need to special-case writing Type{T} because of ambiguities w/ StructTypes
 write(::Struct, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
 write(::Mutable, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
-write(::ObjectType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::DictType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
 write(::ArrayType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
 write(::StringType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
 write(::NumberType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
@@ -73,59 +66,48 @@ write(::BoolType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(
 write(::AbstractType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
 write(::NoStructType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
 
-write(::NoStructType, buf, pos, len, ::T; kw...) where {T} = throw(ArgumentError("$T doesn't have a defined `JSON3.StructType`"))
+write(::NoStructType, buf, pos, len, ::T; kw...) where {T} = throw(ArgumentError("$T doesn't have a defined `StructTypes.StructType`"))
+
+mutable struct WriteClosure{T, KW}
+    buf::T
+    pos::Int
+    len::Int
+    afterfirst::Bool
+    kw::KW
+end
+
+@inline function (f::WriteClosure)(i, nm, TT, v; kw...)
+    buf, pos, len = f.buf, f.pos, f.len
+    if f.afterfirst
+        @writechar ','
+    else
+        f.afterfirst = true
+    end
+    kw2 = merge(kw, f.kw)
+    buf, pos, len = write(StringType(), buf, pos, len, nm; kw2...)
+    @writechar ':'
+    buf, pos, len = write(StructType(v), buf, pos, len, v; kw2...)
+    f.buf = buf
+    f.pos = pos
+    f.len = len
+    return
+end
 
 # generic object writing
 @inline function write(::Union{Struct, Mutable}, buf, pos, len, x::T; kw...) where {T}
     @writechar '{'
-    N = fieldcount(T)
-    N == 0 && @goto done
-    excl = excludes(T)
-    nms = names(T)
-    kwargs = keywordargs(T)
-    emp = omitempties(T)
-    afterfirst = false
-    Base.@nexprs 32 i -> begin
-        k_i = fieldname(T, i)
-        if !symbolin(excl, k_i) && (!symbolin(emp, k_i) || !_isempty(x, i))
-            afterfirst && @writechar ','
-            afterfirst = true
-            buf, pos, len = write(StringType(), buf, pos, len, jsonname(nms, k_i); kw...)
-            @writechar ':'
-            y = _getfield(x, i)
-            if isempty(kwargs)
-                buf, pos, len = write(StructType(y), buf, pos, len, y; kw...)
-            else
-                buf, pos, len = write(StructType(y), buf, pos, len, y; kwargs[fieldname(T, i)]...)
-            end
-        end
-        N == i && @goto done
-    end
-    if N > 32
-        for i = 33:N
-            k_i = fieldname(T, i)
-            if !symbolin(excl, k_i) && (!symbolin(emp, k_i) || !_isempty(x, i))
-                @writechar ','
-                buf, pos, len = write(StringType(), buf, pos, len, jsonname(nms, k_i); kw...)
-                @writechar ':'
-                y = _getfield(x, i)
-                if isempty(kwargs)
-                    buf, pos, len = write(StructType(y), buf, pos, len, y; kw...)
-                else
-                    buf, pos, len = write(StructType(y), buf, pos, len, y; kwargs[fieldname(T, i)]...)
-                end
-            end
-        end
-    end
-
-@label done
+    c = WriteClosure(buf, pos, len, false, kw)
+    StructTypes.foreachfield(c, x)
+    buf = c.buf
+    pos = c.pos
+    len = c.len
     @writechar '}'
     return buf, pos, len
 end
 
-function write(::ObjectType, buf, pos, len, x::T; kw...) where {T}
+function write(::DictType, buf, pos, len, x::T; kw...) where {T}
     @writechar '{'
-    pairs = keyvaluepairs(x)
+    pairs = StructTypes.keyvaluepairs(x)
     n = length(pairs)
     i = 1
     for (k, v) in pairs
@@ -137,8 +119,6 @@ function write(::ObjectType, buf, pos, len, x::T; kw...) where {T}
         end
         i += 1
     end
-
-@label done
     @writechar '}'
     return buf, pos, len
 end
@@ -189,7 +169,7 @@ function write(::NumberType, buf, pos, len, y::Integer; kw...)
     return buf, pos + n, len
 end
 
-write(::NumberType, buf, pos, len, x::T; kw...) where {T} = write(NumberType(), buf, pos, len, numbertype(T)(x); kw...)
+write(::NumberType, buf, pos, len, x::T; kw...) where {T} = write(NumberType(), buf, pos, len, StructTypes.numbertype(T)(x); kw...)
 function write(::NumberType, buf, pos, len, x::AbstractFloat; kw...)
     if !isfinite(x)
         @writechar 'n' 'u' 'l' 'l'

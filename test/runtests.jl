@@ -1,4 +1,4 @@
-using Test, JSON3, UUIDs, Dates
+using Test, JSON3, StructTypes, UUIDs, Dates
 
 struct data
     t :: Tuple{Symbol, String}
@@ -271,7 +271,7 @@ x = JSON3.read("null", Union{Int, Missing})
 x = JSON3.read("1", Union{Int, Float64})
 @test x === 1.0
 
-JSON3.construct(::Type{JSON3.PointerString}, ptr::Ptr{UInt8}, len::Int) = JSON3.PointerString(ptr, len)
+StructTypes.construct(::Type{JSON3.PointerString}, ptr::Ptr{UInt8}, len::Int) = JSON3.PointerString(ptr, len)
 str = "\"hey\""
 x = JSON3.read(str, JSON3.PointerString);
 @test x == "hey"
@@ -290,8 +290,8 @@ x = JSON3.read(str, JSON3.PointerString);
 @test JSON3.write(true) == "true"
 @test JSON3.write(false) == "false"
 
-JSON3.StructType(::Type{XInt}) = JSON3.NumberType()
-JSON3.numbertype(::Type{XInt}) = Int64
+StructTypes.StructType(::Type{XInt}) = StructTypes.NumberType()
+StructTypes.numbertype(::Type{XInt}) = Int64
 Base.Int64(x::XInt) = x.x
 x = XInt(10)
 @test JSON3.read("10", XInt) == x
@@ -318,7 +318,7 @@ x = XInt(10)
 @test JSON3.read("{\"a\": 1, \"b\": 2}", NamedTuple{(:a, :b), Tuple{Float64, Float64}}) == (a=1.0, b=2.0)
 @test JSON3.write((a=1.0, b=2.0)) == "{\"a\":1.0,\"b\":2.0}"
 
-JSON3.StructType(::Type{A}) = JSON3.Struct()
+StructTypes.StructType(::Type{A}) = StructTypes.Struct()
 
 obj = JSON3.read("""
 { "a": 1,
@@ -341,7 +341,7 @@ obj = JSON3.read("""
 @test_throws ArgumentError JSON3.read("{}", C)
 @test_throws ArgumentError JSON3.write(C())
 
-JSON3.StructType(::Type{C}) = JSON3.Struct()
+StructTypes.StructType(::Type{C}) = StructTypes.Struct()
 
 @test JSON3.read("{}", C) == C()
 @test JSON3.write(obj) == "{\"a\":1,\"b\":2,\"c\":3,\"d\":4}"
@@ -395,7 +395,7 @@ JSON3.StructType(::Type{C}) = JSON3.Struct()
 @test_throws ArgumentError JSON3.read("{\"a\": 1bc", Dict{Symbol, Any})
 @test_throws ArgumentError JSON3.read("{\"a\": 1, bc", Dict{Symbol, Any})
 
-JSON3.StructType(::Type{B}) = JSON3.Mutable()
+StructTypes.StructType(::Type{B}) = StructTypes.Mutable()
 
 b = JSON3.read("""
 {
@@ -429,7 +429,7 @@ b = JSON3.read("""
 @test b.a == 1
 @test JSON3.write(b) == "{\"a\":1,\"b\":2,\"c\":3,\"d\":4}"
 
-JSON3.names(::Type{B}) = ((:a, :z),)
+StructTypes.names(::Type{B}) = ((:a, :z),)
 b = JSON3.read("""
 {
     "d": 4,
@@ -442,7 +442,7 @@ b = JSON3.read("""
 @test b.a == 1
 @test JSON3.write(b) == "{\"z\":1,\"b\":2,\"c\":3,\"d\":4}"
 
-JSON3.excludes(::Type{B}) = (:c, :d)
+StructTypes.excludes(::Type{B}) = (:c, :d)
 b = JSON3.read("""
 {
     "d": 4,
@@ -453,11 +453,11 @@ b = JSON3.read("""
 }""", B)
 @test JSON3.write(b) == "{\"z\":1,\"b\":2}"
 
-JSON3.StructType(::Type{Vehicle}) = JSON3.AbstractType()
-JSON3.subtypes(::Type{Vehicle}) = (car=Car, truck=Truck)
+StructTypes.StructType(::Type{Vehicle}) = StructTypes.AbstractType()
+StructTypes.subtypes(::Type{Vehicle}) = (car=Car, truck=Truck)
 
-JSON3.StructType(::Type{Car}) = JSON3.Struct()
-JSON3.StructType(::Type{Truck}) = JSON3.Struct()
+StructTypes.StructType(::Type{Car}) = StructTypes.Struct()
+StructTypes.StructType(::Type{Truck}) = StructTypes.Struct()
 
 car = JSON3.read("""
 {
@@ -495,12 +495,12 @@ truck = JSON3.read("""
 @test_throws ArgumentError JSON3.read("{\"a\": 1, a", Vehicle)
 @test_throws ArgumentError JSON3.read("{\"a\": 1}", Vehicle)
 
-JSON3.StructType(::Type{Expression}) = JSON3.AbstractType()
-JSON3.subtypes(::Type{Expression}) = (AND=AndFunction, LITERAL=LiteralValue)
-JSON3.subtypekey(::Type{Expression}) = :exprType
+StructTypes.StructType(::Type{Expression}) = StructTypes.AbstractType()
+StructTypes.subtypes(::Type{Expression}) = (AND=AndFunction, LITERAL=LiteralValue)
+StructTypes.subtypekey(::Type{Expression}) = :exprType
 
-JSON3.StructType(::Type{AndFunction}) = JSON3.Struct()
-JSON3.StructType(::Type{LiteralValue}) = JSON3.Struct()
+StructTypes.StructType(::Type{AndFunction}) = StructTypes.Struct()
+StructTypes.StructType(::Type{LiteralValue}) = StructTypes.Struct()
 
 expr = JSON3.read("""
 {
@@ -538,7 +538,7 @@ expr = JSON3.read("""
 @test JSON3.write(B) == "\"B\""
 @test JSON3.write(Vehicle) == "\"Vehicle\""
 
-JSON3.StructType(::Type{LotsOfFields}) = JSON3.Struct()
+StructTypes.StructType(::Type{LotsOfFields}) = StructTypes.Struct()
 lotsoffields = LotsOfFields(fill("hey", 35)...)
 jlots = JSON3.write(lotsoffields)
 @test jlots == "{\"x1\":\"hey\",\"x2\":\"hey\",\"x3\":\"hey\",\"x4\":\"hey\",\"x5\":\"hey\",\"x6\":\"hey\",\"x7\":\"hey\",\"x8\":\"hey\",\"x9\":\"hey\",\"x10\":\"hey\",\"x11\":\"hey\",\"x12\":\"hey\",\"x13\":\"hey\",\"x14\":\"hey\",\"x15\":\"hey\",\"x16\":\"hey\",\"x17\":\"hey\",\"x18\":\"hey\",\"x19\":\"hey\",\"x20\":\"hey\",\"x21\":\"hey\",\"x22\":\"hey\",\"x23\":\"hey\",\"x24\":\"hey\",\"x25\":\"hey\",\"x26\":\"hey\",\"x27\":\"hey\",\"x28\":\"hey\",\"x29\":\"hey\",\"x30\":\"hey\",\"x31\":\"hey\",\"x32\":\"hey\",\"x33\":\"hey\",\"x34\":\"hey\",\"x35\":\"hey\"}"
@@ -574,31 +574,31 @@ str = "hey"
 ptr = JSON3.PointerString(pointer(str), 3)
 @test hash(str) == hash(ptr)
 @test codeunit(ptr) == UInt8
-@test JSON3.names(1) == ()
-@test JSON3.names(Any) == ()
-@test JSON3.excludes(1) == ()
-@test JSON3.excludes(Any) == ()
-@test JSON3.omitempties(1) == ()
-@test JSON3.omitempties(Any) == ()
+@test StructTypes.names(1) == ()
+@test StructTypes.names(Any) == ()
+@test StructTypes.excludes(1) == ()
+@test StructTypes.excludes(Any) == ()
+@test StructTypes.omitempties(1) == ()
+@test StructTypes.omitempties(Any) == ()
 
-@test JSON3.subtypekey(1) == :type
-@test JSON3.subtypekey(Any) == :type
-@test JSON3.subtypes(1) == NamedTuple()
-@test JSON3.subtypes(Any) == NamedTuple()
+@test StructTypes.subtypekey(1) == :type
+@test StructTypes.subtypekey(Any) == :type
+@test StructTypes.subtypes(1) == NamedTuple()
+@test StructTypes.subtypes(Any) == NamedTuple()
 
 @test JSON3.read(b"\"a\"", String) == "a"
 @test JSON3.read(IOBuffer("\"a\""), String) == "a"
-@test JSON3.StructType(Char) == JSON3.StringType()
-@test JSON3.construct(String, "hey") == "hey"
-@test JSON3.StructType(Bool) == JSON3.BoolType()
-@test JSON3.construct(Bool, true) === true
-@test JSON3.StructType(UInt8) == JSON3.NumberType()
-@test JSON3.numbertype(UInt8) == UInt8
-@test JSON3.numbertype(1) == Float64
-@test JSON3.construct(String, "hey") == "hey"
-@test JSON3.StructType(typeof((1,2))) == JSON3.ArrayType()
+@test StructTypes.StructType(Char) == StructTypes.StringType()
+@test StructTypes.construct(String, "hey") == "hey"
+@test StructTypes.StructType(Bool) == StructTypes.BoolType()
+@test StructTypes.construct(Bool, true) === true
+@test StructTypes.StructType(UInt8) == StructTypes.NumberType()
+@test StructTypes.numbertype(UInt8) == UInt8
+@test StructTypes.numbertype(1) == Float64
+@test StructTypes.construct(String, "hey") == "hey"
+@test StructTypes.StructType(typeof((1,2))) == StructTypes.ArrayType()
 x = Dict(:hey=>1)
-@test JSON3.construct(Dict{Symbol, Any}, x) == x
+@test StructTypes.construct(Dict{Symbol, Any}, x) == x
 
 @test JSON3.gettapelen(Int64) == 2
 @test JSON3.regularstride(Missing) == false
@@ -608,12 +608,6 @@ x = Dict(:hey=>1)
 @test JSON3.defaultminimum(nothing) == 4
 @test JSON3.defaultminimum(Int64) == 16
 @test JSON3.defaultminimum('1') == 3
-
-@test JSON3._isempty(B(), 1) === false
-@test !JSON3._isempty((a=1, c=2))
-@test JSON3._isempty(1) === false
-@test JSON3._isempty(nothing) === true
-@test JSON3._isempty("ho") === false
 
 # https://github.com/quinnj/JSON3.jl/issues/1
 txt = """
@@ -654,12 +648,12 @@ obj = JSON3.read("{\"a\":\"b\", \"b\":null, \"c\":[null,null]}")
 @test JSON3.read("[\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\"]", NTuple{35, String}) ==
     ("hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey", "hey")
 
-JSON3.StructType(::Type{data}) = JSON3.Struct()
+StructTypes.StructType(::Type{data}) = StructTypes.Struct()
 @test JSON3.read("{\"t\":[\"car\",\"Mercedes\"]}", data) == data((:car, "Mercedes"))
 
-# new JSON3.keywordargs option
-JSON3.StructType(::Type{DateStruct}) = JSON3.Mutable()
-JSON3.keywordargs(::Type{DateStruct}) = (date=(dateformat=dateformat"dd-mm-yyyy",), datetime=(dateformat=dateformat"dd-mm-yyyy HH:MM:SS",), time=(dateformat=dateformat"HH MM SS",))
+# new StructTypes.keywordargs option
+StructTypes.StructType(::Type{DateStruct}) = StructTypes.Mutable()
+StructTypes.keywordargs(::Type{DateStruct}) = (date=(dateformat=dateformat"dd-mm-yyyy",), datetime=(dateformat=dateformat"dd-mm-yyyy HH:MM:SS",), time=(dateformat=dateformat"HH MM SS",))
 ds = DateStruct(Date(2019, 11, 16), DateTime(2019, 11, 16, 1, 25), Time(1, 26))
 @test JSON3.write(ds) == "{\"date\":\"16-11-2019\",\"datetime\":\"16-11-2019 01:25:00\",\"time\":\"01 26 00\"}"
 ds2 = JSON3.read(JSON3.write(ds), DateStruct)
