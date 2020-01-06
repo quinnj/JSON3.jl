@@ -108,16 +108,17 @@ end
 function write(::DictType, buf, pos, len, x::T; kw...) where {T}
     @writechar '{'
     pairs = StructTypes.keyvaluepairs(x)
-    n = length(pairs)
-    i = 1
-    for (k, v) in pairs
+
+    next = iterate(pairs)
+    while next !== nothing
+        (k, v), state = next
+
         buf, pos, len = write(StringType(), buf, pos, len, Base.string(k))
         @writechar ':'
         buf, pos, len = write(StructType(v), buf, pos, len, v; kw...)
-        if i < n
-            @writechar ','
-        end
-        i += 1
+
+        next = iterate(pairs, state)
+        next === nothing || @writechar ','
     end
     @writechar '}'
     return buf, pos, len
