@@ -107,6 +107,8 @@ mutable struct DateStruct
 end
 DateStruct() = DateStruct(Date(0), DateTime(0), Time(0))
 
+struct DictWithoutLength end
+
 @testset "JSON3" begin
 
 @testset "read.jl" begin
@@ -317,6 +319,13 @@ x = XInt(10)
 @test JSON3.read("{\"a\": 1, \"b\": 2}", NamedTuple{(:a, :b), Tuple{Int, Int}}) == (a=1, b=2)
 @test JSON3.read("{\"a\": 1, \"b\": 2}", NamedTuple{(:a, :b), Tuple{Float64, Float64}}) == (a=1.0, b=2.0)
 @test JSON3.write((a=1.0, b=2.0)) == "{\"a\":1.0,\"b\":2.0}"
+
+# Test that writing DictType works even when length(pairs(dict_type)) isn't
+# available. Issue #37.
+StructTypes.StructType(::Type{DictWithoutLength}) = StructTypes.DictType()
+Base.pairs(x::DictWithoutLength) =
+    Iterators.filter(x -> last(x) !== nothing, ("a" => 1, "b" => nothing))
+@test JSON3.write(DictWithoutLength()) == "{\"a\":1}"
 
 StructTypes.StructType(::Type{A}) = StructTypes.Struct()
 
