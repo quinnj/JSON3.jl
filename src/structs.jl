@@ -383,12 +383,44 @@ end
         @eof
         b = getbyte(buf, pos)
         @wh
-        c = MutableClosure(buf, pos, len, b, kw)
-        if StructTypes.applyfield!(c, x, key)
-            pos = c.pos
+        N = fieldcount(T)
+        nms = StructTypes.names(T)
+        excl = StructTypes.excludes(T)
+        kwargs = StructTypes.keywordargs(T)
+        key = StructTypes.julianame(nms, key)
+        is_included = !symbolin(excl, key)
+        # unroll the first 32 field checks to avoid dynamic dispatch if possible
+        Base.@nif(
+            32,
+            i->(i <= N && fieldname(T, i) === key),
+            i->begin
+            FT_i = fieldtype(T, i)
+            if isempty(kwargs)
+                pos, y_i = read(StructType(FT_i), buf, pos, len, b, FT_i; kw...)
+            else
+                pos, y_i = read(StructType(FT_i), buf, pos, len, b, FT_i; kwargs[fieldname(T, i)]...)
+            end
+            is_included && setfield!(x, i, y_i)
+        end,
+            i->begin
+            is_field_still_unread = true
+            for j in 33:N
+                fieldname(T, j) === key || continue
+                FT_j = fieldtype(T, j)
+                if isempty(kwargs)
+                    pos, y_j = read(StructType(FT_j), buf, pos, len, b, FT_j; kw...)
         else
+                    pos, y_j = read(StructType(FT_j), buf, pos, len, b, FT_j; kwargs[fieldname(T, j)]...)
+                end
+                is_included && setfield!(x, j, y_j)
+                is_field_still_unread = false
+                break
+            end
+            if is_field_still_unread
             pos, _ = read(Struct(), buf, pos, len, b, Any)
         end
+        end
+        )
         @eof
         b = getbyte(buf, pos)
         @wh
