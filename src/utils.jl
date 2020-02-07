@@ -4,6 +4,11 @@ function getbyte(buf, pos)
     unsafe_load(pointer(buf.s), pos)
 end
 
+function getbyte(buf::AbstractVector{UInt8}, pos)
+    @inbounds b = buf[pos]
+    return b
+end
+
 macro eof()
     esc(quote
         if pos > len

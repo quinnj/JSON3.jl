@@ -67,7 +67,7 @@ end
     invalid(InvalidChar, buf, pos, Any)
 end
 
-@inline function read(::StringType, buf, pos, len, b, ::Type{T}; kw...) where {T}
+function read(::StringType, buf, pos, len, b, ::Type{T}; kw...) where {T}
     if b != UInt8('"')
         error = ExpectedOpeningQuoteChar
         @goto invalid
@@ -98,7 +98,7 @@ end
     invalid(error, buf, pos, T)
 end
 
-@inline function read(::BoolType, buf, pos, len, b, ::Type{T}; kw...) where {T}
+function read(::BoolType, buf, pos, len, b, ::Type{T}; kw...) where {T}
     if pos + 3 <= len &&
         b            == UInt8('t') &&
         buf[pos + 1] == UInt8('r') &&
@@ -117,7 +117,7 @@ end
     end
 end
 
-@inline function read(::NullType, buf, pos, len, b, ::Type{T}; kw...) where {T}
+function read(::NullType, buf, pos, len, b, ::Type{T}; kw...) where {T}
     if pos + 3 <= len &&
         b            == UInt8('n') &&
         buf[pos + 1] == UInt8('u') &&
@@ -129,7 +129,7 @@ end
     end
 end
 
-@inline function read(::NumberType, buf, pos, len, b, ::Type{T}; kw...) where {T}
+function read(::NumberType, buf, pos, len, b, ::Type{T}; kw...) where {T}
     x, code, pos = Parsers.typeparser(StructTypes.numbertype(T), buf, pos, len, b, Int16(0), Parsers.OPTIONS)
     if code > 0
         return pos, construct(T, x; kw...)
@@ -327,7 +327,7 @@ mutable struct MutableClosure{T, KW}
 end
 
 @inline function (f::MutableClosure)(i, nm, TT; kw...)
-    kw2 = merge(kw, f.kw)
+    kw2 = merge(kw.data, f.kw)
     pos_i, y_i = read(StructType(TT), f.buf, f.pos, f.len, f.b, TT; kw2...)
     f.pos = pos_i
     return y_i
@@ -383,7 +383,7 @@ end
         @eof
         b = getbyte(buf, pos)
         @wh
-        c = MutableClosure(buf, pos, len, b, kw)
+        c = MutableClosure(buf, pos, len, b, kw.data)
         if StructTypes.applyfield!(c, x, key)
             pos = c.pos
         else
