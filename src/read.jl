@@ -1,18 +1,9 @@
+# temporary wrapper to pass byte vector through
 struct VectorString{T <: AbstractVector{UInt8}} <: AbstractString
     bytes::T
 end
 
 Base.codeunits(x::VectorString) = x.bytes
-# Base.ncodeunits(s::VectorString) = length(s.bytes)
-# Base.codeunit(s::VectorString) = UInt8
-# Base.length(s::VectorString) = ncodeunits(s)
-# function Base.codeunit(s::VectorString, i::Int)
-#     @inbounds b = s.bytes[i]
-#     return b
-# end
-# Base.pointer(v::VectorString) = pointer(v.bytes)
-# Base.pointer(v::VectorString, i::Integer) = pointer(v.bytes, i)
-# Base.unsafe_convert(::Type{Ptr{UInt8}}, v::VectorString) = pointer(v)
 
 # high-level user API functions
 read(io::IO) = read(Base.read(io, String))
