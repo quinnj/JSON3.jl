@@ -223,7 +223,7 @@ end
         pos += 1
         return pos, T()
     end
-    c = TupleClosure(buf, pos, len, b, kw)
+    c = TupleClosure(buf, pos, len, b, kw.data)
     x = StructTypes.construct(c, T)
 
     return c.pos, x
@@ -446,7 +446,7 @@ end
     end
     pos += 1
     @eof
-    c = StructClosure(buf, pos, len, kw)
+    c = StructClosure(buf, pos, len, kw.data)
     x = StructTypes.construct(c, T)
     return c.pos, x
 
