@@ -30,8 +30,8 @@ end # @testset "errors"
 end
 
 @testset "Floats" begin
-    @test sprint(JSON3.write, [NaN]) == "[null]"
-    @test sprint(JSON3.write, [Inf]) == "[null]"
+    @test_throws ErrorException JSON3.write([NaN])
+    @test_throws ErrorException JSON3.write([Inf])
 end
 
 @testset "Char" begin

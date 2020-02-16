@@ -172,10 +172,7 @@ end
 
 write(::NumberType, buf, pos, len, x::T; kw...) where {T} = write(NumberType(), buf, pos, len, StructTypes.numbertype(T)(x); kw...)
 function write(::NumberType, buf, pos, len, x::AbstractFloat; kw...)
-    if !isfinite(x)
-        @writechar 'n' 'u' 'l' 'l'
-        return buf, pos, len
-    end
+    isfinite(x) || error("$x not allowed to be written in JSON spec")
     bytes = codeunits(Base.string(x))
     sz = sizeof(bytes)
     @check sz
@@ -187,10 +184,7 @@ function write(::NumberType, buf, pos, len, x::AbstractFloat; kw...)
 end
 
 @inline function write(::NumberType, buf, pos, len, x::T; kw...) where {T <: Base.IEEEFloat}
-    if !isfinite(x)
-        @writechar 'n' 'u' 'l' 'l'
-        return buf, pos, len
-    end
+    isfinite(x) || error("$x not allowed to be written in JSON spec")
     @check Parsers.neededdigits(T)
     pos = Parsers.writeshortest(buf, pos, x)
     return buf, pos, len
