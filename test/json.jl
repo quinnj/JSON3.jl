@@ -35,7 +35,7 @@ end
     @test JSON3.write([NaN], allow_inf=true) == "[NaN]"
     @test JSON3.write([Inf], allow_inf=true) == "[Inf]"
     @test JSON3.read("[Inf]", Vector{Float64}) == [Inf]
-    @test JSON3.read("[nan]", Vector{Float64}) == [NaN]
+    @test JSON3.read("[nan]", Vector{Float64})[1] === NaN
 end
 
 @testset "Char" begin
