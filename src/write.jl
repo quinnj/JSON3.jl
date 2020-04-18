@@ -158,7 +158,7 @@ end
 function write(::NumberType, buf, pos, len, y::Integer; kw...)
     x, neg = Base.split_sign(y)
     if neg
-        @inbounds @writechar UInt8('-')
+        @writechar UInt8('-')
     end
     n = i = ndigits(x, base=10, pad=1)
     @check i
