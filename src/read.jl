@@ -66,6 +66,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any}, checkint=true)
             end
             return floatpos, tapeidx + 2
         end
+        invalid(InvalidNumber, buf, pos, Float64)
     end
 @label invalid
     invalid(InvalidChar, buf, pos, Any)
