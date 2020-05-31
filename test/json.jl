@@ -723,3 +723,6 @@ end
 @test JSON3.write([Int64[] Int64[]]') == "[]"
 
 @test Float32(JSON3.read(JSON3.write(2.1f-8))) == 2.1f-8
+
+# PR 60
+@test JSON3.write(String([0xff])) == "\"\xff\""
