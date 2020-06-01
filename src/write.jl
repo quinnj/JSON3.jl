@@ -224,7 +224,7 @@ const ESCAPELENS = [length(x) for x in ESCAPECHARS]
 function escapelength(str)
     x = 0
     @simd for i = 1:ncodeunits(str)
-        @inbounds len = ESCAPELENS[codeunit(str, i) + 0x01]
+        @inbounds len = ESCAPELENS[codeunit(str, i) + 1]
         x += len
     end
     return x
@@ -239,7 +239,7 @@ function write(::StringType, buf, pos, len, x::AbstractString; kw...)
     @inbounds @writechar '"'
     if el > sz
         for i = 1:sz
-            @inbounds escbytes = ESCAPECHARS[codeunit(x, i) + 0x01]
+            @inbounds escbytes = ESCAPECHARS[codeunit(x, i) + 1]
             for j = 1:length(escbytes)
                 @inbounds buf[pos] = escbytes[j]
                 pos += 1
