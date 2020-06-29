@@ -255,14 +255,5 @@ function write(::StringType, buf, pos, len, x::AbstractString; kw...)
     return buf, pos, len
 end
 
-function write(::StringType, buf, pos, len, x::Symbol; kw...)
-    ptr = Base.unsafe_convert(Ptr{UInt8}, x)
-    slen = ccall(:strlen, Csize_t, (Cstring,), ptr)
-    @check (slen + 2)
-    @inbounds @writechar '"'
-    for i = 1:slen
-        @inbounds @writechar unsafe_load(ptr, i)
-    end
-    @inbounds @writechar '"'
-    return buf, pos, len
-end
+write(::StringType, buf, pos, len, x::Symbol; kw...) = write(StringType(), buf, pos, len, String(x); kw...)
+
