@@ -668,4 +668,7 @@ ds = DateStruct(Date(2019, 11, 16), DateTime(2019, 11, 16, 1, 25), Time(1, 26))
 ds2 = JSON3.read(JSON3.write(ds), DateStruct)
 @test ds.date == ds2.date && ds.datetime == ds2.datetime && ds.time == ds2.time
 
+# 63
+@test JSON3.read(JSON3.write([Symbol("before \" after")])) == ["before \" after"]
+
 end # @testset "JSON3"
