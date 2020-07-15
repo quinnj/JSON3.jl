@@ -20,8 +20,8 @@ function read(str::AbstractString)
     pos = 1
     b = getbyte(buf, pos)
     @wh
-    tape = len > div(Mmap.PAGESIZE, 2) ? Mmap.mmap(Vector{UInt64}, len) :
-        Vector{UInt64}(undef, len + 2)
+    tape = len < 1000 ? Vector{UInt64}(undef, len + 4) :
+        Vector{UInt64}(undef, div(len, 10))
     pos, tapeidx = read!(buf, Int64(1), len, b, tape, Int64(1), Any)
     @inbounds t = tape[1]
     if isobject(t)
@@ -33,6 +33,16 @@ function read(str::AbstractString)
     end
 @label invalid
     invalid(error, buf, pos, Any)
+end
+
+macro check()
+    esc(quote
+        if (tapeidx + 1) > length(tape)
+            newsize = ceil(Int64, ((1 - pos / len) + 1) * tapeidx) + 20
+            # println("resizing tape from $(pointer(tape)) $tapeidx to $newsize")
+            resize!(tape, newsize)
+        end
+    end)
 end
 
 function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any}, checkint=true)
@@ -51,6 +61,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any}, checkint=true)
     elseif (UInt8('0') <= b <= UInt8('9')) || b == UInt8('-') || b == UInt8('+')
         float, code, floatpos = Parsers.typeparser(Float64, buf, pos, len, b, Int16(0), Parsers.OPTIONS)
         if code > 0
+            @check
             if checkint
                 int = unsafe_trunc(Int64, float)
                 if int == float
@@ -94,6 +105,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{String})
         @eof
         b = getbyte(buf, pos)
     end
+    @check
     @inbounds tape[tapeidx] = string(strlen)
     @inbounds tape[tapeidx+1] = ifelse(escaped, ESCAPE_BIT | strpos, strpos)
     return pos + 1, tapeidx + 2
@@ -109,6 +121,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{True})
         buf[pos + 1] == UInt8('r') &&
         buf[pos + 2] == UInt8('u') &&
         buf[pos + 3] == UInt8('e')
+        @check
         @inbounds tape[tapeidx] = BOOL | UInt64(1)
         return pos + 4, tapeidx + 2
     else
@@ -124,6 +137,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{False})
         buf[pos + 2] == UInt8('l') &&
         buf[pos + 3] == UInt8('s') &&
         buf[pos + 4] == UInt8('e')
+        @check
         @inbounds tape[tapeidx] = BOOL
         return pos + 5, tapeidx + 2
     else
@@ -137,6 +151,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Nothing})
         buf[pos + 1] == UInt8('u') &&
         buf[pos + 2] == UInt8('l') &&
         buf[pos + 3] == UInt8('l')
+        @check
         @inbounds tape[tapeidx] = NULL
         return pos + 4, tapeidx + 2
     else
@@ -152,6 +167,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Object})
     b = getbyte(buf, pos)
     @wh
     if b == UInt8('}')
+        @check
         @inbounds tape[tapeidx] = object(Int64(2))
         @inbounds tape[tapeidx+1] = eltypelen(eT, Int64(0))
         tapeidx += 2
@@ -185,6 +201,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Object})
             @eof
             b = getbyte(buf, pos)
         end
+        @check
         @inbounds tape[tapeidx] = string(keylen)
         @inbounds tape[tapeidx+1] = ifelse(escaped, ESCAPE_BIT | keypos, keypos)
         tapeidx += 2
@@ -209,6 +226,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Object})
         @inbounds eT = promoteeltype(eT, gettypemask(tape[prevtapeidx]))
         nelem += 1
         if b == UInt8('}')
+            @check
             @inbounds tape[objidx] = object(tapeidx - objidx)
             @inbounds tape[objidx+1] = eltypelen(eT, nelem)
             pos += 1
@@ -243,6 +261,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Array})
     b = getbyte(buf, pos)
     @wh
     if b == UInt8(']')
+        @check
         @inbounds tape[tapeidx] = array(Int64(2))
         @inbounds tape[tapeidx+1] = eltypelen(eT, Int64(0))
         tapeidx += 2
@@ -261,6 +280,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Array})
         @inbounds eT = promoteeltype(eT, gettypemask(tape[prevtapeidx]))
         nelem += 1
         if b == UInt8(']')
+            @check
             @inbounds tape[arridx] = array(tapeidx - arridx)
             @inbounds tape[arridx+1] = eltypelen(eT, nelem)
             pos += 1
