@@ -181,5 +181,6 @@ include("strings.jl")
 include("show.jl")
 include("structs.jl")
 include("write.jl")
+include("pretty.jl")
 
 end # module
