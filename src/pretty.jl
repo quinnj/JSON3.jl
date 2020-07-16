@@ -5,7 +5,6 @@ end
 pretty(str; kw...) = pretty(stdout, str; kw...)
 pretty(out::IO, x) = pretty(out, JSON3.write(x))
 function pretty(out::IO, str::String, indent=0, offset=0; kw...)
-    @show str
     buf = codeunits(str)
     len = length(buf)
     if len == 0
