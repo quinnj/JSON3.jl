@@ -428,7 +428,33 @@ end
     return x_i
 end
 
-@inline function read(::Struct, buf, pos, len, b, ::Type{T}; kw...) where {T}
+mutable struct UnorderedStructClosure{T, KW}
+    buf::T
+    pos::Int
+    len::Int
+    kw::KW
+end
+@inline function (f::UnorderedStructClosure)(T)
+    pos, key, value = readkeyvalue(f.buf, f.pos, f.len, T; f.kw...)
+    f.pos = pos
+    return key, value
+end
+
+## TODO: delete on of thsee and move some vesrion to StructTypes?
+@generated function construct_nt(::Type{T}, vals::NamedTuple) where {T}    
+    args = map(fieldnames(T)) do name                                   
+         :(vals.$name)                                                  
+    end                                                                 
+    return Expr(:block,                                                 
+                Expr(:meta, :inline),                                   
+                Expr(:call, T, args...))                                
+end
+function construct_nv(::Type{T}, nv::Tuple) where {T}
+    reordered_vals = ntuple(i -> nv[Base.fieldindex(T, nv[i][1])][2], fieldcount(T))
+    return T(reordered_vals...)                                                         
+end                                                                                     
+
+@inline function read(::Struct, buf, pos, len, b, ::Type{T}; unsafe_struct=false, kw...) where {T}
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
         @goto invalid
@@ -440,18 +466,110 @@ end
     if b == UInt8('}')
         pos += 1
         return pos, T()
-    elseif b != UInt8('"')
+    end
+    pos += 1
+    @eof
+
+    if unsafe_struct
+        c = StructClosure(buf, pos, len, kw.data)
+        x = StructTypes.construct(c, T)
+    else
+        c = UnorderedStructClosure(buf, pos, len, kw)
+        data = ntuple(i -> c(T), fieldcount(T))
+
+        # instatianting the namedtuple benchmarks slower - better way to do this?
+        # x = construct_nt(T, (; data...))
+
+        x = construct_nv(T, data);
+    end
+
+    return c.pos, x
+
+@label invalid
+    invalid(error, buf, pos, T)
+end
+
+@inline function readkeyvalue(buf, pos, len, ::Type{T}; kw...) where {T}
+    keypos = pos
+    keylen = 0
+    escaped = false
+    b = getbyte(buf, pos)
+
+    while b != UInt8('"')
+        if b == UInt8('\\')
+            escaped = true
+            # skip next character
+            pos += 2
+            keylen += 2
+        else
+            pos += 1
+            keylen += 1
+        end
+        @eof
+        b = getbyte(buf, pos)
+    end
+    key = keyvalue(Symbol, escaped, pointer(buf, keypos), keylen)
+
+    pos += 1
+    @eof
+    b = getbyte(buf, pos)
+    @wh
+    if b != UInt8(':')
+        error = ExpectedSemiColon
+        @goto invalid
+    end
+    pos += 1
+    @eof
+    b = getbyte(buf, pos)
+    @wh
+
+    TT = fieldtype(T, key)
+    pos, value = read(StructType(TT), buf, pos, len, b, TT; kw...)
+    @eof
+    b = getbyte(buf, pos)
+    @wh
+    if b == UInt8('}')
+        pos += 1
+        return pos, key, value
+    elseif b != UInt8(',')
+        error = ExpectedComma
+        @goto invalid
+    end
+    pos += 1
+    @eof
+    b = getbyte(buf, pos)
+    @wh
+    if b != UInt8('"')
         error = ExpectedOpeningQuoteChar
         @goto invalid
     end
     pos += 1
     @eof
-    c = StructClosure(buf, pos, len, kw.data)
-    x = StructTypes.construct(c, T)
-    return c.pos, x
+
+    return pos, key, value
 
 @label invalid
     invalid(error, buf, pos, T)
+    # @eof
+    # b = getbyte(buf, pos)
+    # @wh
+    # if b == UInt8('}')
+    #     pos += 1
+    #     return pos, x
+    # elseif b != UInt8(',')
+    #     error = ExpectedComma
+    #     @goto invalid
+    # end
+    # pos += 1
+    # @eof
+    # b = getbyte(buf, pos)
+    # @wh
+    # if b != UInt8('"')
+    #     error = ExpectedOpeningQuoteChar
+    #     @goto invalid
+    # end
+    # pos += 1
+    # @eof
 end
 
 @inline function readvalue(buf, pos, len, ::Type{T}; kw...) where {T}

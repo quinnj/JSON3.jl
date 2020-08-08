@@ -347,6 +347,15 @@ obj = JSON3.read("""
 @test_throws ArgumentError JSON3.read("{\"a\": 1a", A)
 @test_throws ArgumentError JSON3.read("{\"a\": 1, a", A)
 
+objorder = JSON3.read("""
+{ "d": 4,
+  "c": 3,
+  "b": 2,
+  "a": 1
+}
+""", A)
+@test obj == objorder
+
 @test_throws ArgumentError JSON3.read("{}", C)
 @test_throws ArgumentError JSON3.write(C())
 
