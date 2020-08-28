@@ -170,7 +170,8 @@ function write(::NumberType, buf, pos, len, y::Integer; kw...)
     return buf, pos + n, len
 end
 
-write(::NumberType, buf, pos, len, x::T; kw...) where {T} = write(NumberType(), buf, pos, len, StructTypes.numbertype(T)(x); kw...)
+write(::NumberType, buf, pos, len, x::T; kw...) where {T} =
+    write(NumberType(), buf, pos, len, convert(StructTypes.numbertype(T), x); kw...)
 function write(::NumberType, buf, pos, len, x::AbstractFloat; allow_inf::Bool=false, kw...)
     isfinite(x) || allow_inf || error("$x not allowed to be written in JSON spec")
     bytes = codeunits(Base.string(x))
