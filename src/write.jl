@@ -144,7 +144,7 @@ function write(::NullType, buf, pos, len, x; kw...)
     return buf, pos, len
 end
 
-write(::BoolType, buf, pos, len, x; kw...) = write(BoolType(), buf, pos, len, Bool(x); kw...)
+write(::BoolType, buf, pos, len, x; kw...) = write(BoolType(), buf, pos, len, convert(Bool, x); kw...)
 function write(::BoolType, buf, pos, len, x::Bool; kw...)
     if x
         @writechar 't' 'r' 'u' 'e'
