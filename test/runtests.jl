@@ -294,7 +294,7 @@ x = JSON3.read(str, JSON3.PointerString);
 
 StructTypes.StructType(::Type{XInt}) = StructTypes.NumberType()
 StructTypes.numbertype(::Type{XInt}) = Int64
-Base.Int64(x::XInt) = x.x
+StructTypes.construct(::Type{Int64}, x::XInt) = x.x
 x = XInt(10)
 @test JSON3.read("10", XInt) == x
 @test JSON3.write(x) == "10"
