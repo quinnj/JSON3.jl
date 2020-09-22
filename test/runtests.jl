@@ -537,8 +537,8 @@ expr = JSON3.read("""
 @test JSON3.write(Int64) == "\"Int64\""
 @test JSON3.write(Float64) == "\"Float64\""
 @test JSON3.write(String) == "\"String\""
-@test JSON3.write(NamedTuple{(:a, :b), Tuple{Int64, String}}) == "\"NamedTuple{(:a, :b),Tuple{Int64,String}}\""
-@test JSON3.write(Dict{Symbol, Any}) == "\"Dict{Symbol,Any}\""
+@test startswith(JSON3.write(NamedTuple{(:a, :b), Tuple{Int64, String}}), "\"NamedTuple{(:a, :b),")
+@test startswith(JSON3.write(Dict{Symbol, Any}), "\"Dict{Symbol,")
 @test JSON3.write(Bool) == "\"Bool\""
 @test JSON3.write(Nothing) == "\"Nothing\""
 @test JSON3.write(Missing) == "\"Missing\""
@@ -677,5 +677,8 @@ JSON3.pretty(io, 3.14)
 JSON3.pretty(io, "hey")
 @test String(take!(io)) == "hey"
 JSON3.pretty(io, (a=1, b=true, c=3.14, d="hey", e=(abcdefghijklmnopqrstuvwxyz=1000, aa=1e8, dd=[nothing, nothing, nothing, 3.14])))
+
+# parsequoted
+@test JSON3.read("{\"a\":\"10\",\"b\":\"1\",\"c\":\"45\",\"d\":\"100\"}", A; parsequoted=true) == A(10, 1, 45, 100)
 
 end # @testset "JSON3"
