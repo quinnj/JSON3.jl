@@ -537,8 +537,8 @@ expr = JSON3.read("""
 @test JSON3.write(Int64) == "\"Int64\""
 @test JSON3.write(Float64) == "\"Float64\""
 @test JSON3.write(String) == "\"String\""
-@test JSON3.write(NamedTuple{(:a, :b), Tuple{Int64, String}}) == "\"NamedTuple{(:a, :b),Tuple{Int64,String}}\""
-@test JSON3.write(Dict{Symbol, Any}) == "\"Dict{Symbol,Any}\""
+@test startswith(JSON3.write(NamedTuple{(:a, :b), Tuple{Int64, String}}), "\"NamedTuple{(:a, :b),")
+@test startswith(JSON3.write(Dict{Symbol, Any}), "\"Dict{Symbol,")
 @test JSON3.write(Bool) == "\"Bool\""
 @test JSON3.write(Nothing) == "\"Nothing\""
 @test JSON3.write(Missing) == "\"Missing\""

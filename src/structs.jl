@@ -129,11 +129,25 @@ function read(::NullType, buf, pos, len, b, ::Type{T}; kw...) where {T}
     end
 end
 
-function read(::NumberType, buf, pos, len, b, ::Type{T}; kw...) where {T}
+function read(::NumberType, buf, pos, len, b, ::Type{T}; parsequoted::Bool=false, kw...) where {T}
+    quoted = false
+    if parsequoted && b == UInt8('"')
+        pos += 1
+        @eof
+        b = getbyte(buf, pos)
+        @wh
+        quoted = true
+    end
     x, code, pos = Parsers.typeparser(StructTypes.numbertype(T), buf, pos, len, b, Int16(0), Parsers.OPTIONS)
+    if quoted
+        b = getbyte(buf, pos)
+        @assert b == UInt8('"')
+        pos += 1
+    end
     if code > 0
         return pos, construct(T, x; kw...)
     end
+@label invalid
     invalid(InvalidChar, buf, pos, T)
 end
 
