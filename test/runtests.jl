@@ -678,4 +678,7 @@ JSON3.pretty(io, "hey")
 @test String(take!(io)) == "hey"
 JSON3.pretty(io, (a=1, b=true, c=3.14, d="hey", e=(abcdefghijklmnopqrstuvwxyz=1000, aa=1e8, dd=[nothing, nothing, nothing, 3.14])))
 
+# parsequoted
+@test JSON3.read("{\"a\":\"10\",\"b\":\"1\",\"c\":\"45\",\"d\":\"100\"}", A; parsequoted=true) == A(10, 1, 45, 100)
+
 end # @testset "JSON3"
