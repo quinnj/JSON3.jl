@@ -20,7 +20,7 @@ julia:
   - nightly
 matrix:
   allow_failures:
-    - julia: nightly
+    # - julia: nightly
   fast_finish: true
   exclude:
     - os: osx
