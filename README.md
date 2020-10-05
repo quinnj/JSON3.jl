@@ -1,7 +1,7 @@
 
 # JSON3.jl
 
-[![Build Status](https://travis-ci.org/quinnj/JSON3.jl.svg?branch=master)](https://travis-ci.org/quinnj/JSON3.jl)
+[![Build Status](https://travis-ci.com/quinnj/JSON3.jl.svg?branch=master)](https://travis-ci.com/quinnj/JSON3.jl)
 [![codecov](https://codecov.io/gh/quinnj/JSON3.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/quinnj/JSON3.jl)
 
 ### Documentation
