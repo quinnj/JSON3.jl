@@ -200,12 +200,22 @@ for (i, (k, v)) in enumerate(obj)
 end
 
 @test get(obj, :a) == 1
+@test get(obj, Int, :a) == 1
 @test_throws KeyError get(obj, :e)
+@test_throws KeyError get(obj, Int, :e)
 @test get(obj, :a, 2) == 1
 @test get(obj, :e, 5) == 5
 @test get(()->5, obj, :e) == 5
 @test propertynames(obj) == [:a, :b, :c, :d]
 @test obj["a"] == 1
+@test get(obj, "a") == 1
+@test get(obj, Int, "a") == 1
+@test_throws KeyError get(obj, "e") == 1
+@test_throws KeyError get(obj, Int, "e") == 1
+@test get(obj, "a", 2) == 1
+@test get(obj, Int, "a", 2) == 1
+@test get(obj, "e", 5) == 5
+@test get(obj, Int, "e", 5) == 5
 
 arr = JSON3.read("""
 [ 1,
@@ -346,6 +356,16 @@ obj = JSON3.read("""
 @test_throws ArgumentError JSON3.read("{\"a\"a", A)
 @test_throws ArgumentError JSON3.read("{\"a\": 1a", A)
 @test_throws ArgumentError JSON3.read("{\"a\": 1, a", A)
+@test_throws ArgumentError JSON3.read("}", A)
+
+# `JSON3.read!` should not work for immutable structs
+@test_throws ArgumentError JSON3.read!("", A(1, 2, 3, 4))
+@test_throws ArgumentError JSON3.read!("a", A(1, 2, 3, 4))
+@test_throws ArgumentError JSON3.read!("{a", A(1, 2, 3, 4))
+@test_throws ArgumentError JSON3.read!("{\"a\"a", A(1, 2, 3, 4))
+@test_throws ArgumentError JSON3.read!("{\"a\": 1a", A(1, 2, 3, 4))
+@test_throws ArgumentError JSON3.read!("{\"a\": 1, a", A(1, 2, 3, 4))
+@test_throws ArgumentError JSON3.read!("}", A(1, 2, 3, 4))
 
 @test_throws ArgumentError JSON3.read("{}", C)
 @test_throws ArgumentError JSON3.write(C())
@@ -419,10 +439,35 @@ b = JSON3.read("""
 @test b.c == 3
 @test b.d == 4
 
+b = B()
+JSON3.read!("""
+{
+    "d": 4,
+    "b": 2,
+    "a": 1,
+    "c": 3
+}""", b)
+
+@test b.a == 1
+@test b.b == 2
+@test b.c == 3
+@test b.d == 4
+
+@test_throws ArgumentError JSON3.read("", B)
 @test_throws ArgumentError JSON3.read("a", B)
 @test_throws ArgumentError JSON3.read("{a", B)
 @test_throws ArgumentError JSON3.read("{\"a\": 1b", B)
 @test_throws ArgumentError JSON3.read("{\"a\": 1, b", B)
+@test_throws ArgumentError JSON3.read("}", B)
+b = JSON3.read("{}", B)
+@test typeof(b) == B
+
+@test_throws ArgumentError JSON3.read!("", B())
+@test_throws ArgumentError JSON3.read!("a", B())
+@test_throws ArgumentError JSON3.read!("{a", B())
+@test_throws ArgumentError JSON3.read!("{\"a\": 1b", B())
+@test_throws ArgumentError JSON3.read!("{\"a\": 1, b", B())
+@test_throws ArgumentError JSON3.read!("}", B())
 b = JSON3.read("{}", B)
 @test typeof(b) == B
 
@@ -437,6 +482,73 @@ b = JSON3.read("""
 
 @test b.a == 1
 @test JSON3.write(b) == "{\"a\":1,\"b\":2,\"c\":3,\"d\":4}"
+
+b = B()
+JSON3.read!("""
+{
+    "d": 4,
+    "b": 2,
+    "a": 1,
+    "c": 3,
+    "e": 5
+}""", b)
+
+@test b.a == 1
+@test JSON3.write(b) == "{\"a\":1,\"b\":2,\"c\":3,\"d\":4}"
+
+# Incremental updating of mutable structs with `JSON3.read!`
+@testset "Incremental updating of mutable structs with `JSON3.read!`" begin
+    b = B()
+    b.a = 0
+    b.b = 0
+    b.c = 0
+    b.d = 0
+
+    @test b.a == 0
+    @test b.b == 0
+    @test b.c == 0
+    @test b.d == 0
+
+    foo = JSON3.read!("""
+    {
+        "b": 1
+    }""", b)
+    @test b.a == 0
+    @test b.b == 1
+    @test b.c == 0
+    @test b.d == 0
+    @test foo == b
+    @test foo === b
+
+    bar = JSON3.read!("""
+    {
+        "d": 30,
+        "b": 20,
+        "a": 10,
+        "e": 40
+    }""", b)
+    @test b.a == 10
+    @test b.b == 20
+    @test b.c == 0
+    @test b.d == 30
+    @test bar == b
+    @test bar === b
+
+    baz = JSON3.read!("""
+    {
+        "d": 400,
+        "b": 200,
+        "a": 100,
+        "c": 300,
+        "e": 500
+    }""", b)
+    @test b.a == 100
+    @test b.b == 200
+    @test b.c == 300
+    @test b.d == 400
+    @test baz == b
+    @test baz === b
+end
 
 StructTypes.names(::Type{B}) = ((:a, :z),)
 b = JSON3.read("""
