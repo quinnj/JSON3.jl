@@ -20,4 +20,9 @@ JSON3.write(x)
 # custom types
 JSON3.read(json_string, T; kw...)
 JSON3.write(x)
+
+# custom types: incrementally update a mutable struct
+x = T()
+JSON3.read!(json_string, x; kw...)
+JSON3.write(x)
 ```

@@ -3,7 +3,7 @@ import StructTypes: StructType, DictType, ArrayType, StringType, NumberType, Boo
 read(io::IO, ::Type{T}; kw...) where {T} = read(Base.read(io, String), T; kw...)
 read(bytes::AbstractVector{UInt8}, ::Type{T}; kw...) where {T} = read(VectorString(bytes), T; kw...)
 
-function read(str::AbstractString, ::Type{T}; kw...) where {T}
+function _prepare_read(str::AbstractString, ::Type{T}) where {T}
     buf = codeunits(str)
     len = length(buf)
     if len == 0
@@ -14,10 +14,21 @@ function read(str::AbstractString, ::Type{T}; kw...) where {T}
     pos = 1
     b = getbyte(buf, pos)
     @wh
-    pos, x = read(StructType(T), buf, pos, len, b, T; kw...)
-    return x
+    return buf, pos, len, b
 @label invalid
     invalid(error, buf, pos, T)
+end
+
+function read(str::AbstractString, ::Type{T}; kw...) where {T}
+    buf, pos, len, b = _prepare_read(str, T)
+    pos, x = read(StructType(T), buf, pos, len, b, T; kw...)
+    return x
+end
+
+function read!(str::AbstractString, x::T; kw...) where {T}
+    buf, pos, len, b = _prepare_read(str, T)
+    pos, x = read!(StructType(T), buf, pos, len, b, T, x; kw...)
+    return x
 end
 
 read(::NoStructType, buf, pos, len, b, ::Type{T}; kw...) where {T} = throw(ArgumentError("$T doesn't have a defined `StructTypes.StructType`"))
@@ -348,6 +359,16 @@ end
 end
 
 @inline function read(::Mutable, buf, pos, len, b, ::Type{T}; kw...) where {T}
+    x = T()
+    pos, x = read!(Mutable(), buf, pos, len, b, T, x; kw...)
+    return pos, x
+end
+
+@inline function read!(::Any, buf, pos, len, b, ::Type{T}, x::T; kw...) where {T}
+    throw(ArgumentError("read! is only defined when T is of the `Mutable` struct type"))
+end
+
+@inline function read!(::Mutable, buf, pos, len, b, ::Type{T}, x::T; kw...) where {T}
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
         @goto invalid
@@ -356,7 +377,6 @@ end
     @eof
     b = getbyte(buf, pos)
     @wh
-    x = T()
     if b == UInt8('}')
         pos += 1
         return pos, x
