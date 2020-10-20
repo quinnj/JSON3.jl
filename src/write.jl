@@ -68,6 +68,16 @@ write(::NoStructType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringT
 
 write(::NoStructType, buf, pos, len, ::T; kw...) where {T} = throw(ArgumentError("$T doesn't have a defined `StructTypes.StructType`"))
 
+function write(::RawType, buf, pos, len, x::T; kw...) where {T}
+    bytes = rawbytes(x)
+    @check length(bytes)
+    for b in bytes
+        @inbounds buf[pos] = b
+        pos += 1
+    end
+    return buf, pos, len
+end
+
 mutable struct WriteClosure{T, KW}
     buf::T
     pos::Int

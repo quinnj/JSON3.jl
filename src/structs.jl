@@ -1,5 +1,15 @@
 import StructTypes: StructType, DictType, ArrayType, StringType, NumberType, BoolType, NullType, NoStructType, Struct, Mutable, construct, AbstractType, subtypes, subtypekey
 
+struct RawType <: StructType end
+
+struct RawValue{S}
+    bytes::S
+    pos::Int
+    len::Int
+end
+
+function rawbytes end
+
 read(io::IO, ::Type{T}; kw...) where {T} = read(Base.read(io, String), T; kw...)
 read(bytes::AbstractVector{UInt8}, ::Type{T}; kw...) where {T} = read(VectorString(bytes), T; kw...)
 
@@ -48,6 +58,13 @@ function read(::Struct, buf, pos, len, b, U::Union; kw...)
     catch e
         return read(StructType(U.b), buf, pos, len, b, U.b; kw...)
     end
+end
+
+const GLOBAL_IGNORED_TAPE = zeros(UInt64, 1024)
+
+function read(::RawType, buf, pos, len, b, ::Type{T}; kw...) where {T}
+    newpos, _ = read!(buf, pos, len, b, GLOBAL_IGNORED_TAPE, 1, Any; kw...)
+    return newpos, construct(T, RawValue(buf, pos, newpos - pos))
 end
 
 @inline function read(::Struct, buf, pos, len, b, ::Type{Any}; allow_inf::Bool=false, kw...)
