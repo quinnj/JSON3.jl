@@ -62,7 +62,7 @@ end
 
 const GLOBAL_IGNORED_TAPE = zeros(UInt64, 1024)
 
-function read(::RawType, buf, pos, len, b, ::Type{T}; kw...) where {T}
+@inline function read(::RawType, buf, pos, len, b, ::Type{T}; kw...) where {T}
     newpos, _ = read!(buf, pos, len, b, GLOBAL_IGNORED_TAPE, 1, Any; kw...)
     return newpos, construct(T, RawValue(buf, pos, newpos - pos))
 end
