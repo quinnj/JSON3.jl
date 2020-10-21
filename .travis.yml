@@ -27,6 +27,7 @@ jobs:
       os: linux
       script:
         - julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate(); Pkg.build("JSON3")'
+        - julia --project=docs/ -e 'using JSON3; using StructTypes; using Documenter; Documenter.doctest(JSON3)'
         - julia --project=docs/ docs/make.jl
       after_success: skip
 notifications:

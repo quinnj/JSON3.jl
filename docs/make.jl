@@ -1,4 +1,4 @@
-using Documenter, JSON3
+using Documenter, JSON3, StructTypes
 
 makedocs(;
     modules=[JSON3],
@@ -9,7 +9,7 @@ makedocs(;
     repo="https://github.com/quinnj/JSON3.jl/blob/{commit}{path}#L{line}",
     sitename="JSON3.jl",
     authors="Jacob Quinn",
-    assets=String[],
+    strict=true,
 )
 
 deploydocs(;

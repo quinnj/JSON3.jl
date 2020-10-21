@@ -799,3 +799,5 @@ JSON3.pretty(io,  JSON3.write(Dict( "x" => Inf64), allow_inf=true), allow_inf=tr
 @test JSON3.read("{\"a\":\"10\",\"b\":\"1\",\"c\":\"45\",\"d\":\"100\"}", A; parsequoted=true) == A(10, 1, 45, 100)
 
 end # @testset "JSON3"
+
+include("stringnumber.jl")

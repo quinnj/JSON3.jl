@@ -15,7 +15,7 @@ which acts like an immutable `Vector`, but also has a more efficient view repres
 the resulting `JSON3.Array` will be strongly typed accordingly. For the other JSON types (string, number, bool, and null),
 they are returned as Julia equivalents (`String`, `Int64` or `Float64`, `Bool`, and `nothing`).
 
-One might wonder why custom `JSON3.Object` and `JSON3.Array` types exist instead of just returning `Dict` and `Vector` directly. JSON3 employs a novel technique [inspired by the simdjson project](https://github.com/lemire/simdjson), that is a 
+One might wonder why custom `JSON3.Object` and `JSON3.Array` types exist instead of just returning `Dict` and `Vector` directly. JSON3 employs a novel technique [inspired by the simdjson project](https://github.com/lemire/simdjson), that is a
 semi-lazy parsing of JSON to the `JSON3.Object` or `JSON3.Array` types. The technique involves using a type-less "tape" to note
 the *positions* of objects, arrays, and strings in a JSON structure, while avoiding the cost of *materializing* such
 objects. For "scalar" types (number, bool, and null), the values are parsed immediately and stored inline in the "tape". This can result in best of both worlds performance: very fast initial parsing of a JSON input, and very cheap access afterwards. It also enables efficiencies in workflows where only small pieces of a JSON structure are needed, because expensive objects, arrays, and strings aren't materialized unless accessed. One additional advantage this technique allows is strong typing of `JSON3.Array{T}`; because the type of each element is noted while parsing, the `JSON3.Array` object can then be constructed with the most narrow type possible without having to reallocate any underlying data (since all data is stored in a type-less "tape" anyway).
@@ -66,7 +66,7 @@ There are a few additional helper methods that can be utilized by `StructTypes.M
 
 * `StructTypes.names(::Type{MyType}) = ((:field1, :json1), (:field2, :json2))`: provides a mapping of Julia field name to expected JSON object key name. This affects both reading and writing. When reading the `json1` key, the `field1` field of `MyType` will be set. When writing the `field2` field of `MyType`, the JSON key will be `json2`.
 * `StructTypes.excludes(::Type{MyType}) = (:field1, :field2)`: specify fields of `MyType` to ignore when reading and writing, provided as a `Tuple` of `Symbol`s. When reading, if `field1` is encountered as a JSON key, it's value will be read, but the field will not be set in `MyType`. When writing, `field1` will be skipped when writing out `MyType` fields as key-value pairs.
-* `StructTypes.omitempties(::Type{MyType}) = (:field1, :field2)`: specify fields of `MyType` that shouldn't be written if they are "empty", provided as a `Tuple` of `Symbol`s. This only affects writing. If a field is a collection (AbstractDict, AbstractArray, etc.) and `isempty(x) === true`, then it will not be written. If a field is `#undef`, it will not be written. If a field is `nothing`, it will not be written. 
+* `StructTypes.omitempties(::Type{MyType}) = (:field1, :field2)`: specify fields of `MyType` that shouldn't be written if they are "empty", provided as a `Tuple` of `Symbol`s. This only affects writing. If a field is a collection (AbstractDict, AbstractArray, etc.) and `isempty(x) === true`, then it will not be written. If a field is `#undef`, it will not be written. If a field is `nothing`, it will not be written.
 * `StructTypes.keywordargs(::Type{MyType}) = (field1=(dateformat=dateformat"mm/dd/yyyy",), field2=(dateformat=dateformat"HH MM SS",))`: Specify for a `StructTypes.Mutable` `StructType` the keyword arguments by field, given as a `NamedTuple` of `NamedTuple`s, that should be passed
 to the `StructTypes.construct` method when deserializing `MyType`. This essentially allows defining specific keyword arguments you'd like to be passed for each field
 in your struct. Note that keyword arguments can be passed when reading, like `JSON3.read(source, MyType; dateformat=...)` and they will be passed down to each `StructTypes.construct` method.
@@ -82,6 +82,7 @@ StructTypes.StructType(::Type{MyType}) = StructTypes.StringType()
 StructTypes.StructType(::Type{MyType}) = StructTypes.NumberType()
 StructTypes.StructType(::Type{MyType}) = StructTypes.BoolType()
 StructTypes.StructType(::Type{MyType}) = StructTypes.NullType()
+StructTypes.StructType(::Type{MyType}) = JSON3.RawType()
 ```
 
 Now we'll walk through each of these and what it means to map my custom Julia type to an interface type.
@@ -207,6 +208,53 @@ The interface to satisfy for reading is:
   * `StructTypes.construct(::Type{MyType}, x::Nothing; kw...)`: alternatively, you may overload `StructTypes.construct`
 
 There is no interface for writing; if a custom type is declared as `StructTypes.NullType()`, then the JSON value `null` will be written.
+
+#### JSON3.RawType
+
+`JSON3.RawType` is a `StructType` that
+custom types may define as their trait in order to get access to the
+"raw value" while parsing. After declaring
+`StructTypes.StructType(::Type{MyType}) = JSON3.RawType()`, the custom
+`MyType` must also define
+`StructTypes.construct(::Type{MyType}, x::JSON3.RawValue) = ...`. A
+`JSON3.RawValue` has 3 fields, `bytes`,
+`pos`, and `len`, corresponding to the raw byte buffer, byte position at
+which the raw value starts, and the length of the raw value,
+respectively. Users are then free to "construct" an instance of their
+`MyType` however they want from the `JSON3.RawValue`.
+
+For serializing, i.e. `JSON3.write`, `MyType` must implement a method
+like `JSON3.rawbytes(x::MyType) = ...`, which must return an iterator of
+bytes (`UInt8`) with known length (`Base.IteratorSize` must be
+`Base.HasLength()` and `length(JSON3.rawbytes(x))` must work). Care must be taken in providing bytes as no
+additional processing or escape analysis is done, the bytes are written
+"as-is". If bytes are written with unescaped control characters (`'{'`,
+`','`, etc.), it will result in corrupt JSON documents.
+
+For example, suppose that you want to read a JSON number verbatim into a
+Julia string:
+```jldoctest
+julia> using JSON3, StructTypes
+
+julia> struct StringNumber
+       value::String
+       end
+
+julia> @inline StructTypes.StructType(::Type{StringNumber}) = JSON3.RawType()
+
+julia> @inline StructTypes.construct(::Type{StringNumber}, x::JSON3.RawValue) = StringNumber(unsafe_string(pointer(x.bytes, x.pos), x.len))
+
+julia> @inline JSON3.rawbytes(x::StringNumber) = codeunits(x.value)
+
+julia> j = "1.200"
+"1.200"
+
+julia> x = JSON3.read(j, StringNumber)
+StringNumber("1.200")
+
+julia> JSON3.write(x)
+"1.200"
+```
 
 ### AbstractTypes
 
