@@ -226,7 +226,7 @@ respectively. Users are then free to "construct" an instance of their
 For serializing, i.e. `JSON3.write`, `MyType` must implement a method
 like `JSON3.rawbytes(x::MyType) = ...`, which must return an iterator of
 bytes (`UInt8`) with known length (`Base.IteratorSize` must be
-`Base.HasLength()`). Care must be taken in providing bytes as no
+`Base.HasLength()` and `length(JSON3.rawbytes(x))` must work). Care must be taken in providing bytes as no
 additional processing or escape analysis is done, the bytes are written
 "as-is". If bytes are written with unescaped control characters (`'{'`,
 `','`, etc.), it will result in corrupt JSON documents.
