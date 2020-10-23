@@ -552,6 +552,15 @@ end
 end
 
 @inline function read(::AbstractType, buf, pos, len, b, ::Type{T}; kw...) where {T}
+    types = subtypes(T)
+    if length(types) == 1
+        only_subtype = types[1]
+        return read(StructType(only_subtype), buf, pos, len, b, only_subtype; kw...)
+    end
+    return _read(AbstractType(), buf, pos, len, b, T; kw...)
+end
+
+@inline function _read(::AbstractType, buf, pos, len, b, ::Type{T}; kw...) where {T}
     startpos = pos
     startb = b
     if b != UInt8('{')
