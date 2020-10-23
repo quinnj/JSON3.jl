@@ -45,6 +45,16 @@ struct Truck <: Vehicle
     payloadCapacity::Float64
 end
 
+abstract type Vehicle2 end
+
+mutable struct Car2 <: Vehicle2
+    make::String
+    model::String
+    seatingCapacity::Int
+    topSpeed::Float64
+    Car2() = new()
+end
+
 abstract type Expression end
 
 abstract type Literal <: Expression end
@@ -615,6 +625,22 @@ truck = JSON3.read("""
 @test_throws ArgumentError JSON3.read("{\"a\": 1a", Vehicle)
 @test_throws ArgumentError JSON3.read("{\"a\": 1, a", Vehicle)
 @test_throws ArgumentError JSON3.read("{\"a\": 1}", Vehicle)
+
+StructTypes.StructType(::Type{Vehicle2}) = StructTypes.AbstractType()
+StructTypes.subtypes(::Type{Vehicle2}) = (Car2=Car2,)
+StructTypes.StructType(::Type{Car2}) = StructTypes.Mutable()
+car2 = JSON3.read("""
+{
+    "topSpeed": 250.1,
+    "model": "S500",
+    "make": "Mercedes-Benz",
+    "seatingCapacity": 5
+}""", Vehicle2)
+
+@test typeof(car2) == Car2
+@test car2.make == "Mercedes-Benz"
+@test car2.topSpeed === 250.1
+@test JSON3.write(car2) == "{\"make\":\"Mercedes-Benz\",\"model\":\"S500\",\"seatingCapacity\":5,\"topSpeed\":250.1}"
 
 StructTypes.StructType(::Type{Expression}) = StructTypes.AbstractType()
 StructTypes.subtypes(::Type{Expression}) = (AND=AndFunction, LITERAL=LiteralValue)
