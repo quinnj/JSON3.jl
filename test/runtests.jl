@@ -798,6 +798,26 @@ JSON3.pretty(io,  JSON3.write(Dict( "x" => Inf64), allow_inf=true), allow_inf=tr
 # parsequoted
 @test JSON3.read("{\"a\":\"10\",\"b\":\"1\",\"c\":\"45\",\"d\":\"100\"}", A; parsequoted=true) == A(10, 1, 45, 100)
 
+json = "{\"a\": 1, \"b\": 2}\n{\"a\": 3, \"b\": 4}"
+x = JSON3.read(json; jsonlines=true)
+@test length(x) == 2
+@test all(values(x[1]) .== (1, 2))
+
+json = "1\r\n2\r\n3\r\n4\r\n5\r\n"
+x = JSON3.read(json; jsonlines=true)
+@test length(x) == 5
+@test x == [1, 2, 3, 4, 5]
+
+json = "1"
+x = JSON3.read(json; jsonlines=true)
+@test length(x) == 1
+@test x == [1]
+
+json = "  1\r\n\t2"
+x = JSON3.read(json; jsonlines=true)
+@test length(x) == 2
+@test x == [1, 2]
+
 end # @testset "JSON3"
 
 include("stringnumber.jl")

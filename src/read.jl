@@ -9,7 +9,7 @@ Base.codeunits(x::VectorString) = x.bytes
 read(io::IO; kw...) = read(Base.read(io, String); kw...)
 read(bytes::AbstractVector{UInt8}; kw...) = read(VectorString(bytes); kw...)
 
-function read(str::AbstractString; kw...)
+function read(str::AbstractString; jsonlines::Bool=false, kw...)
     buf = codeunits(str)
     len = length(buf)
     if len == 0
@@ -22,7 +22,11 @@ function read(str::AbstractString; kw...)
     @wh
     tape = len < 1000 ? Vector{UInt64}(undef, len + 4) :
         Vector{UInt64}(undef, div(len, 10))
-    pos, tapeidx = read!(buf, Int64(1), len, b, tape, Int64(1), Any; kw...)
+    if jsonlines
+        pos, tapeidx = jsonlines!(buf, pos, len, b, tape, Int64(1); kw...)
+    else
+        pos, tapeidx = read!(buf, pos, len, b, tape, Int64(1), Any; kw...)
+    end
     @inbounds t = tape[1]
     if isobject(t)
         return Object(buf, tape)
@@ -293,6 +297,64 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Array}; kw...)
         @eof
         b = getbyte(buf, pos)
         @wh
+    end
+
+@label done
+    return pos, tapeidx
+@label invalid
+    invalid(error, buf, pos, Array)
+end
+
+function jsonlines!(buf, pos, len, b, tape, tapeidx; kw...)
+    arridx = tapeidx
+    eT = EMPTY
+    if pos > len
+        @check
+        @inbounds tape[tapeidx] = array(Int64(2))
+        @inbounds tape[tapeidx+1] = eltypelen(eT, Int64(0))
+        tapeidx += 2
+        @goto done
+    end
+    tapeidx += 2
+    nelem = Int64(0)
+    while true
+        @wh
+        # positioned at start of value
+        prevtapeidx = tapeidx
+        pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any, eT != FLOAT && eT != (FLOAT | NULL); kw...)
+        @inbounds eT = promoteeltype(eT, gettypemask(tape[prevtapeidx]))
+        nelem += 1
+        if pos > len
+            @check
+            @inbounds tape[arridx] = array(tapeidx - arridx)
+            @inbounds tape[arridx+1] = eltypelen(eT, nelem)
+            @goto done
+        end
+        b = getbyte(buf, pos)
+        if b != UInt8('\n') && b != UInt8('\r')
+            error = ExpectedComma
+            @goto invalid
+        end
+        pos += 1
+        if pos > len
+            @check
+            @inbounds tape[arridx] = array(tapeidx - arridx)
+            @inbounds tape[arridx+1] = eltypelen(eT, nelem)
+            @goto done
+        end
+        if b == UInt8('\r')
+            b = getbyte(buf, pos)
+            if b == UInt8('\n')
+                pos += 1
+                if pos > len
+                    @check
+                    @inbounds tape[arridx] = array(tapeidx - arridx)
+                    @inbounds tape[arridx+1] = eltypelen(eT, nelem)
+                    @goto done
+                end
+            end
+        end
+        b = getbyte(buf, pos)
     end
 
 @label done
