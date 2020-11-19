@@ -25,6 +25,8 @@ The `JSON3.Object` supports the `AbstactDict` interface, but is read-only (it re
 The `JSON3.Array{T}` supports the `AbstractArray` interface, but like `JSON3.Object` is a *view* into the input JSON, hence is read-only. It supports normal array methods like `length(A)`, `size(A)`, iteration, and `A[i]` `getindex` methods. PLEASE NOTE that iterating a `JSON3.Array` will be much more performant than calling `getindex` on
 each index due to the internal "view" nature of the array.
 
+If you really need `Dict`s and `Vector`s, then you can use `copy(x)` to recursively convert `JSON3.Object`s to `Dict`s and `JSON3.Array`s to `Vector`s.
+
 ## Struct API
 
 The builtin JSON API in JSON3 is efficient and simple, but sometimes a direct mapping to a Julia structure is desirable. JSON3 uses the simple, yet powerful "struct mapping" techniques from the [StructTypes.jl](https://github.com/JuliaData/StructTypes.jl) package.
