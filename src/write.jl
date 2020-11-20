@@ -196,6 +196,15 @@ end
 
 @inline function write(::NumberType, buf, pos, len, x::T; allow_inf::Bool=false, kw...) where {T <: Base.IEEEFloat}
     isfinite(x) || allow_inf || error("$x not allowed to be written in JSON spec")
+    if isinf(x)
+        # Although this is non-standard JSON, "Infinity" is commonly used.
+        # See https://docs.python.org/3/library/json.html#infinite-and-nan-number-values.
+        if sign(x) == -1
+            @writechar '-'
+        end
+        @writechar 'I' 'n' 'f' 'i' 'n' 'i' 't' 'y'
+        return buf, pos, len
+    end
     @check Parsers.neededdigits(T)
     pos = Parsers.writeshortest(buf, pos, x)
     return buf, pos, len
