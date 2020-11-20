@@ -65,6 +65,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any}, checkint=true; allo
     elseif (UInt8('0') <= b <= UInt8('9')) || b == UInt8('-') || b == UInt8('+') || (allow_inf && (b == UInt8('N') || b == UInt8('I')))
         float, code, floatpos = Parsers.typeparser(Float64, buf, pos, len, b, Int16(0), Parsers.OPTIONS)
         if code > 0
+            !isfinite(float) && !allow_inf && @goto invalid
             @check
             if checkint
                 int = unsafe_trunc(Int64, float)
