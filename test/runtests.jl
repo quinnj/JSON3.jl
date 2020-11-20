@@ -818,6 +818,9 @@ x = JSON3.read(json; jsonlines=true)
 @test length(x) == 2
 @test x == [1, 2]
 
+# allow_inf consistency
+@test_throws ArgumentError JSON3.read("-Infinity")
+
 end # @testset "JSON3"
 
 include("stringnumber.jl")
