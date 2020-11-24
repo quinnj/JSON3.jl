@@ -25,4 +25,14 @@ JSON3.write(x)
 x = T()
 JSON3.read!(json_string, x; kw...)
 JSON3.write(x)
+
+# write to file
+open("my.json", "w") do f
+    JSON3.write(f, x)
+end
+
+# write a pretty file
+open("my.json", "w") do f
+    JSON3.pretty(f, JSON3.write(x))
+end
 ```
