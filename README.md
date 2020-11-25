@@ -11,7 +11,10 @@
 
 *Yet another JSON package for Julia; this one is for speed and slick struct mapping*
 
-**TL;DR**
+### TL;DR
+
+#### Basic
+
 ```julia
 # builtin reading/writing
 JSON3.read(json_string)
@@ -20,11 +23,20 @@ JSON3.write(x)
 # custom types
 JSON3.read(json_string, T; kw...)
 JSON3.write(x)
+```
 
+#### More complicated
+
+```julia
 # custom types: incrementally update a mutable struct
 x = T()
 JSON3.read!(json_string, x; kw...)
 JSON3.write(x)
+
+# read from file
+json_string = read("my.json", String)
+JSON3.read(json_string)
+JSON3.read(json_string, T; kw...)
 
 # write to file
 open("my.json", "w") do f
