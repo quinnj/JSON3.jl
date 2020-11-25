@@ -41,10 +41,12 @@ JSON3.read(json_string, T; kw...)
 # write to file
 open("my.json", "w") do f
     JSON3.write(f, x)
+    println(f)
 end
 
 # write a pretty file
 open("my.json", "w") do f
     JSON3.pretty(f, JSON3.write(x))
+    println(f)
 end
 ```
