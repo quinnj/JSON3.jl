@@ -466,20 +466,30 @@ end
     invalid(error, buf, pos, T)
 end
 
+@inline read(::DictType, buf, pos, len, b, ::Type{T}; kw...) where {T <: NamedTuple} =
+    read(Struct(), buf, pos, len, b, T; kw...)
+
 mutable struct StructClosure{T, KW}
     buf::T
     pos::Int
     len::Int
+    b::UInt8
+    values::Vector{Any}
     kw::KW
 end
 
-@inline function (f::StructClosure)(i, nm, TT)
-    pos_i, x_i = readvalue(f.buf, f.pos, f.len, TT; f.kw...)
+@inline function (f::StructClosure)(i, nm, TT; kw...)
+    kw2 = merge(kw.data, f.kw)
+    pos_i, y_i = read(StructType(TT), f.buf, f.pos, f.len, f.b, TT; kw2...)
     f.pos = pos_i
-    return x_i
+    f.values[i] = y_i
+    return
 end
 
+const VALUES = Vector{Any}[Vector{Any}(undef, 32)]
+
 @inline function read(::Struct, buf, pos, len, b, ::Type{T}; kw...) where {T}
+    @inbounds values = VALUES[1]
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
         @goto invalid
@@ -497,59 +507,155 @@ end
     end
     pos += 1
     @eof
-    c = StructClosure(buf, pos, len, kw.data)
-    x = StructTypes.construct(c, T)
-    return c.pos, x
-
-@label invalid
-    invalid(error, buf, pos, T)
-end
-
-@inline function readvalue(buf, pos, len, ::Type{T}; kw...) where {T}
-    b = getbyte(buf, pos)
-    while b != UInt8('"')
-        pos += ifelse(b == UInt8('\\'), 2, 1)
+    while true
+        keypos = pos
+        keylen = 0
+        escaped = false
+        b = getbyte(buf, pos)
+        while b != UInt8('"')
+            if b == UInt8('\\')
+                escaped = true
+                # skip next character
+                pos += 2
+                keylen += 2
+            else
+                pos += 1
+                keylen += 1
+            end
+            @eof
+            b = getbyte(buf, pos)
+        end
+        key = keyvalue(Symbol, escaped, pointer(buf, keypos), keylen)
+        pos += 1
         @eof
         b = getbyte(buf, pos)
-    end
-    pos += 1
-    @eof
-    b = getbyte(buf, pos)
-    @wh
-    if b != UInt8(':')
-        error = ExpectedSemiColon
-        @goto invalid
-    end
-    pos += 1
-    @eof
-    b = getbyte(buf, pos)
-    @wh
-    # read value
-    pos, y = read(StructType(T), buf, pos, len, b, T; kw...)
-    @eof
-    b = getbyte(buf, pos)
-    @wh
-    if b == UInt8('}')
+        @wh
+        if b != UInt8(':')
+            error = ExpectedSemiColon
+            @goto invalid
+        end
         pos += 1
-        return pos, y
-    elseif b != UInt8(',')
-        error = ExpectedComma
-        @goto invalid
+        @eof
+        b = getbyte(buf, pos)
+        @wh
+        c = StructClosure(buf, pos, len, b, values, kw.data)
+        if StructTypes.applyfield(c, T, key)
+            pos = c.pos
+        else
+            pos, _ = read(Struct(), buf, pos, len, b, Any)
+        end
+        @eof
+        b = getbyte(buf, pos)
+        @wh
+        if b == UInt8('}')
+            pos += 1
+            @goto done
+        elseif b != UInt8(',')
+            error = ExpectedComma
+            @goto invalid
+        end
+        pos += 1
+        @eof
+        b = getbyte(buf, pos)
+        @wh
+        if b != UInt8('"')
+            error = ExpectedOpeningQuoteChar
+            @goto invalid
+        end
+        pos += 1
+        @eof
     end
-    pos += 1
-    @eof
-    b = getbyte(buf, pos)
-    @wh
-    if b != UInt8('"')
-        error = ExpectedOpeningQuoteChar
-        @goto invalid
-    end
-    pos += 1
-    @eof
-    return pos, y
+
+@label done
+    return pos, StructTypes.construct(T, values)
+
 @label invalid
     invalid(error, buf, pos, T)
 end
+# mutable struct StructClosure{T, KW}
+#     buf::T
+#     pos::Int
+#     len::Int
+#     kw::KW
+# end
+
+# @inline function (f::StructClosure)(i, nm, TT)
+#     pos_i, x_i = readvalue(f.buf, f.pos, f.len, TT; f.kw...)
+#     f.pos = pos_i
+#     return x_i
+# end
+
+# @inline function read(::Struct, buf, pos, len, b, ::Type{T}; kw...) where {T}
+#     if b != UInt8('{')
+#         error = ExpectedOpeningObjectChar
+#         @goto invalid
+#     end
+#     pos += 1
+#     @eof
+#     b = getbyte(buf, pos)
+#     @wh
+#     if b == UInt8('}')
+#         pos += 1
+#         return pos, T()
+#     elseif b != UInt8('"')
+#         error = ExpectedOpeningQuoteChar
+#         @goto invalid
+#     end
+#     pos += 1
+#     @eof
+#     c = StructClosure(buf, pos, len, kw.data)
+#     x = StructTypes.construct(c, T)
+#     return c.pos, x
+
+# @label invalid
+#     invalid(error, buf, pos, T)
+# end
+
+# @inline function readvalue(buf, pos, len, ::Type{T}; kw...) where {T}
+#     b = getbyte(buf, pos)
+#     while b != UInt8('"')
+#         pos += ifelse(b == UInt8('\\'), 2, 1)
+#         @eof
+#         b = getbyte(buf, pos)
+#     end
+#     pos += 1
+#     @eof
+#     b = getbyte(buf, pos)
+#     @wh
+#     if b != UInt8(':')
+#         error = ExpectedSemiColon
+#         @goto invalid
+#     end
+#     pos += 1
+#     @eof
+#     b = getbyte(buf, pos)
+#     @wh
+#     # read value
+#     pos, y = read(StructType(T), buf, pos, len, b, T; kw...)
+#     @eof
+#     b = getbyte(buf, pos)
+#     @wh
+#     if b == UInt8('}')
+#         pos += 1
+#         return pos, y
+#     elseif b != UInt8(',')
+#         error = ExpectedComma
+#         @goto invalid
+#     end
+#     pos += 1
+#     @eof
+#     b = getbyte(buf, pos)
+#     @wh
+#     if b != UInt8('"')
+#         error = ExpectedOpeningQuoteChar
+#         @goto invalid
+#     end
+#     pos += 1
+#     @eof
+#     return pos, y
+# @label invalid
+#     invalid(error, buf, pos, T)
+# end
 
 @inline function read(::AbstractType, buf, pos, len, b, ::Type{T}; kw...) where {T}
     types = subtypes(T)
