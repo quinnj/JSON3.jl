@@ -736,3 +736,9 @@ end
 
 # PR 60
 @test JSON3.write(String([0xff])) == "\"\xff\""
+
+# PR 116
+@test mktemp() do path, io
+    JSON3.write(path, [1, 2, 3])
+    open(JSON3.read, path) == [1, 2, 3]
+end

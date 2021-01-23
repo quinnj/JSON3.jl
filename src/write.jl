@@ -25,6 +25,13 @@ function write(obj::T; kw...) where {T}
     return String(resize!(buf, pos - 1))
 end
 
+function write(fname::String, obj::T; kw...) where {T}
+    open(fname, "w") do io
+        write(io, obj; kw...)
+    end
+    fname
+end
+
 @noinline function realloc!(buf, len, n)
     # println("re-allocing...")
     new = zeros(UInt8, max(n, trunc(Int, len * 1.25)))
