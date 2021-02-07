@@ -5,19 +5,22 @@ using Parsers, Mmap, UUIDs, Dates, StructTypes
 struct Object{S <: AbstractVector{UInt8}, TT <: AbstractVector{UInt64}} <: AbstractDict{Symbol, Any}
     buf::S
     tape::TT
+    inds::Dict{Symbol, Int}
 end
 
-Object() = Object(codeunits(""), UInt64[object(Int64(2)), 0])
+Object() = Object(codeunits(""), UInt64[object(Int64(2)), 0], Dict{Symbol, Int}())
 
 struct Array{T, S <: AbstractVector{UInt8}, TT <: AbstractVector{UInt64}} <: AbstractVector{T}
     buf::S
     tape::TT
+    inds::Vector{Int}
 end
 
-Array{T}(buf::S, tape::TT) where {T, S, TT} = Array{T, S, TT}(buf, tape)
+Array{T}(buf::S, tape::TT, inds::Vector{Int}) where {T, S, TT} = Array{T, S, TT}(buf, tape, inds)
 
 getbuf(j::Union{Object, Array}) = getfield(j, :buf)
 gettape(j::Union{Object, Array}) = getfield(j, :tape)
+getinds(j::Union{Object, Array}) = getfield(j, :inds)
 
 include("utils.jl")
 
@@ -29,9 +32,40 @@ $(String(buf[max(1, pos-25):min(end, pos+25)]))
 @enum Error UnexpectedEOF ExpectedOpeningObjectChar ExpectedOpeningQuoteChar ExpectedOpeningArrayChar ExpectedClosingArrayChar ExpectedComma ExpectedSemiColon InvalidChar InvalidNumber
 
 # AbstractDict interface
-function Base.length(obj::Object)
-    @inbounds len = getnontypemask(gettape(obj)[2])
-    return len
+Base.length(obj::Object) = length(getinds(obj))
+
+function populateinds!(x::Object)
+    inds = getinds(x)
+    buf = getbuf(x)
+    tape = gettape(x)
+    tapeidx = 3
+    @inbounds len = getnontypemask(tape[2])
+    i = 1
+    while i <= len
+        @inbounds t = tape[tapeidx]
+        key = getvalue(Symbol, buf, tape, tapeidx, t)
+        tapeidx += 2
+        inds[key] = tapeidx
+        @inbounds tapeidx += gettapelen(Any, tape[tapeidx])
+        i += 1
+    end
+    return
+end
+
+function populateinds!(x::Array)
+    inds = getinds(x)
+    buf = getbuf(x)
+    tape = gettape(x)
+    tapeidx = 3
+    @inbounds len = getnontypemask(tape[2])
+    resize!(inds, len)
+    i = 1
+    while i <= len
+        @inbounds inds[i] = tapeidx
+        @inbounds tapeidx += gettapelen(Any, tape[tapeidx])
+        i += 1
+    end
+    return
 end
 
 @inline function Base.iterate(obj::Object, (i, tapeidx)=(1, 3))
@@ -47,84 +81,48 @@ end
 end
 
 function Base.get(obj::Object, key::Symbol)
-    for (k, v) in obj
-        k == key && return v
-    end
-    throw(KeyError(key))
+    ind = getinds(obj)[key]
+    tape = gettape(obj)
+    @inbounds t = tape[ind]
+    return getvalue(Any, getbuf(obj), tape, ind, t)
 end
 
-function Base.get(obj::Object, key)
-    k2 = Base.string(key)
-    for (k, v) in obj
-        String(k) == k2 && return v
-    end
-    throw(KeyError(key))
-end
-
-function Base.get(obj::Object, ::Type{T}, key::Symbol)::T where {T}
-    for (k, v) in obj
-        k == key && return v
-    end
-    throw(KeyError(key))
-end
+Base.get(obj::Object, key) = get(obj, Symbol(key))
 
 function Base.get(obj::Object, ::Type{T}, key)::T where {T}
-    k2 = Base.string(key)
-    for (k, v) in obj
-        String(k) == k2 && return v
-    end
-    throw(KeyError(key))
+    return get(obj, key)
 end
 
 function Base.get(obj::Object, key::Symbol, default)
-    for (k, v) in obj
-        k == key && return v
+    ind = getinds(obj)
+    if haskey(ind, key)
+        return get(obj, key)
+    else
+        return default
     end
-    return default
 end
 
-function Base.get(obj::Object, key, default)
-    k2 = Base.string(key)
-    for (k, v) in obj
-        String(k) == k2 && return v
-    end
-    return default
-end
-
-function Base.get(obj::Object, ::Type{T}, key::Symbol, default::T)::T where {T}
-    for (k, v) in obj
-        k == key && return v
-    end
-    return default
-end
+Base.get(obj::Object, key, default) = get(obj, Symbol(key), default)
 
 function Base.get(obj::Object, ::Type{T}, key, default::T)::T where {T}
-    k2 = Base.string(key)
-    for (k, v) in obj
-        String(k) == k2 && return v
-    end
-    return default
+    return get(obj, key, default)
 end
 
 function Base.get(default::Base.Callable, obj::Object, key::Symbol)
-    for (k, v) in obj
-        k == key && return v
+    ind = getinds(obj)
+    if haskey(ind, key)
+        return get(obj, key)
+    else
+        return default()
     end
-    return default()
 end
 
-function Base.get(default::Base.Callable, obj::Object, key)
-    k2 = Base.string(key)
-    for (k, v) in obj
-        String(k) == k2 && return v
-    end
-    return default()
-end
+Base.get(default::Base.Callable, obj::Object, key) = get(default, obj, Symbol(key))
 
 Base.propertynames(obj::Object) = collect(keys(obj))
 
 Base.getproperty(obj::Object, prop::Symbol) = get(obj, prop)
-Base.getindex(obj::Object, str::String) = get(obj, Symbol(str))
+Base.getindex(obj::Object, key) = get(obj, key)
 
 function Base.copy(obj::Object)
     dict = Dict{Symbol, Any}()
@@ -137,10 +135,7 @@ end
 # AbstractArray interface
 Base.IndexStyle(::Type{<:Array}) = Base.IndexLinear()
 
-function Base.size(arr::Array)
-    @inbounds len = getnontypemask(gettape(arr)[2])
-    return (len,)
-end
+Base.size(arr::Array) = (length(getinds(arr)),)
 
 function Base.iterate(arr::Array{T}, (i, tapeidx)=(1, 3)) where {T}
     i > length(arr) && return nothing
@@ -155,23 +150,9 @@ end
     @boundscheck checkbounds(arr, i)
     tape = gettape(arr)
     buf = getbuf(arr)
-    if regularstride(T)
-        tapeidx = 1 + 2 * i
-        @inbounds t = tape[tapeidx]
-        return getvalue(T, buf, tape, tapeidx, t)
-    else
-        tapeidx = 3
-        idx = 1
-        while true 
-            @inbounds t = tape[tapeidx]
-            if i == idx
-                return getvalue(T, buf, tape, tapeidx, t)
-            else
-                tapeidx += gettapelen(T, t)
-                idx += 1
-            end
-        end
-    end
+    @inbounds ind = getinds(arr)[i]
+    @inbounds t = tape[ind]
+    return getvalue(T, buf, tape, ind, t)
 end
 
 Base.copy(arr::Array) = map(x->x isa Object || x isa Array ? copy(x) : x, arr)

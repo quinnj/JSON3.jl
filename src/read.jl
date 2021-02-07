@@ -29,9 +29,13 @@ function read(str::AbstractString; jsonlines::Bool=false, kw...)
     end
     @inbounds t = tape[1]
     if isobject(t)
-        return Object(buf, tape)
+        obj = Object(buf, tape, Dict{Symbol, Int}())
+        populateinds!(obj)
+        return obj
     elseif isarray(t)
-        return Array{geteltype(tape[2])}(buf, tape)
+        arr = Array{geteltype(tape[2])}(buf, tape, Int[])
+        populateinds!(arr)
+        return arr
     else
         return getvalue(Any, buf, tape, 1, t)
     end
