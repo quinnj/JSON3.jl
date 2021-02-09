@@ -22,8 +22,7 @@ objects. For "scalar" types (number, bool, and null), the values are parsed imme
 
 The `JSON3.Object` supports the `AbstactDict` interface, but is read-only (it represents a *view* into the JSON string input), thus it supports `obj[:x]` and `obj["x"]`, as well as `obj.x` for accessing fields. It supports `keys(obj)` to see available keys in the object structure. You can call `length(obj)` to see how many key-value pairs there are, and it iterates `(k, v)` pairs like a normal `Dict`. It also supports the regular `get(obj, key, default)` family of methods. PLEASE NOTE that iterating key-value pairs from `JSON3.Object` will be much more performant than calling `getindex` or `get`on each key due to the internal "view" nature of the object.
 
-The `JSON3.Array{T}` supports the `AbstractArray` interface, but like `JSON3.Object` is a *view* into the input JSON, hence is read-only. It supports normal array methods like `length(A)`, `size(A)`, iteration, and `A[i]` `getindex` methods. PLEASE NOTE that iterating a `JSON3.Array` will be much more performant than calling `getindex` on
-each index due to the internal "view" nature of the array.
+The `JSON3.Array{T}` supports the `AbstractArray` interface, but like `JSON3.Object` is a *view* into the input JSON, hence is read-only. It supports normal array methods like `length(A)`, `size(A)`, iteration, and `A[i]` `getindex` methods.
 
 If you really need `Dict`s and `Vector`s, then you can use `copy(x)` to recursively convert `JSON3.Object`s to `Dict`s and `JSON3.Array`s to `Vector`s.
 
