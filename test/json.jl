@@ -4,7 +4,7 @@
 # Unexpected character in object
 @test_throws ArgumentError JSON3.read("{\"1\":2, \"2\":3 _ \"4\":5}")
 # Invalid escaped character
-@test_throws ArgumentError show(JSON3.read("[\"alpha\\α\"]"))
+@test_throws ArgumentError repr(JSON3.read("[\"alpha\\α\"]"))
 # Invalid 'simple' and 'unknown value'
 @test_throws ArgumentError JSON3.read("[tXXe]")
 @test_throws ArgumentError JSON3.read("[fail]")
