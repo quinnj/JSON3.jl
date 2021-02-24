@@ -28,6 +28,12 @@ end
 struct C
 end
 
+struct D
+    a::Int
+    b::Float64
+    c::String
+end
+
 abstract type Vehicle end
 
 struct Car <: Vehicle
@@ -360,6 +366,18 @@ obj = JSON3.read("""
 @test obj.a == 1
 @test obj.d == 4
 
+# test order doesn't matter
+obj2 = JSON3.read("""
+{ "d": 1,
+  "b": 2,
+  "c": 3,
+  "a": 4
+}
+""", A)
+
+@test obj2.d == 1
+@test obj2.a == 4
+
 @test_throws ArgumentError JSON3.read("", A)
 @test_throws ArgumentError JSON3.read("a", A)
 @test_throws ArgumentError JSON3.read("{a", A)
@@ -384,6 +402,26 @@ StructTypes.StructType(::Type{C}) = StructTypes.Struct()
 
 @test JSON3.read("{}", C) == C()
 @test JSON3.write(obj) == "{\"a\":1,\"b\":2,\"c\":3,\"d\":4}"
+
+StructTypes.StructType(::Type{D}) = StructTypes.OrderedStruct()
+obj = JSON3.read("""
+{ "a": 1,
+  "b": 3.14,
+  "c": "hey"
+}
+""", D)
+
+@test obj.a == 1
+@test obj.b == 3.14
+@test obj.c == "hey"
+
+# if order of fields is switched, error is thrown
+@test_throws ArgumentError JSON3.read("""
+{ "c": "hey",
+  "b": 3.14,
+  "a": 1
+}
+""", D)
 
 @test JSON3.read("1", Union{String, Int}) == 1
 @test JSON3.read("\"1\"", Union{String, Int}) == "1"
