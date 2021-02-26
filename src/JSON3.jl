@@ -163,5 +163,6 @@ include("show.jl")
 include("structs.jl")
 include("write.jl")
 include("pretty.jl")
+include("gentypes.jl")
 
 end # module
