@@ -142,6 +142,19 @@ struct DictWithoutLength end
 @test JSON3.read("true") === true
 @test JSON3.read("false") === false
 
+# more robust Int vs. Float detection: https://github.com/quinnj/JSON3.jl/issues/124
+@test JSON3.read("9223372036854775807") == 9223372036854775807
+@test JSON3.read("9223372036854775808") == 9.223372036854776e18 # overflowed Int64 promotes to Float64 (though slightly lossy)
+@test JSON3.read("-9223372036854775808") == -9223372036854775808
+@test JSON3.read("-9223372036854775809") == -9.223372036854776e18
+# 2^53 boundaries
+@test JSON3.read("9007199254740991") == 9007199254740991
+@test JSON3.read("9007199254740992") == 9007199254740992
+@test JSON3.read("9007199254740993") == 9007199254740993
+@test JSON3.read("9007199254740994") == 9007199254740994
+@test JSON3.read("1e17") == Int64(1e17)
+
+
 @test_throws ArgumentError JSON3.read("{")
 @test JSON3.read("{}") == JSON3.Object()
 @test_throws ArgumentError JSON3.read("{a")
