@@ -53,6 +53,8 @@ macro check()
     end)
 end
 
+const FLOAT_INT_BOUND = 2.0^53
+
 function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any}, checkint=true; allow_inf::Bool=false)
     if b == UInt8('{')
         return read!(buf, pos, len, b, tape, tapeidx, Object; allow_inf=allow_inf)
@@ -71,19 +73,35 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any}, checkint=true; allo
         if code > 0
             !isfinite(float) && !allow_inf && @goto invalid
             @check
+            # if, for example, we've already parsed floats in an array, just keep them all as floats and don't check for ints
             if checkint
-                int = unsafe_trunc(Int64, float)
-                if int == float
-                    @inbounds tape[tapeidx] = INT
-                    @inbounds tape[tapeidx + 1] = Core.bitcast(UInt64, int)
-                else
-                    @inbounds tape[tapeidx] = FLOAT
-                    @inbounds tape[tapeidx + 1] = Core.bitcast(UInt64, float)
+                fp, ip = modf(float)
+                if fp == 0 && Float64(typemin(Int64)) <= float <= Float64(typemax(Int64))
+                    # ok great, we know the number is integral and pretty much in Int64 range
+                    if -FLOAT_INT_BOUND < float < FLOAT_INT_BOUND
+                        # easy case, integer w/ less than or equal to 53-bits of precision
+                        int = unsafe_trunc(Int64, float)
+                    else
+                        # if our integral float is > 53-bit precision, we need to reparse the Int so we don't get a lossy conversion
+                        # there are also a few floats that satisfy Float64(typemin(Int64)) <= float <= Float64(typemax(Int64))
+                        # that actually overflow Int64, like -9223372036854775809 and 9223372036854775808
+                        # in those cases, we're going to verify that this Int64 parsing doesn't overflow
+                        int, code, floatpos2 = Parsers.typeparser(Int64, buf, pos, len, b, Int16(0), Parsers.OPTIONS)
+                        if floatpos2 < floatpos
+                            # ah, but there's one more case we need to handle: a > 53-bit precision integer given in
+                            # exponent form, like 1e17 or 9.007199254740994e15; in those cases, the truncation to Int64 *isn't* lossy
+                            int = unsafe_trunc(Int64, float)
+                        end
+                    end
+                    if code > 0
+                        @inbounds tape[tapeidx] = INT
+                        @inbounds tape[tapeidx + 1] = Core.bitcast(UInt64, int)
+                        return floatpos, tapeidx + 2
+                    end
                 end
-            else
-                @inbounds tape[tapeidx] = FLOAT
-                @inbounds tape[tapeidx + 1] = Core.bitcast(UInt64, float)
             end
+            @inbounds tape[tapeidx] = FLOAT
+            @inbounds tape[tapeidx + 1] = Core.bitcast(UInt64, float)
             return floatpos, tapeidx + 2
         end
         invalid(InvalidNumber, buf, pos, Float64)
