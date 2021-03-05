@@ -729,6 +729,10 @@ let iob = IOBuffer()
     @test (JSON3.read(String(take!(iob)))).i == 1
 end
 
+# issue #127 support AbstractCmd
+@test (JSON3.read(`echo \{\"i\":1\}`)).i == 1
+@test (JSON3.read(`echo` & `echo \{\"i\":1\}`)).i == 1
+
 @test_broken JSON3.write([Int64[] Int64[]]) == "[[],[]]" #TODO
 @test JSON3.write([Int64[] Int64[]]') == "[]"
 

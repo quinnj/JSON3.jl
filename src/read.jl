@@ -6,7 +6,7 @@ end
 Base.codeunits(x::VectorString) = x.bytes
 
 # high-level user API functions
-read(io::IO; kw...) = read(Base.read(io, String); kw...)
+read(io::Union{IO, Base.AbstractCmd}; kw...) = read(Base.read(io, String); kw...)
 read(bytes::AbstractVector{UInt8}; kw...) = read(VectorString(bytes); kw...)
 
 function read(str::AbstractString; jsonlines::Bool=false, kw...)
