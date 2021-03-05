@@ -733,7 +733,6 @@ end
 @test (JSON3.read(`echo \{\"i\":1\}`)).i == 1
 @test (JSON3.read(`echo` & `echo \{\"i\":1\}`)).i == 1
 
-
 @test_broken JSON3.write([Int64[] Int64[]]) == "[[],[]]" #TODO
 @test JSON3.write([Int64[] Int64[]]') == "[]"
 
