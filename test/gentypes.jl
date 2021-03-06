@@ -207,4 +207,87 @@
         @test length(arr_lines) > 3
         @test arr_lines == lines
     end
+
+    @testset "Macro" begin
+        JSON3.@generatetypes(menu)
+        json = JSON3.read(menu, JSONTypes.Root)
+
+        @test json.menu.header == "SVG\\tViewer\\u03b1"
+        @test length(json.menu.items) > 0
+        @test json.menu.items[0].id == "Open"
+
+        @test fieldnames(JSONTypes.Item) == (:id, :label)
+
+        JSON3.@generatetypes(menu_array, :MyMod)
+        json_arr = JSON3.read(menu_array, MyMod.Root)
+        @test length(json_arr) == 2
+        @test json_arr[1].menu.header == "SVG\\tViewer\\u03b1"
+    end
+
+    @testset "Write & Read" begin
+        path = mktempdir()
+        file_path_default = joinpath(path, "default.jl")
+        JSON3.writetypes(menu, file_path_default)
+
+        include(file_path_default)
+        JSON3.read(menu, JSONTypes.Root)
+
+        @test json.menu.header == "SVG\\tViewer\\u03b1"
+        @test length(json.menu.items) > 0
+        @test json.menu.items[0].id == "Open"
+
+        @test fieldnames(JSONTypes.Item) == (:id, :label)
+
+        file_path_json = joinpath(path, "menu_array.json")
+        Base.write(file_path_json, menu_array)
+        file_path_mod = joinpath(path, "my_mod.jl")
+        JSON3.writetypes(file_path_json, file_path_mod; module_name=:MyMod, root_name=:MenuArray)
+
+        include(file_path_mod)
+        JSON3.read(menu_arr, MyMod.MenuArray)
+        @test length(json_arr) == 2
+        @test json_arr[1].menu.header == "SVG\\tViewer\\u03b1"
+    end
+
+    @testset "Struct" begin
+        json = """
+            [
+                {"a": 1, "b": 2, "c": {"d": 4}},
+                {"a": w, "b": 5, "c": {"d": 4}},
+                {"a": 3, "b": 4, "c": {"d": 6}},
+                {"a": 7, "b": 7, "c": {"d": 7}},
+            ]
+        """
+
+        path = mktempdir()
+        file_path = joinpath(path, "struct.jl")
+
+        JSON3.writetypes(json, file_path; mutable=false)
+        include(file_path)
+        parsed = JSON3.read(json, JSONTypes.Root)
+
+        @test parsed[1].c.d == 4
+    end
+
+    @testset "Raw Types" begin
+        json = """
+            [
+                {"a": 1, "b": 2, "c": 5},
+                {"a": w, "b": 5, "c": 9},
+                {"a": 3, "b": 4, "c": 2},
+                {"a": 7, "b": 7, "c": 0},
+            ]
+        """
+        parsed = JSON3.read(json) # JSON.Object
+
+        # build a type for the JSON
+        raw_json_type = JSON3.generate_type(parsed)
+        @test raw_json_type <: NamedTuple
+
+        StructTypes.StructType(raw_json_type) = StructType.DictType()
+
+        res = JSON3.read(json, raw_json_type)
+
+        @test res[4].b == 7
+    end
 end
