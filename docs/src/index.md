@@ -317,3 +317,37 @@ x = MyParametricType(1)
 StructTypes.StructType(::Type{<:MyParametricType}) = StructTypes.Struct() # note the `<:`
                                                               # NOT like this StructTypes.StructType(::Type{MyParametricType})
 ```
+
+## Generated Types
+
+JSON3 has the ability to generate types from sample JSON, which then can be used to parse JSON into. Inspired by the [F# type provider](http://tomasp.net/academic/papers/fsharp-data/fsharp-data.pdf).
+
+```julia
+JSON3.@generatetypes sample :MyModule
+JSON3.read(full_json, MyModule.Root)
+```
+
+The [`JSON3.@generatetypes`](@ref) macro takes a JSON string or file name, generates a raw type from it, then parses that raw type into a series of mutable structs, which are then evaluated in a module (default `JSONTypes`) in the local scope.  Alternately, the [`JSON3.writetypes`](@ref) function can be used to perform these same steps, but instead write the generated module to file.
+
+```julia
+# writes a module called JSONTypes with the root struct Root as mutable
+JSON3.writetypes(sample, "json_types.jl")
+
+# write the same module, but with custom names and immutable
+JSON3.writetypes(sample, "json_types.jl"; module_name=:MyModule, root_name=:ABC, mutable=false)
+
+# these files can then be edited as needed (perhaps to prune the imported json)
+include("json_types.jl")
+```
+
+### API
+
+```@docs
+JSON3.generatetypes
+JSON3.@generatetypes
+JSON3.writetypes
+JSON3.generate_type
+JSON3.generate_exprs
+JSON3.write_exprs
+JSON3.generate_struct_type_module
+```
