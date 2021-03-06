@@ -50,7 +50,8 @@ open("my.json", "w") do f
     println(f)
 end
 
-# generate a type from json, requires StructTypes be installed
+# generate a type from json
+using StructTypes
 JSON3.@generatetypes json_string_sample
 JSON3.read(json_string, JSONTypes.Root)
 ```
