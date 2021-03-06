@@ -179,7 +179,7 @@
         @test raw_json_type <: NamedTuple
 
         # turn the type into struct expressions, including replacing sub types with references to a struct
-        json_exprs = JSON3.generate_exprs(raw_json_type, :MyStruct)
+        json_exprs = JSON3.generate_exprs(raw_json_type; root_name=:MyStruct)
         @test length(json_exprs) == 3
 
         # write the types to a file, then can be edited/included as needed
@@ -196,7 +196,7 @@
         @test raw_json_arr_type <: Array
 
         # turn the type into struct expressions, including replacing sub types with references to a struct
-        json_arr_exprs = JSON3.generate_exprs(raw_json_arr_type, :MyStruct)
+        json_arr_exprs = JSON3.generate_exprs(raw_json_arr_type; root_name=:MyStruct)
         @test length(json_arr_exprs) == 3
 
         # write the types to a file, then can be edited/included as needed

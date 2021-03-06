@@ -138,7 +138,7 @@ end
 
 # entry function for turning a "raw" type from `generate_type` to Exprs
 """
-    generate_exprs(raw_type, name=:Root; mutable=true)
+    generate_exprs(raw_type; root_name=:Root, mutable=true)
 
 Generate a vector of `Expr` from a "raw_type".  This will un-nest any sub-types within the root type.
 
@@ -146,9 +146,9 @@ The name of the root type is from the `name` variable (default :Root), then nest
 
 If `mutable` is `true`, an empty constructor is included in the struct definition. This allows the mutable structs to be used with `StructTypes.Mutable()` out of the box.
 """
-function generate_exprs(t, name::Symbol = :Root; mutable = true)
+function generate_exprs(t; root_name::Symbol = :Root, mutable = true)
     exprs = []
-    generate_expr!(exprs, t, name; mutable = mutable)
+    generate_expr!(exprs, t, root_name; mutable = mutable)
     return exprs
 end
 
@@ -271,7 +271,7 @@ function generatetypes(
 
     # build a type for the JSON
     raw_json_type = generate_type(json)
-    json_exprs = generate_exprs(raw_json_type, root_name)
+    json_exprs = generate_exprs(raw_json_type; root_name=root_name)
     return generate_struct_type_module(
         json_exprs,
         module_name
