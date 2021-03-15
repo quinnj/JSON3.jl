@@ -49,4 +49,9 @@ open("my.json", "w") do f
     JSON3.pretty(f, JSON3.write(x))
     println(f)
 end
+
+# generate a type from json
+using StructTypes
+JSON3.@generatetypes json_string_sample
+JSON3.read(json_string, JSONTypes.Root)
 ```

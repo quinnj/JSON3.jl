@@ -898,6 +898,8 @@ x = JSON3.read(json; jsonlines=true)
 # allow_inf consistency
 @test_throws ArgumentError JSON3.read("-Infinity")
 
+include("gentypes.jl")
+
 end # @testset "JSON3"
 
 include("stringnumber.jl")
