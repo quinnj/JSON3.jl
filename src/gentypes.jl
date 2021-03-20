@@ -83,7 +83,7 @@ function to_ast(::Type{T}) where {T}
     return ast
 end
 
-# make a field identifer into pascal case for struct name (my_name => MyName)
+# make a field identifer into pascal case for struct name (my_names => MyName)
 function pascalcase(s::Symbol)
     str = String(s)
     new_str = ""
@@ -99,12 +99,8 @@ function pascalcase(s::Symbol)
         end
     end
 
-    if new_str[end] == 's'
-        if new_str[end-2:end] == "ies"
-            new_str = new_str[1:end-3] * "y"
-        else
-            new_str = new_str[1:end-1]
-        end
+    if length(new_str) > 1 && new_str[end] == 's' && new_str[end-1:end] != "ss"
+        new_str = new_str[1:end-1]
     end
 
     return Symbol(new_str)
@@ -285,10 +281,7 @@ end
 Evaluate the result of the [`generatetypes`](@ref) function in the current scope.
 """
 macro generatetypes(json_str, module_name)
-    return quote
-        local mod = JSON3.generatetypes($(esc(json_str)), $(esc(module_name)))
-        return Core.eval($__module__, mod)
-    end
+    :(Core.eval($__module__, generatetypes($(esc(json_str)), $(esc(module_name)))))
 end
 
 macro generatetypes(json)
@@ -305,9 +298,9 @@ function writetypes(
     json,
     file_name;
     module_name::Symbol = :JSONTypes,
-    root_name = :Root,
+    root_name::Symbol = :Root,
     mutable::Bool = true,
 )
-    mod = generatetypes(json, module_name)
+    mod = generatetypes(json, module_name; mutable=mutable, root_name=root_name)
     write_exprs(mod, file_name)
 end

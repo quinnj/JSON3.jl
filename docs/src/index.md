@@ -325,6 +325,9 @@ JSON3 has the ability to generate types from sample JSON, which then can be used
 ```julia
 JSON3.@generatetypes sample :MyModule
 JSON3.read(full_json, MyModule.Root)
+
+# or if sample is an array of objects
+JSON3.read(full_json, Vector{MyModule.Root})
 ```
 
 The [`JSON3.@generatetypes`](@ref) macro takes a JSON string or file name, generates a raw type from it, then parses that raw type into a series of mutable structs, which are then evaluated in a module (default `JSONTypes`) in the local scope.  Alternately, the [`JSON3.writetypes`](@ref) function can be used to perform these same steps, but instead write the generated module to file.
