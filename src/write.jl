@@ -122,6 +122,11 @@ end
     return buf, pos, len
 end
 
+@inline function write(::CustomStruct, buf, pos, len, x; kw...)
+    y = StructTypes.lower(x)
+    return write(StructType(y), buf, pos, len, y; kw...)
+end
+
 function write(::DictType, buf, pos, len, x::T; kw...) where {T}
     @writechar '{'
     pairs = StructTypes.keyvaluepairs(x)

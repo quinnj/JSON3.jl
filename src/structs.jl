@@ -1,4 +1,4 @@
-import StructTypes: StructType, DictType, ArrayType, StringType, NumberType, BoolType, NullType, NoStructType, Struct, OrderedStruct, Mutable, construct, AbstractType, subtypes, subtypekey
+import StructTypes: StructType, CustomStruct, DictType, ArrayType, StringType, NumberType, BoolType, NullType, NoStructType, Struct, OrderedStruct, Mutable, construct, AbstractType, subtypes, subtypekey
 
 struct RawType <: StructType end
 
@@ -359,6 +359,12 @@ keyvalue(::Type{T}, escaped, ptr, len) where {T} = escaped ? construct(T, unesca
 
 @label invalid
     invalid(error, buf, pos, Object)
+end
+
+@inline function read(::CustomStruct, buf, pos, len, b, ::Type{T}; kw...) where {T}
+    S = StructTypes.lowertype(T)
+    pos, x = read(StructType(S), buf, pos, len, b, S; kw...)
+    return pos, StructTypes.construct(T, x)
 end
 
 mutable struct MutableClosure{T, KW}
