@@ -125,6 +125,10 @@ DateStruct() = DateStruct(Date(0), DateTime(0), Time(0))
 
 struct DictWithoutLength end
 
+struct Wrapper
+    x::NamedTuple{(:a, :b), Tuple{Int, String}}
+end
+
 @testset "JSON3" begin
 
 @testset "read.jl" begin
@@ -740,6 +744,14 @@ lotsoffields = LotsOfFields(fill("hey", 35)...)
 jlots = JSON3.write(lotsoffields)
 @test jlots == "{\"x1\":\"hey\",\"x2\":\"hey\",\"x3\":\"hey\",\"x4\":\"hey\",\"x5\":\"hey\",\"x6\":\"hey\",\"x7\":\"hey\",\"x8\":\"hey\",\"x9\":\"hey\",\"x10\":\"hey\",\"x11\":\"hey\",\"x12\":\"hey\",\"x13\":\"hey\",\"x14\":\"hey\",\"x15\":\"hey\",\"x16\":\"hey\",\"x17\":\"hey\",\"x18\":\"hey\",\"x19\":\"hey\",\"x20\":\"hey\",\"x21\":\"hey\",\"x22\":\"hey\",\"x23\":\"hey\",\"x24\":\"hey\",\"x25\":\"hey\",\"x26\":\"hey\",\"x27\":\"hey\",\"x28\":\"hey\",\"x29\":\"hey\",\"x30\":\"hey\",\"x31\":\"hey\",\"x32\":\"hey\",\"x33\":\"hey\",\"x34\":\"hey\",\"x35\":\"hey\"}"
 @test JSON3.read(jlots, LotsOfFields) == lotsoffields
+
+StructTypes.StructType(::Type{Wrapper}) = StructTypes.CustomStruct()
+StructTypes.lower(x::Wrapper) = x.x
+StructTypes.lowertype(::Type{Wrapper}) = fieldtype(Wrapper, :x)
+w = Wrapper((a=1, b="hey"))
+json = JSON3.write(w)
+@test json == "{\"a\":1,\"b\":\"hey\"}"
+@test JSON3.read(json, Wrapper) == w
 
 end # @testset "structs.jl"
 
