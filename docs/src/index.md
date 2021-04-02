@@ -30,7 +30,7 @@ If you really need `Dict`s and `Vector`s, then you can use `copy(x)` to recursiv
 
 The builtin JSON API in JSON3 is efficient and simple, but sometimes a direct mapping to a Julia structure is desirable. JSON3 uses the simple, yet powerful "struct mapping" techniques from the [StructTypes.jl](https://github.com/JuliaData/StructTypes.jl) package.
 
-In general, custom Julia types tend to be one of: 1) "data types", 2) "interface types" and sometimes 3) "abstract types" with a known set of concrete subtypes. Data types tend to be "collection of fields" kind of types; fields are generally public and directly accessible, they might also be made to model "objects" in the object-oriented sense. In any case, the type is "nominal" in the sense that it's "made up" of the fields it has, sometimes even if just for making it more convenient to pass them around together in functions.
+In general, custom Julia types tend to be one of: 1) "data types", 2) "interface types" and sometimes 3) "abstract types" with a known set of concrete subtypes or 4) "custom types" that just don't really fit in any other categories. Data types tend to be "collection of fields" kind of types; fields are generally public and directly accessible, they might also be made to model "objects" in the object-oriented sense. In any case, the type is "nominal" in the sense that it's "made up" of the fields it has, sometimes even if just for making it more convenient to pass them around together in functions.
 
 Interface types, on the other hand, are characterized by *private* fields; they contain optimized representations "under the hood" to provide various features/functionality and are useful via interface methods implemented: iteration, `getindex`, accessor methods, etc. Many package-provided libraries or Base-provided structures are like this: `Dict`, `Array`, `Socket`, etc. For these types, their underlying fields are mostly cryptic and provide little value to users directly, and are often explictly documented as being implementation details and not to be accessed under warning of breakage.
 
@@ -39,6 +39,23 @@ What does all this have to do with mapping Julia structures to JSON? A lot! For 
 For interface types, however, we don't want to consider the type's fields at all, since they're "private" and not very meaningful. For these types, an alternative API is provided where a user can specify the `StructTypes.StructType` their type most closely maps to, one of `StructTypes.DictType()`, `StructTypes.ArrayType()`, `StructTypes.StringType()`, `StructTypes.NumberType()`, `StructTypes.BoolType()`, or `StructTypes.NullType()`.
 
 For abstract types, it can sometimes be useful when reading a JSON structure to say that it will be one of a limited set of related types, with a specific JSON key in the structure signaling which concrete type the rest of the structure represents. JSON3 uses StructTypes.jl functionality to specify a `StructTypes.AbstractType()` for a type, along with a mapping of JSON key-type values to Julia subtypes that can be used to identify the concrete type while parsing.
+
+We briefly mentioned a 4th category above: "custom types". Sometimes a type is just a "wrapper" around an internal type that has a well defined representation, be that data or interface. Sometimes, we're just in the middle of developing something and our structs are just not that well defined. `StructTypes.CustomStruct` provides a bit of an "escape hatch" of sorts in that we get explicit "hooks" into the pre-serialization and pre-deserialization steps when calling `JSON3.read(json, T)`. These are available via the `StructTypes.lower(x::T)` and `StructTypes.lowertype(::Type{T})` methods. The former will be called on any type with the `StructTypes.CustomStruct` trait before serializing, and then serializing will continue anew on whatever was returned, hence `StructTypes.lower` needs to return or transform `x::T` into something that also has a well-defined `StructType` trait. So our custom type `T` can essentially be serialized however we want by whatever we return from `StructTypes.lower`. `StructTypes.lowertype` works similarly, but for deserialization. We defined a mapping from our custom type to the type of object that should first be deserialized, which will then be passed to our type's `StructType.construct` method. An example of all this is:
+
+```julia
+struct Person
+    id::Int
+    name::String
+end
+StructTypes.StructType(::Type{Person}) = StructTypes.Struct()
+struct PersonWrapper
+    person::Person
+end
+StructTypes.StructType(::Type{PersonWrapper}) = StructTypes.CustomStruct()
+StructTypes.lower(x::PersonWrapper) = x.person
+StructTypes.lowertype(::Type{PersonWrapper}) = Person
+StructTypes.construct(::Type{PersonWrapper}, x::Person) = PersonWrapper(x) # not strictly needed, because the default is `construct(T, x) = T(x)`
+```
 
 ### DataTypes
 
@@ -63,8 +80,12 @@ mutable struct MyType
 
     MyType() = new()
 end
+# or if not an "emtpy" inner construct, can be empty outer constructor
+MyType() = ...
 ```
-Note specifically that we're defining a `mutable struct` to allow field mutation, and providing a `MyType() = new()` inner constructor which constructs an "empty" `MyType` where isbits fields will be randomly initialized, and reference fields will be `#undef`. (Note that the inner constructor doesn't need to be *exactly* this, but at least needs to be callable like `MyType()`. If certain fields need to be intialized or zeroed out for security, then this should be accounted for in the inner constructor). For these mutable types, the type will first be initizlied like `MyType()`, then JSON parsing will parse each key-value pair in a JSON object, setting the field as the key is encountered, and converting the JSON value to the appropriate field value. This flow has the nice properties of: allowing parsing success even if fields are missing in the JSON structure, and if "extra" fields exist in the JSON structure that aren't apart of the Julia struct's fields, they will automatically be ignored. This allows for maximum robustness when mapping Julia types to arbitrary JSON objects that may be generated via web services, other language JSON libraries, etc.
+Note specifically that we're defining a `mutable struct` to allow field mutation, and providing a `MyType() = new()` inner constructor which constructs an "empty" `MyType` where isbits fields will be randomly initialized, and reference fields will be `#undef`. (Note that the constructor doesn't need to be *exactly* this (i.e. inner), but at least needs to be callable like `MyType()`. If certain fields need to be intialized or zeroed out for security, then this should be accounted for in the constructor). For these mutable types, the type will first be initizlied like `MyType()`, then JSON parsing will parse each key-value pair in a JSON object, setting the field as the key is encountered, and converting the JSON value to the appropriate field value. This flow has the nice properties of: allowing parsing success even if fields are missing in the JSON structure, and if "extra" fields exist in the JSON structure that aren't apart of the Julia struct's fields, they will automatically be ignored. This allows for maximum robustness when mapping Julia types to arbitrary JSON objects that may be generated via web services, other language JSON libraries, etc.
+
+`StructTypes.Struct` work similarly, but due to their immutability, fields are parsed from JSON, then passed to `StructTypes.construct(T, x...)` where `T` is our struct type, and `x...` are the fields we've parsed from the JSON, provided _in field order_, even if the JSON had fields out of order. If fields are missing from the JSON itself, the `nothing` value will be passed for those fields, so constructors should account for the potential of missing fields by setting a default value in case of `nothing` or perhaps typeing the field like `Union{String, Nothing}` explicitly.
 
 There are a few additional helper methods that can be utilized by these `StructTypes.DataType` types to hand-tune field reading/writing behavior:
 
