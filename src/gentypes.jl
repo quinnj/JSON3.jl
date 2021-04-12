@@ -267,7 +267,7 @@ function generatetypes(
 
     # build a type for the JSON
     raw_json_type = generate_type(json)
-    json_exprs = generate_exprs(raw_json_type; root_name=root_name)
+    json_exprs = generate_exprs(raw_json_type; root_name=root_name, mutable=mutable)
     return generate_struct_type_module(
         json_exprs,
         module_name

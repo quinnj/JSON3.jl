@@ -250,6 +250,7 @@
         include(file_path)
         parsed = JSON3.read(json, Vector{JSONTypes.Root})
 
+        @test !(JSONTypes.Root.mutable)
         @test parsed[1].c.d == 4
     end
 
