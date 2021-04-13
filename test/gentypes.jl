@@ -251,6 +251,7 @@
         parsed = JSON3.read(json, Vector{JSONTypes.Root})
 
         @test parsed[1].c.d == 4
+        @test fieldtype(JSONTypes.Root, 1) == Union{Int, String}
     end
 
     @testset "Raw Types" begin
