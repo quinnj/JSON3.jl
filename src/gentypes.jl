@@ -12,8 +12,13 @@ struct Top end
 get_type(NT, k) = hasfield(NT, k) ? fieldtype(NT, k) : Nothing
 
 # unify two types to a single type
+function promoteunion(T, S)
+    new = promote_type(T, S)
+    return isabstracttype(new) ? Union{T, S} : new
+end
+
 unify(a, b) = unify(b, a)
-unify(a::Type{T}, b::Type{S}) where {T,S} = Base.promote_typejoin(T, S)
+unify(a::Type{T}, b::Type{S}) where {T,S} = promoteunion(T, S)
 unify(a::Type{T}, b::Type{S}) where {T,S<:T} = T
 unify(a::Type{Top}, b::Type{T}) where {T} = T
 

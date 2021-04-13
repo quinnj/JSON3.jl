@@ -252,6 +252,7 @@
 
         @test !(JSONTypes.Root.mutable)
         @test parsed[1].c.d == 4
+        @test fieldtype(JSONTypes.Root, 1) == Union{Int64, String}
     end
 
     @testset "Raw Types" begin
