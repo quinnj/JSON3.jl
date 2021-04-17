@@ -10,7 +10,7 @@ end
 """
     JSON3.pretty(str; kw...)
     JSON3.pretty(io, x)
-    JSON3.pretty(io, str, [indent], [offset]; kw...)
+    JSON3.pretty(io, str; kw...)
 
 Pretty print a JSON string.
 
