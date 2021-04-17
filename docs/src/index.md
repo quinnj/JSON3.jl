@@ -4,6 +4,147 @@
 Depth = 4
 ```
 
+## Getting Started
+
+> Yet another JSON package for Julia; this one is for speed and slick struct mapping
+
+JSON3 provides two main functions: [`JSON3.read`](@ref) and [`JSON3.write`](@ref).  These allow in the basic case, reading a JSON string into a [`JSON3.Object`](@ref) or [`JSON3.Array`](@ref), which allow for dot or bracket indexing and can be copied into base `Dicts` or `Vectors` if needed.  The slick struct mapping allows reading a JSON string directly into (almost) any type you wish and then writing directly from those types into JSON as well.
+
+### Examples
+
+#### Basic reading and writing
+```@example
+using JSON3 # hide
+json_string = """{"a": 1, "b": "hello, world"}"""
+
+hello_world = JSON3.read(json_string)
+
+# can access the fields with dot or bracket notation
+println(hello_world.b)
+println(hello_world["a"])
+
+JSON3.write(hello_world)
+```
+
+#### Write with pretty printing
+```@example
+using JSON3 # hide
+json_string = """{"a": 1, "b": "hello, world"}"""
+
+hello_world = JSON3.read(json_string)
+JSON3.pretty(JSON3.write(hello_world))
+```
+
+#### Read and write from/to a file
+```jl
+json_string = read("my_file.json", String)
+
+hello_world = JSON3.read(json_string)
+
+open("my_new_file.json", "w") do io
+    JSON3.write(io, hello_world)
+end
+```
+
+#### Read JSON into a type
+
+See more details on the types that are provided and how to customize parsing [below](#Builtin-types).
+
+```@example
+using JSON3 # hide
+using StructTypes
+
+json_string = """{"a": 1, "b": "hello, world"}"""
+
+struct MyType
+    a::Int
+    b::String
+end
+
+StructTypes.StructType(::Type{MyType}) = StructTypes.Struct()
+
+hello_world = JSON3.read(json_string, MyType)
+
+println(hello_world)
+
+JSON3.write(hello_world)
+```
+
+#### Read JSON into an already instantiated struct
+
+```@example
+using JSON3 # hide
+using StructTypes
+
+Base.@kwdef mutable struct MyType
+    a::Int = 0
+    b::String = ""
+    c::String = ""
+end
+
+StructTypes.StructType(::Type{MyType}) = StructTypes.Mutable()
+
+t = MyType(c = "foo")
+
+json_string = """{"a": 1, "b": "hello, world"}"""
+
+JSON3.read!(json_string, t)
+```
+
+#### Generate a type from your JSON
+
+See the [section on generating types](#Generated-Types) for more details.
+
+```@example
+using JSON3 # hide
+using StructTypes
+
+json_string = """{"a": 1, "b": "hello, world"}"""
+
+JSON3.@generatetypes json_string
+hello_world = JSON3.read(json_string, JSONTypes.Root)
+```
+
+#### Read in a date
+```@example
+using JSON3 # hide
+using Dates
+
+json_string = "\"2000-01-01\""
+df = dateformat"yyyy-mm-dd"
+my_date = JSON3.read(json_string, Date; dateformat=df)
+```
+
+#### Read a quoted number
+```@example
+using JSON3 # hide
+using StructTypes
+
+json_string = """{"a": "1", "b": "hello, world"}"""
+
+struct MyType
+    a::Int
+    b::String
+end
+
+StructTypes.StructType(::Type{MyType}) = StructTypes.Struct()
+
+hello_world = JSON3.read(json_string, MyType; parsequoted=true)
+```
+
+### API
+
+```@docs
+JSON3.read
+JSON3.read!
+JSON3.write
+JSON3.pretty
+JSON3.@pretty
+JSON3.Object
+JSON3.Array
+Base.copy
+```
+
 ## Builtin types
 
 The JSON format is made up of just a few types: Object, Array, String, Number, Bool, and Null.

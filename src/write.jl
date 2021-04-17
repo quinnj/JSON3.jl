@@ -11,6 +11,21 @@ defaultminimum(x::Union{Tuple, AbstractSet, AbstractArray}) = isempty(x) ? 2 : s
 defaultminimum(x::Union{AbstractDict, NamedTuple, Pair}) = isempty(x) ? 2 : sum(defaultminimum(k) + defaultminimum(v) for (k, v) in StructTypes.keyvaluepairs(x))
 defaultminimum(x) = max(2, sizeof(x))
 
+"""
+    JSON3.write([io], x; kw...)
+
+Write JSON.
+
+## Args
+
+* `io`: Optionally, an `IO` object to write the resulting JSON string to.  By default, will return a `String` if `io` is not provided.
+* `x`: An object to serialize as JSON.  If not a [built in type](#Builtin-types), must have a "struct mapping" registered with [StructTypes.jl](#Struct-API).
+
+## Keyword Args
+
+* `allow_inf`: Allow writing of `Inf` values (not part of the JSON standard). [default `false`]
+* `dateformat`: A [`DateFormat`](https://docs.julialang.org/en/v1/stdlib/Dates/#Dates.DateFormat) describing how to format `Date`s in the object. [default `Dates.default_format(T)`]
+"""
 function write(io::IO, obj::T; kw...) where {T}
     len = defaultminimum(obj)
     buf = Base.StringVector(len)

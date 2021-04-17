@@ -2,6 +2,7 @@ module JSON3
 
 using Parsers, Mmap, UUIDs, Dates, StructTypes
 
+"""An immutable (read only) struct which provides an efficient view of a JSON object. Supports the `AbstractDict` interface."""
 struct Object{S <: AbstractVector{UInt8}, TT <: AbstractVector{UInt64}} <: AbstractDict{Symbol, Any}
     buf::S
     tape::TT
@@ -10,6 +11,7 @@ end
 
 Object() = Object(codeunits(""), UInt64[object(Int64(2)), 0], Dict{Symbol, Int}())
 
+"""An immutable (read only) struct which provides an efficient view of a JSON array. Supports the `AbstractArray` interface."""
 struct Array{T, S <: AbstractVector{UInt8}, TT <: AbstractVector{UInt64}} <: AbstractVector{T}
     buf::S
     tape::TT
@@ -124,6 +126,11 @@ Base.propertynames(obj::Object) = collect(keys(obj))
 Base.getproperty(obj::Object, prop::Symbol) = get(obj, prop)
 Base.getindex(obj::Object, key) = get(obj, key)
 
+"""
+    copy(obj)
+
+Recursively copy `JSON3.Object`s to `Dict`s and `JSON3.Array`s to vectors.  This copy can then be mutated if needed.
+"""
 function Base.copy(obj::Object)
     dict = Dict{Symbol, Any}()
     for (k, v) in obj

@@ -1,7 +1,28 @@
+"""
+    JSON3.@pretty json_str
+
+Pretty print a JSON string or an object as JSON.
+"""
 macro pretty(json)
     return esc(:(JSON3.pretty($json)))
 end
 
+"""
+    JSON3.pretty(str; kw...)
+    JSON3.pretty(io, x)
+    JSON3.pretty(io, str, [indent], [offset]; kw...)
+
+Pretty print a JSON string.
+
+## Args
+
+* `str`: A JSON string
+* `io`: The `IO` object to write the pretty printed string to. [default `stdout`]
+
+## Keyword Args
+
+See [`JSON3.write`](@ref) and [`JSON3.read`](@ref).
+"""
 pretty(str; kw...) = pretty(stdout, str; kw...)
 pretty(out::IO, x) = pretty(out, JSON3.write(x))
 function pretty(out::IO, str::String, indent=0, offset=0; kw...)
