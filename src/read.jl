@@ -22,7 +22,7 @@ Read JSON.
 ## Keyword Args
 
 * `jsonlines`: A Bool indicating that the `json_str` contains newline delimited JSON strings, which will be read into a `JSON3.Array` of the JSON values.  See [jsonlines](https://jsonlines.org/) for reference. [default `false`]
-* `allow_inf`: Allow reading of `Inf` values (not part of the JSON standard). [default `false`]
+* `allow_inf`: Allow reading of `Inf` and `NaN` values (not part of the JSON standard). [default `false`]
 * `dateformat`: A [`DateFormat`](https://docs.julialang.org/en/v1/stdlib/Dates/#Dates.DateFormat) describing the format of dates in the JSON so that they can be read into `Date`s, `Time`s, or `DateTime`s when reading into a type. [default `Dates.default_format(T)`]
 * `parsequoted`: When reading into a NumberType, parse quoted values into numbers instead of as stings. [default `false`]
 """
