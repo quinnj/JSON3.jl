@@ -23,7 +23,7 @@ Write JSON.
 
 ## Keyword Args
 
-* `allow_inf`: Allow writing of `Inf` values (not part of the JSON standard). [default `false`]
+* `allow_inf`: Allow writing of `Inf` and `NaN` values (not part of the JSON standard). [default `false`]
 * `dateformat`: A [`DateFormat`](https://docs.julialang.org/en/v1/stdlib/Dates/#Dates.DateFormat) describing how to format `Date`s in the object. [default `Dates.default_format(T)`]
 """
 function write(io::IO, obj::T; kw...) where {T}

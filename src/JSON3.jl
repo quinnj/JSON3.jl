@@ -2,7 +2,7 @@ module JSON3
 
 using Parsers, Mmap, UUIDs, Dates, StructTypes
 
-"""An immutable (read only) struct which provides an efficient view of a JSON object. Supports the `AbstractDict` interface."""
+"""An immutable (read only) struct which provides an efficient view of a JSON object. Supports the `AbstractDict` interface. See [built in types](#Builtin-types) for more detail on why we have an `Object` type."""
 struct Object{S <: AbstractVector{UInt8}, TT <: AbstractVector{UInt64}} <: AbstractDict{Symbol, Any}
     buf::S
     tape::TT
@@ -11,7 +11,7 @@ end
 
 Object() = Object(codeunits(""), UInt64[object(Int64(2)), 0], Dict{Symbol, Int}())
 
-"""An immutable (read only) struct which provides an efficient view of a JSON array. Supports the `AbstractArray` interface."""
+"""An immutable (read only) struct which provides an efficient view of a JSON array. Supports the `AbstractArray` interface. See [built in types](#Builtin-types) for more detail on why we have an `Array` type."""
 struct Array{T, S <: AbstractVector{UInt8}, TT <: AbstractVector{UInt64}} <: AbstractVector{T}
     buf::S
     tape::TT
@@ -129,7 +129,7 @@ Base.getindex(obj::Object, key) = get(obj, key)
 """
     copy(obj)
 
-Recursively copy `JSON3.Object`s to `Dict`s and `JSON3.Array`s to vectors.  This copy can then be mutated if needed.
+Recursively copy [`JSON3.Object`](@ref)s to `Dict`s and [`JSON3.Array`](@ref)s to `Vector`s.  This copy can then be mutated if needed.
 """
 function Base.copy(obj::Object)
     dict = Dict{Symbol, Any}()

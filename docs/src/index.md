@@ -8,7 +8,7 @@ Depth = 4
 
 > Yet another JSON package for Julia; this one is for speed and slick struct mapping
 
-JSON3 provides two main functions: [`JSON3.read`](@ref) and [`JSON3.write`](@ref).  These allow in the basic case, reading a JSON string into a [`JSON3.Object`](@ref) or [`JSON3.Array`](@ref), which allow for dot or bracket indexing and can be copied into base `Dicts` or `Vectors` if needed.  The slick struct mapping allows reading a JSON string directly into (almost) any type you wish and then writing directly from those types into JSON as well.
+JSON3 provides two main functions: [`JSON3.read`](@ref) and [`JSON3.write`](@ref).  These allow, in the basic case, reading a JSON string into a [`JSON3.Object`](@ref) or [`JSON3.Array`](@ref), which allow for dot or bracket indexing and can be copied into base `Dict`s or `Vector`s if needed.  The slick struct mapping allows reading a JSON string directly into (almost) any type you wish and then writing directly from those types into JSON as well.
 
 ### Examples
 
@@ -48,7 +48,7 @@ end
 
 #### Read JSON into a type
 
-See more details on the types that are provided and how to customize parsing [below](#Builtin-types).
+See more details on the types that are provided and how to customize parsing [below](#Struct-API).
 
 ```@example
 using JSON3 # hide
@@ -144,6 +144,16 @@ JSON3.Object
 JSON3.Array
 Base.copy
 ```
+
+### In Relation to Other JSON Packages
+
+#### JSON.jl
+
+While the [JSON.jl](https://github.com/JuliaIO/JSON.jl) package has been around since the very early days of Julia, JSON3.jl aims a faster core implementation of JSON parsing (via [`JSON3.read`](@ref)), as well as better integration with custom types using the [Struct API](#Struct-API). Via the [StructTypes.jl](https://github.com/JuliaData/StructTypes.jl) package, JSON3 provides numerous configurations for reading/writing custom types.
+
+#### JSONTables.jl
+
+[JSONTables.jl](https://github.com/JuliaData/JSONTables.jl) uses JSON3 under the hood to read and write JSON sources to/from [Tables.jl](https://github.com/JuliaData/Tables.jl) compatible tables.
 
 ## Builtin types
 
