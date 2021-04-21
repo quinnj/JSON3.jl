@@ -14,4 +14,5 @@ makedocs(;
 
 deploydocs(;
     repo="github.com/quinnj/JSON3.jl",
+    devbranch = "main",
 )
