@@ -47,7 +47,7 @@ unify(a::Type{Vector{T}}, b::Type{Vector{S}}) where {T,S} = Vector{unify(T, S)}
 
 # parse json into a type, maintain field order
 """
-    generate_type(json)
+    JSON3.generate_type(json)
 
 Given a JSON3 Object or Array, return a "raw type" from it.  A raw type is typically a `NamedTuple`, which can contain further nested `NamedTuples`, concrete, `Array`, or `Union` types.
 """
@@ -112,7 +112,7 @@ function pascalcase(s::Symbol)
 end
 
 """
-    write_exprs(expr, f)
+    JSON3.write_exprs(expr, f)
 
 Write an `Expr` or `Vector{Expr}` to file.  Formatted so that it can be used with `include`.
 """
@@ -139,7 +139,7 @@ end
 
 # entry function for turning a "raw" type from `generate_type` to Exprs
 """
-    generate_exprs(raw_type; root_name=:Root, mutable=true)
+    JSON3.generate_exprs(raw_type; root_name=:Root, mutable=true)
 
 Generate a vector of `Expr` from a "raw_type".  This will un-nest any sub-types within the root type.
 
@@ -227,7 +227,7 @@ end
 
 # create a module with the struct declarations as well as the StructType declarations
 """
-    generate_struct_type_module(exprs, module_name)
+    JSON3.generate_struct_type_module(exprs, module_name)
 
 Given a vector of `exprs` (output of [`generate_exprs`](@ref)), return an `Expr` containing the AST for a module with name `module_name`.  The module will map all types to the appropriate `StructType`, so the result can immediately used with `JSON3.read(json, T)`.
 """
@@ -247,7 +247,7 @@ function generate_struct_type_module(exprs, module_name)
 end
 
 """
-    generatetypes(json, module_name; mutable=true, root_name=:Root)
+    JSON3.generatetypes(json, module_name; mutable=true, root_name=:Root)
 
 Convenience function to go from a json string or file name to an AST with a module of structs.
 
@@ -281,7 +281,7 @@ end
 
 # macro to create a module with types generated from a json string
 """
-    @generatetypes json [module_name]
+    JSON3.@generatetypes json [module_name]
 
 Evaluate the result of the [`generatetypes`](@ref) function in the current scope.
 """
@@ -295,7 +295,7 @@ end
 
 # convenience function to go from json_string, to file with module
 """
-    writetypes(json, file_name; module_name=:JSONTypes, root_name=:Root, mutable=true)
+    JSON3.writetypes(json, file_name; module_name=:JSONTypes, root_name=:Root, mutable=true)
 
 Write the result of the [`generatetypes`](@ref) function to file.
 """

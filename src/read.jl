@@ -9,6 +9,23 @@ Base.codeunits(x::VectorString) = x.bytes
 read(io::Union{IO, Base.AbstractCmd}; kw...) = read(Base.read(io, String); kw...)
 read(bytes::AbstractVector{UInt8}; kw...) = read(VectorString(bytes); kw...)
 
+"""
+    JSON3.read(json_str, [type]; kw... )
+
+Read JSON.
+
+## Args
+
+* `json_str`: A string, IO, or bytes (`AbstractVector{UInt8`) containing JSON to read
+* `type`: Optionally, a type to read the JSON into. If not a [built in type](#Builtin-types), must have a "struct mapping" registered with [StructTypes.jl](#Struct-API).
+
+## Keyword Args
+
+* `jsonlines`: A Bool indicating that the `json_str` contains newline delimited JSON strings, which will be read into a `JSON3.Array` of the JSON values.  See [jsonlines](https://jsonlines.org/) for reference. [default `false`]
+* `allow_inf`: Allow reading of `Inf` and `NaN` values (not part of the JSON standard). [default `false`]
+* `dateformat`: A [`DateFormat`](https://docs.julialang.org/en/v1/stdlib/Dates/#Dates.DateFormat) describing the format of dates in the JSON so that they can be read into `Date`s, `Time`s, or `DateTime`s when reading into a type. [default `Dates.default_format(T)`]
+* `parsequoted`: When reading into a NumberType, parse quoted values into numbers instead of as stings. [default `false`]
+"""
 function read(str::AbstractString; jsonlines::Bool=false, kw...)
     buf = codeunits(str)
     len = length(buf)

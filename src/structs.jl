@@ -35,6 +35,11 @@ function read(str::AbstractString, ::Type{T}; kw...) where {T}
     return x
 end
 
+"""
+    JSON3.read!(json_str, x; kw...)
+
+Incrementally update an instance of a mutable object `x` with the contents of `json_str`.  See [`JSON3.read`](@ref) for more details.
+"""
 function read!(str::AbstractString, x::T; kw...) where {T}
     buf, pos, len, b = _prepare_read(str, T)
     pos, x = read!(StructType(T), buf, pos, len, b, T, x; kw...)
