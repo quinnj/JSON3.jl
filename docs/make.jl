@@ -2,7 +2,7 @@ using Documenter, JSON3, StructTypes
 
 makedocs(;
     modules=[JSON3],
-    format=Documenter.HTML(),
+    format=Documenter.HTML(edit_link="main"),
     pages=[
         "Home" => "index.md",
     ],
