@@ -46,6 +46,15 @@ open("my_new_file.json", "w") do io
 end
 ```
 
+#### Write pretty JSON to a file
+```jl
+hello_world = Dict("a" => Dict("b" => 1, "c" => 2), "b" => Dict("c" =>3, "d" => 4))
+
+open("my_new_file.json", "w") do io
+    JSON3.pretty(io, hello_world)
+end
+```
+
 #### Read JSON into a type
 
 See more details on the types that are provided and how to customize parsing [below](#Struct-API).
