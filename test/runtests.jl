@@ -1,5 +1,9 @@
 using Test, JSON3, StructTypes, UUIDs, Dates
 
+if !isdefined(Base, :ismutabletype)
+    ismutabletype(T) = T.mutable
+end
+
 struct data
     t :: Tuple{Symbol, String}
 end
@@ -128,6 +132,14 @@ struct DictWithoutLength end
 struct Wrapper
     x::NamedTuple{(:a, :b), Tuple{Int, String}}
 end
+
+struct NaNStruct
+    x::Float64
+end
+
+StructTypes.StructType(::Type{NaNStruct}) = StructTypes.CustomStruct()
+StructTypes.lower(x::NaNStruct) = x.x
+StructTypes.construct(::Type{NaNStruct}, x) = NaNStruct(x)
 
 @testset "JSON3" begin
 
@@ -910,8 +922,11 @@ x = JSON3.read(json; jsonlines=true)
 # allow_inf consistency
 @test_throws ArgumentError JSON3.read("-Infinity")
 
+# https://discourse.julialang.org/t/json3-jl-parse-custom-type-with-nan/61295
+str = JSON3.write(NaNStruct(NaN); allow_inf=true)
+@test JSON3.read(str, NaNStruct; allow_inf=true).x === NaN
+
 include("gentypes.jl")
+include("stringnumber.jl")
 
 end # @testset "JSON3"
-
-include("stringnumber.jl")

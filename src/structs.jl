@@ -74,9 +74,9 @@ end
 
 @inline function read(::Struct, buf, pos, len, b, ::Type{Any}; allow_inf::Bool=false, kw...)
     if b == UInt8('{')
-        return read(DictType(), buf, pos, len, b, Dict{String, Any}; kw...)
+        return read(DictType(), buf, pos, len, b, Dict{String, Any}; allow_inf=allow_inf, kw...)
     elseif b == UInt8('[')
-        return read(ArrayType(), buf, pos, len, b, Base.Array{Any}; kw...)
+        return read(ArrayType(), buf, pos, len, b, Base.Array{Any}; allow_inf=allow_inf, kw...)
     elseif b == UInt8('"')
         return read(StringType(), buf, pos, len, b, String; kw...)
     elseif b == UInt8('n')

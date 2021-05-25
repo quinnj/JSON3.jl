@@ -250,7 +250,7 @@
         include(file_path)
         parsed = JSON3.read(json, Vector{JSONTypes.Root})
 
-        @test !(JSONTypes.Root.mutable)
+        @test !ismutabletype(JSONTypes.Root)
         @test parsed[1].c.d == 4
         @test fieldtype(JSONTypes.Root, 1) == Union{Int64, String}
     end
