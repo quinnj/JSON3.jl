@@ -270,7 +270,7 @@ end
         pos += 1
         return pos, T()
     end
-    c = TupleClosure(buf, pos, len, b, kw.data)
+    c = TupleClosure(buf, pos, len, b, values(kw))
     x = StructTypes.construct(c, T)
 
     return c.pos, x
@@ -381,7 +381,7 @@ mutable struct MutableClosure{T, KW}
 end
 
 @inline function (f::MutableClosure)(i, nm, TT; kw...)
-    kw2 = merge(kw.data, f.kw)
+    kw2 = merge(values(kw), f.kw)
     pos_i, y_i = read(StructType(TT), f.buf, f.pos, f.len, f.b, TT; kw2...)
     f.pos = pos_i
     return y_i
@@ -446,7 +446,7 @@ end
         @eof
         b = getbyte(buf, pos)
         @wh
-        c = MutableClosure(buf, pos, len, b, kw.data)
+        c = MutableClosure(buf, pos, len, b, values(kw))
         if StructTypes.applyfield!(c, x, key)
             pos = c.pos
         else
@@ -490,7 +490,7 @@ end
 const DEFAULT_STRUCT_FIELD_COUNT = 32
 
 @inline function (f::StructClosure)(i, nm, TT; kw...)
-    kw2 = merge(kw.data, f.kw)
+    kw2 = merge(values(kw), f.kw)
     pos_i, y_i = read(StructType(TT), f.buf, f.pos, f.len, f.b, TT; kw2...)
     f.pos = pos_i
     if i <= DEFAULT_STRUCT_FIELD_COUNT
@@ -551,7 +551,7 @@ end
         @eof
         b = getbyte(buf, pos)
         @wh
-        c = StructClosure(buf, pos, len, b, values, kw.data)
+        c = StructClosure(buf, pos, len, b, values, Base.values(kw))
         if StructTypes.applyfield(c, T, key)
             pos = c.pos
         else
@@ -617,7 +617,7 @@ end
     end
     pos += 1
     @eof
-    c = OrderedStructClosure(buf, pos, len, kw.data)
+    c = OrderedStructClosure(buf, pos, len, values(kw))
     x = StructTypes.construct(c, T)
     return c.pos, x
 

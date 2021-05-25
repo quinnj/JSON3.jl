@@ -115,7 +115,7 @@ end
     else
         f.afterfirst = true
     end
-    kw2 = merge(kw.data, f.kw)
+    kw2 = merge(values(kw), f.kw)
     buf, pos, len = write(StringType(), buf, pos, len, nm; kw2...)
     @writechar ':'
     buf, pos, len = write(StructType(v), buf, pos, len, v; kw2...)
@@ -128,7 +128,7 @@ end
 # generic object writing
 @inline function write(::Union{Struct, Mutable}, buf, pos, len, x::T; kw...) where {T}
     @writechar '{'
-    c = WriteClosure(buf, pos, len, false, kw.data)
+    c = WriteClosure(buf, pos, len, false, values(kw))
     StructTypes.foreachfield(c, x)
     buf = c.buf
     pos = c.pos
