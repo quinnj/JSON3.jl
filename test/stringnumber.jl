@@ -1,5 +1,5 @@
 if VERSION < v"1.7"
-    ismutabletype(T) = ismutabletype(T)
+    ismutabletype(T) = T.mutable
 end
 
 using JSON3
