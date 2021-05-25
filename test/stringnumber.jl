@@ -1,4 +1,4 @@
-if VERSION < v"1.7"
+if !isdefined(Base, :ismutabletype)
     ismutabletype(T) = T.mutable
 end
 
