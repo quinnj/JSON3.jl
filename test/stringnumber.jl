@@ -1,7 +1,3 @@
-if !isdefined(Base, :ismutabletype)
-    ismutabletype(T) = T.mutable
-end
-
 using JSON3
 using StructTypes
 using Test

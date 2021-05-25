@@ -1,5 +1,9 @@
 using Test, JSON3, StructTypes, UUIDs, Dates
 
+if !isdefined(Base, :ismutabletype)
+    ismutabletype(T) = T.mutable
+end
+
 struct data
     t :: Tuple{Symbol, String}
 end
