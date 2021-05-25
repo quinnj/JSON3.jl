@@ -513,7 +513,7 @@ end
     @wh
     if b == UInt8('}')
         pos += 1
-        return pos, T()
+        @goto done
     elseif b != UInt8('"')
         error = ExpectedOpeningQuoteChar
         @goto invalid
@@ -610,7 +610,7 @@ end
     @wh
     if b == UInt8('}')
         pos += 1
-        return pos, T()
+        @goto done
     elseif b != UInt8('"')
         error = ExpectedOpeningQuoteChar
         @goto invalid
@@ -620,6 +620,9 @@ end
     c = OrderedStructClosure(buf, pos, len, kw.data)
     x = StructTypes.construct(c, T)
     return c.pos, x
+
+@label done
+    return pos, StructTypes.construct(values, T)
 
 @label invalid
     invalid(error, buf, pos, T)
