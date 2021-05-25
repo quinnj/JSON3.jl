@@ -1,3 +1,7 @@
+if VERSION < v"1.7"
+    ismutabletype(T) = ismutabletype(T)
+end
+
 using JSON3
 using StructTypes
 using Test
@@ -37,7 +41,7 @@ end
 end
 
 @inline function mutable_struct_equality(a::T, b::T)::Bool where T
-    if isstructtype(T) && T.mutable
+    if isstructtype(T) && ismutabletype(T)
         T_fieldnames = fieldnames(T)
         T_num_fieldnames = length(T_fieldnames)
         temp_vector = Vector{Bool}(undef, T_num_fieldnames)
