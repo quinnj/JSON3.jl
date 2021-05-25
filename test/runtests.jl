@@ -129,6 +129,14 @@ struct Wrapper
     x::NamedTuple{(:a, :b), Tuple{Int, String}}
 end
 
+struct NaNStruct
+    x::Float64
+end
+
+StructTypes.StructType(::Type{NaNStruct}) = StructTypes.CustomStruct()
+StructTypes.lower(x::NaNStruct) = x.x
+StructTypes.construct(::Type{NaNStruct}, x) = NaNStruct(x)
+
 @testset "JSON3" begin
 
 @testset "read.jl" begin
@@ -910,8 +918,11 @@ x = JSON3.read(json; jsonlines=true)
 # allow_inf consistency
 @test_throws ArgumentError JSON3.read("-Infinity")
 
+# https://discourse.julialang.org/t/json3-jl-parse-custom-type-with-nan/61295
+str = JSON3.write(NaNStruct(NaN); allow_inf=true)
+@test JSON3.read(str, NaNStruct; allow_inf=true).x === NaN
+
 include("gentypes.jl")
+include("stringnumber.jl")
 
 end # @testset "JSON3"
-
-include("stringnumber.jl")
