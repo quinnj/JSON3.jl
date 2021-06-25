@@ -255,6 +255,27 @@
         @test fieldtype(JSONTypes.Root, 1) == Union{Int64, String}
     end
 
+    @testset "Array of samples" begin
+        jsons =
+            [
+                "{\"a\": 1, \"b\": 2, \"c\": {\"d\": 4}}",
+                "{\"a\": \"w\", \"b\": 5, \"c\": {\"d\": 4}}",
+                "{\"a\": 3, \"b\": 4, \"c\": {\"d\": 6}}",
+                "{\"a\": 7, \"b\": 7, \"c\": {\"d\": 7}}",
+            ]
+
+
+        path = mktempdir()
+        file_path = joinpath(path, "struct.jl")
+
+        JSON3.writetypes(jsons, file_path; mutable=false)
+        include(file_path)
+        parsed = JSON3.read(jsons[1], JSONTypes.Root)
+
+        @test !(JSONTypes.Root.mutable)
+        @test parsed.c.d == 4
+    end
+
     @testset "Raw Types" begin
         json = """
             [

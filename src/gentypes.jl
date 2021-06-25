@@ -279,6 +279,26 @@ function generatetypes(
     )
 end
 
+read_json_str(json_str) = read(length(json_str) < 255 && isfile(json_str) ? Base.read(json_str, String) : json_str)
+
+function generatetypes(
+    json_str::Vector{<:AbstractString},
+    module_name::Symbol;
+    mutable::Bool = true,
+    root_name::Symbol = :Root,
+)
+    # either a JSON.Array or JSON.Object
+    json = read_json_str.(json_str)
+
+    # build a type for the JSON
+    raw_json_type = reduce(unify, generate_type.(json); init=Top)
+    json_exprs = generate_exprs(raw_json_type; root_name=root_name, mutable=mutable)
+    return generate_struct_type_module(
+        json_exprs,
+        module_name
+    )
+end
+
 # macro to create a module with types generated from a json string
 """
     JSON3.@generatetypes json [module_name]
