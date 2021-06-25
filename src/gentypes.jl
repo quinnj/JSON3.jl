@@ -139,12 +139,16 @@ Write an `Expr` or `Vector{Expr}` to file.  Formatted so that it can be used wit
 function write_exprs(expr::Expr, io::IOStream)
     remove_line_numbers!(expr)
     collapse_singleton_blocks!(expr)
+    
     str = repr(expr)[3:end-1] # removes :( and )
     str = replace(str, "\n  " => "\n") # un-tab each line
+
+    # better spacing
     str = replace(str, "end\n" => "end\n\n")
     str = replace(str, r"(module \w+)" => s"\1\n")
     str = replace(str, r"(import \w+)" => s"\1\n")
     str = str[1:end-3] * "\nend # module\n"
+
     Base.write(io, str)
 
     return nothing
