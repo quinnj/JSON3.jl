@@ -272,7 +272,7 @@
         include(file_path)
         parsed = JSON3.read(jsons[1], JSONTypes.Root)
 
-        @test !(JSONTypes.Root.mutable)
+        @test !ismutable(parsed)
         @test parsed.c.d == 4
 
         weird_jsons =
