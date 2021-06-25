@@ -17,6 +17,10 @@ function promoteunion(T, S)
     return isabstracttype(new) ? Union{T, S} : new
 end
 
+# get the type of the contents
+type_or_eltype(::Type{Vector{T}}) where {T} = T
+type_or_eltype(::Type{T}) where {T} = T
+
 unify(a, b) = unify(b, a)
 unify(a::Type{T}, b::Type{S}) where {T,S} = promoteunion(T, S)
 unify(a::Type{T}, b::Type{S}) where {T,S<:T} = T
@@ -291,7 +295,7 @@ function generatetypes(
     json = read_json_str.(json_str)
 
     # build a type for the JSON
-    raw_json_type = reduce(unify, generate_type.(json); init=Top)
+    raw_json_type = reduce(unify, type_or_eltype.(generate_type.(json)); init=Top)
     json_exprs = generate_exprs(raw_json_type; root_name=root_name, mutable=mutable)
     return generate_struct_type_module(
         json_exprs,
