@@ -242,7 +242,7 @@
                 {"a": 7, "b": 7, "c": {"d": 7}}
             ]
         """
-
+        
         path = mktempdir()
         file_path = joinpath(path, "struct.jl")
 
@@ -250,7 +250,7 @@
         include(file_path)
         parsed = JSON3.read(json, Vector{JSONTypes.Root})
 
-        @test !ismutabletype(JSONTypes.Root)
+        @test !ismutable(parsed[1])
         @test parsed[1].c.d == 4
         @test fieldtype(JSONTypes.Root, 1) == Union{Int64, String}
     end
@@ -264,7 +264,6 @@
                 """{"a": 7, "b": 7, "c": {"d": 7}}""",
             ]
 
-
         path = mktempdir()
         file_path = joinpath(path, "struct.jl")
 
@@ -272,7 +271,7 @@
         include(file_path)
         parsed = JSON3.read(jsons[1], JSONTypes.Root)
 
-        @test !ismutabletype(JSONTypes.Root)
+        @test !ismutable(parsed)
         @test parsed.c.d == 4
 
         weird_jsons =
