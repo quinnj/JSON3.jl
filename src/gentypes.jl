@@ -115,9 +115,10 @@ end
 function remove_line_numbers!(expr::Expr)
     filter!(x -> !isa(x, LineNumberNode), expr.args)
     for arg in expr.args
-        isa(arg, Expr) && remove_line_numbers!(arg)
+        remove_line_numbers!(arg)
     end
 end
+remove_line_numbers!(x) = nothing # no-op fallback
 
 # collapse singleton blocks into just the contained Expr
 function collapse_singleton_blocks!(expr::Expr)
@@ -127,9 +128,10 @@ function collapse_singleton_blocks!(expr::Expr)
     end
 
     for arg in expr.args
-        isa(arg, Expr) && collapse_singleton_blocks!(arg)
+        collapse_singleton_blocks!(arg)
     end
 end
+collapse_singleton_blocks!(x) = nothing # no-op fallback
 
 """
     JSON3.write_exprs(expr, f)

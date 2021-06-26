@@ -1,9 +1,5 @@
 @testset "Generate Types" begin
 
-    @static if Base.VERSION < v"1.5"
-        ismutable(o::T) where {T} = T.mutable
-    end
-
     menu = """
     {
       "menu": {
