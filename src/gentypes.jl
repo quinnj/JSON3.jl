@@ -253,14 +253,14 @@ end
 """
     JSON3.generatetypes(json, module_name; mutable=true, root_name=:Root)
 
-Convenience function to go from a json string or file name to an AST with a module of structs.
+Convenience function to go from a json string, an array of json strings, or a file name to an AST with a module of structs.
 
 Performs the following:
 1. If the JSON is a file, read to string
 2. Call `JSON3.read` on the JSON string
 3. Get the "raw type" from [`generate_type`](@ref)
 4. Parse the "raw type" into a vector of `Expr` ([`generate_exprs`](@ref))
-5. Generate a module containg the structs ([`generate_struct_type_module`](@ref))
+5. Generate an AST with the module containg the structs ([`generate_struct_type_module`](@ref))
 """
 function generatetypes(
     json_str::AbstractString,
