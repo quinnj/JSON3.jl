@@ -147,8 +147,8 @@ function write_exprs(expr::Expr, io::IOStream)
 
     # better spacing
     str = replace(str, "end\n" => "end\n\n")
-    str = replace(str, r"(module \w+)" => s"\1\n")
-    str = replace(str, r"(import \w+)" => s"\1\n")
+    str = replace(str, r"(module \w+)" => @s_str("\\1\n"))
+    str = replace(str, r"(import \w+)" => @s_str("\\1\n"))
     str = str[1:end-3] * "\nend # module\n"
 
     Base.write(io, str)
