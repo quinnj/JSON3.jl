@@ -133,6 +133,22 @@ function collapse_singleton_blocks!(expr::Expr)
 end
 collapse_singleton_blocks!(x) = nothing # no-op fallback
 
+# Union{A, Union{B, C}} => Union{A, B, C}
+function collapse_unions!(expr::Expr)
+    if expr.head == :curly && length(expr.args) > 0 && expr.args[1] == :Union
+        if isa(expr.args[end], Expr) # nested union
+            u = pop!(expr.args)
+            append!(expr.args, u.args[2:3])
+            collapse_unions!(expr) # catch more nested unions
+        end
+    end
+
+    for arg in expr.args
+        collapse_unions!(arg)
+    end
+end
+collapse_unions!(x) = nothing # no-op fallback
+
 """
     JSON3.write_exprs(expr, f)
 
