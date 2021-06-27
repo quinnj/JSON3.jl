@@ -250,6 +250,8 @@ function generate_struct_type_module(exprs, module_name)
     return Expr(:module, true, module_name, type_block)
 end
 
+read_json_str(json_str) = read(length(json_str) < 255 && isfile(json_str) ? Base.read(json_str, String) : json_str)
+
 """
     JSON3.generatetypes(json, module_name; mutable=true, root_name=:Root)
 
@@ -269,10 +271,7 @@ function generatetypes(
     root_name::Symbol = :Root,
 )
     # either a JSON.Array or JSON.Object
-    json = read(
-        length(json_str) < 255 && isfile(json_str) ? Base.read(json_str, String) :
-            json_str,
-    )
+    json = read_json_str(json_str)
 
     # build a type for the JSON
     raw_json_type = generate_type(json)
@@ -282,8 +281,6 @@ function generatetypes(
         module_name
     )
 end
-
-read_json_str(json_str) = read(length(json_str) < 255 && isfile(json_str) ? Base.read(json_str, String) : json_str)
 
 function generatetypes(
     json_str::Vector{<:AbstractString},
