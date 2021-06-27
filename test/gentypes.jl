@@ -179,7 +179,7 @@
         @test raw_json_type <: NamedTuple
 
         # turn the type into struct expressions, including replacing sub types with references to a struct
-        json_exprs = JSON3.generate_exprs(raw_json_type; root_name=:MyStruct)
+        json_exprs = JSON3.generate_exprs(raw_json_type; root_name = :MyStruct)
         @test length(json_exprs) == 3
 
         # write the types to a file, then can be edited/included as needed
@@ -196,7 +196,7 @@
         @test raw_json_arr_type <: Array
 
         # turn the type into struct expressions, including replacing sub types with references to a struct
-        json_arr_exprs = JSON3.generate_exprs(raw_json_arr_type; root_name=:MyStruct)
+        json_arr_exprs = JSON3.generate_exprs(raw_json_arr_type; root_name = :MyStruct)
         @test length(json_arr_exprs) == 3
 
         # write the types to a file, then can be edited/included as needed
@@ -225,7 +225,12 @@
         file_path_json = joinpath(path, "menu_array.json")
         Base.write(file_path_json, menu_array)
         file_path_mod = joinpath(path, "my_mod.jl")
-        JSON3.writetypes(file_path_json, file_path_mod; module_name=:MyMod, root_name=:MenuArray)
+        JSON3.writetypes(
+            file_path_json,
+            file_path_mod;
+            module_name = :MyMod,
+            root_name = :MenuArray,
+        )
 
         include(file_path_mod)
         json_arr = JSON3.read(menu_array, Vector{MyMod.MenuArray})
@@ -242,44 +247,42 @@
                 {"a": 7, "b": 7, "c": {"d": 7}}
             ]
         """
-        
+
         path = mktempdir()
         file_path = joinpath(path, "struct.jl")
 
-        JSON3.writetypes(json, file_path; mutable=false)
+        JSON3.writetypes(json, file_path; mutable = false)
         include(file_path)
         parsed = JSON3.read(json, Vector{JSONTypes.Root})
 
         @test !ismutable(parsed[1])
         @test parsed[1].c.d == 4
-        @test fieldtype(JSONTypes.Root, 1) == Union{Int64, String}
+        @test fieldtype(JSONTypes.Root, 1) == Union{Int64,String}
     end
 
     @testset "Array of Samples" begin
-        jsons =
-            [
-                """{"a": 1, "b": 2, "c": {"d": 4}}""",
-                """{"a": "w", "b": 5, "c": {"d": 4}}""",
-                """{"a": 3, "b": 4, "c": {"d": 6}}""",
-                """{"a": 7, "b": 7, "c": {"d": 7}}""",
-            ]
+        jsons = [
+            """{"a": 1, "b": 2, "c": {"d": 4}}""",
+            """{"a": "w", "b": 5, "c": {"d": 4}}""",
+            """{"a": 3, "b": 4, "c": {"d": 6}}""",
+            """{"a": 7, "b": 7, "c": {"d": 7}}""",
+        ]
 
         path = mktempdir()
         file_path = joinpath(path, "struct.jl")
 
-        JSON3.writetypes(jsons, file_path; mutable=false)
+        JSON3.writetypes(jsons, file_path; mutable = false)
         include(file_path)
         parsed = JSON3.read(jsons[1], JSONTypes.Root)
 
         @test !ismutable(parsed)
         @test parsed.c.d == 4
 
-        weird_jsons =
-            [
-                """{"a": 1, "b": 2, "c": {"d": 4}}""",
-                """[{"a": "w"}, {"b": 5}, {"c": {"d": 4}}]""",
-                """{"x": 7}""",
-            ]
+        weird_jsons = [
+            """{"a": 1, "b": 2, "c": {"d": 4}}""",
+            """[{"a": "w"}, {"b": 5}, {"c": {"d": 4}}]""",
+            """{"x": 7}""",
+        ]
 
         JSON3.writetypes(weird_jsons, file_path)
         include(file_path)

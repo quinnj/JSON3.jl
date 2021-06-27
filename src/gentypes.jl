@@ -14,7 +14,7 @@ get_type(NT, k) = hasfield(NT, k) ? fieldtype(NT, k) : Nothing
 # unify two types to a single type
 function promoteunion(T, S)
     new = promote_type(T, S)
-    return isabstracttype(new) ? Union{T, S} : new
+    return isabstracttype(new) ? Union{T,S} : new
 end
 
 # get the type of the contents
@@ -243,14 +243,18 @@ function generate_struct_type_module(exprs, module_name)
     for expr in exprs
         push!(
             struct_type_decls,
-            Meta.parse("StructTypes.StructType(::Type{$(expr.args[2])}) = StructTypes.$struct_type()"),
+            Meta.parse(
+                "StructTypes.StructType(::Type{$(expr.args[2])}) = StructTypes.$struct_type()",
+            ),
         )
     end
     type_block = Expr(:block, struct_type_import, exprs..., struct_type_decls...)
     return Expr(:module, true, module_name, type_block)
 end
 
-read_json_str(json_str) = read(length(json_str) < 255 && isfile(json_str) ? Base.read(json_str, String) : json_str)
+read_json_str(json_str) = read(
+    length(json_str) < 255 && isfile(json_str) ? Base.read(json_str, String) : json_str,
+)
 
 """
     JSON3.generatetypes(json, module_name; mutable=true, root_name=:Root)
@@ -275,11 +279,8 @@ function generatetypes(
 
     # build a type for the JSON
     raw_json_type = generate_type(json)
-    json_exprs = generate_exprs(raw_json_type; root_name=root_name, mutable=mutable)
-    return generate_struct_type_module(
-        json_exprs,
-        module_name
-    )
+    json_exprs = generate_exprs(raw_json_type; root_name = root_name, mutable = mutable)
+    return generate_struct_type_module(json_exprs, module_name)
 end
 
 function generatetypes(
@@ -292,12 +293,9 @@ function generatetypes(
     json = read_json_str.(json_str)
 
     # build a type for the JSON
-    raw_json_type = reduce(unify, type_or_eltype.(generate_type.(json)); init=Top)
-    json_exprs = generate_exprs(raw_json_type; root_name=root_name, mutable=mutable)
-    return generate_struct_type_module(
-        json_exprs,
-        module_name
-    )
+    raw_json_type = reduce(unify, type_or_eltype.(generate_type.(json)); init = Top)
+    json_exprs = generate_exprs(raw_json_type; root_name = root_name, mutable = mutable)
+    return generate_struct_type_module(json_exprs, module_name)
 end
 
 # macro to create a module with types generated from a json string
@@ -327,6 +325,6 @@ function writetypes(
     root_name::Symbol = :Root,
     mutable::Bool = true,
 )
-    mod = generatetypes(json, module_name; mutable=mutable, root_name=root_name)
+    mod = generatetypes(json, module_name; mutable = mutable, root_name = root_name)
     write_exprs(mod, file_name)
 end
