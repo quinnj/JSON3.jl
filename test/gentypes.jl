@@ -286,6 +286,10 @@
         @test isa(res, raw_json_type)
 
         @test res.b == 2
+
+        empty_json = "[]"
+        raw_json_type = JSON3.generate_type(JSON3.read(empty_json))
+        @test raw_json_type === Vector{Any}
     end
 
     @testset "Pascal Case" begin

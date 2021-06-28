@@ -63,6 +63,10 @@ function generate_type(o::JSON3.Object)
 end
 
 function generate_type(a::JSON3.Array)
+    if isempty(a)
+        return Vector{Any}
+    end
+    
     t = Set([])
     nt = Top
     for item in a
