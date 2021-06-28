@@ -21,6 +21,7 @@ unify(a, b) = unify(b, a)
 unify(a::Type{T}, b::Type{S}) where {T,S} = promoteunion(T, S)
 unify(a::Type{T}, b::Type{S}) where {T,S<:T} = T
 unify(a::Type{Top}, b::Type{T}) where {T} = T
+unify(a::Type{Any}, b::Type{T}) where {T} = T
 
 function unify(
     a::Type{NamedTuple{A,T}},
@@ -66,7 +67,7 @@ function generate_type(a::JSON3.Array)
     if isempty(a)
         return Vector{Any}
     end
-    
+
     t = Set([])
     nt = Top
     for item in a
