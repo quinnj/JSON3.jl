@@ -301,19 +301,21 @@
         @test raw_json_type === Vector{Vector{Int}}
 
         @test JSON3.unify(Any, Any) == Any
-        @test JSON3.unify(Any, Int) == Int
-        @test JSON3.unify(Int, Any) == Int
-        @test JSON3.unify(Int, String) == Union{Int,String}
-        @test JSON3.unify(Float64, Union{Int,String}) == Union{Float64,Int,String}
+        @test JSON3.unify(Any, Int64) == Int64
+        @test JSON3.unify(Int64, Any) == Int64
+        @test JSON3.unify(Int64, String) == Union{Int64,String}
+        @test JSON3.unify(Float64, Union{Int64,String}) == Union{Float64,Int64,String}
         @test JSON3.unify(Float64, Real) == Real
-        @test JSON3.unify(Float64, Union{Int,Float64}) == Union{Int,Float64}
-        @test JSON3.unify(Union{Int,Float64}, Float64) == Union{Int,Float64}
+        @test JSON3.unify(Float64, Union{Int64,Float64}) == Union{Int64,Float64}
+        @test JSON3.unify(Union{Int64,Float64}, Float64) == Union{Int64,Float64}
         @test JSON3.unify(Float64, Float64) == Float64
-        @test JSON3.unify(Vector{Int}, Vector{Int}) == Vector{Int}
-        @test JSON3.unify(NamedTuple{(:d,),Tuple{Int}}, NamedTuple{(:d,),Tuple{Int}}) ==
-              NamedTuple{(:d,),Tuple{Int}}
-        @test JSON3.unify(NamedTuple{(:d,),Tuple{Int}}, NamedTuple{(:d,),Tuple{String}}) ==
-              NamedTuple{(:d,),Tuple{Union{Int,String}}}
+        @test JSON3.unify(Vector{Int64}, Vector{Int64}) == Vector{Int64}
+        @test JSON3.unify(NamedTuple{(:d,),Tuple{Int64}}, NamedTuple{(:d,),Tuple{Int64}}) ==
+              NamedTuple{(:d,),Tuple{Int64}}
+        @test JSON3.unify(
+            NamedTuple{(:d,),Tuple{Int64}},
+            NamedTuple{(:d,),Tuple{String}},
+        ) == NamedTuple{(:d,),Tuple{Union{Int64,String}}}
     end
 
     @testset "Pascal Case" begin
