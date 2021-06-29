@@ -301,6 +301,9 @@
         @test JSON3.unify(Int, String) == Union{Int, String}
         @test JSON3.unify(Float64, Union{Int, String}) == Union{Float64, Int, String}
         @test JSON3.unify(Float64, Real) == Real
+        @test JSON3.unify(Float64, Union{Int, Float64}) == Union{Int, Float64}
+        @test JSON3.unify(Union{Int, Float64}, Float64) == Union{Int, Float64}
+        @test JSON3.unify(Float64, Float64) == Float64
     end
 
     @testset "Pascal Case" begin
