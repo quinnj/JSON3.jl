@@ -296,9 +296,9 @@
         raw_json_type = JSON3.generate_type(JSON3.read(empty_json))
         @test raw_json_type === Vector{Any}
 
-        two_json = """[[], [1]]"""
+        two_json = """[[], ['hello']]"""
         raw_json_type = JSON3.generate_type(JSON3.read(two_json))
-        @test raw_json_type === Vector{Vector{Int}}
+        @test raw_json_type === Vector{Vector{String}}
 
         @test JSON3.unify(Any, Any) == Any
         @test JSON3.unify(Any, Int64) == Int64
