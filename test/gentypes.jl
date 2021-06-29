@@ -294,6 +294,13 @@
         two_json = """[[], [1]]"""
         raw_json_type = JSON3.generate_type(JSON3.read(two_json))
         @test raw_json_type === Vector{Vector{Int}}
+
+        @test JSON3.unify(Any, Any) == Any
+        @test JSON3.unify(Any, Int) == Int
+        @test JSON3.unify(Int, Any) == Int
+        @test JSON3.unify(Int, String) == Union{Int, String}
+        @test JSON3.unify(Float64, Union{Int, String}) == Union{Float64, Int, String}
+        @test JSON3.unify(Float64, Real) == Real
     end
 
     @testset "Pascal Case" begin

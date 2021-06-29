@@ -5,9 +5,6 @@
     fieldtypes(::Type{T}) where {T} = Tuple(fieldtype(T, i) for i = 1:fieldcount(T))
 end
 
-# top type - unifying a type with top yeilds the type
-struct Top end
-
 # get the type from a named tuple, given a name
 get_type(NT, k) = hasfield(NT, k) ? fieldtype(NT, k) : Nothing
 
@@ -17,11 +14,13 @@ function promoteunion(T, S)
     return isabstracttype(new) ? Union{T, S} : new
 end
 
-unify(a, b) = unify(b, a)
 unify(a::Type{T}, b::Type{S}) where {T,S} = promoteunion(T, S)
 unify(a::Type{T}, b::Type{S}) where {T,S<:T} = T
-unify(a::Type{Top}, b::Type{T}) where {T} = T
+unify(b::Type{S}, a::Type{T}) where {T,S<:T} = T
+unify(a::Type{T}, b::Type{T}) where {T} = T
 unify(a::Type{Any}, b::Type{T}) where {T} = T
+unify(b::Type{T}, a::Type{Any}) where {T} = T
+unify(a::Type{Any}, b::Type{Any}) = Any
 
 function unify(
     a::Type{NamedTuple{A,T}},
@@ -69,7 +68,7 @@ function generate_type(a::JSON3.Array)
     end
 
     t = Set([])
-    nt = Top
+    nt = Any
     for item in a
         it = generate_type(item)
         if it <: NamedTuple
