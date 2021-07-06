@@ -350,7 +350,7 @@ function generatetypes(
     json = read_json_str.(json_str)
 
     # build a type for the JSON
-    raw_json_type = reduce(unify, type_or_eltype.(generate_type.(json)); init = Top)
+    raw_json_type = reduce(unify, type_or_eltype.(generate_type.(json)); init = Any)
     json_exprs = generate_exprs(raw_json_type; root_name = root_name, mutable = mutable)
     return generate_struct_type_module(json_exprs, module_name)
 end
