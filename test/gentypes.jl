@@ -179,7 +179,7 @@
         @test raw_json_type <: NamedTuple
 
         # turn the type into struct expressions, including replacing sub types with references to a struct
-        json_exprs = JSON3.generate_exprs(raw_json_type; root_name=:MyStruct)
+        json_exprs = JSON3.generate_exprs(raw_json_type; root_name = :MyStruct)
         @test length(json_exprs) == 3
 
         # write the types to a file, then can be edited/included as needed
@@ -196,7 +196,7 @@
         @test raw_json_arr_type <: Array
 
         # turn the type into struct expressions, including replacing sub types with references to a struct
-        json_arr_exprs = JSON3.generate_exprs(raw_json_arr_type; root_name=:MyStruct)
+        json_arr_exprs = JSON3.generate_exprs(raw_json_arr_type; root_name = :MyStruct)
         @test length(json_arr_exprs) == 3
 
         # write the types to a file, then can be edited/included as needed
@@ -225,7 +225,12 @@
         file_path_json = joinpath(path, "menu_array.json")
         Base.write(file_path_json, menu_array)
         file_path_mod = joinpath(path, "my_mod.jl")
-        JSON3.writetypes(file_path_json, file_path_mod; module_name=:MyMod, root_name=:MenuArray)
+        JSON3.writetypes(
+            file_path_json,
+            file_path_mod;
+            module_name = :MyMod,
+            root_name = :MenuArray,
+        )
 
         include(file_path_mod)
         json_arr = JSON3.read(menu_array, Vector{MyMod.MenuArray})
@@ -246,13 +251,13 @@
         path = mktempdir()
         file_path = joinpath(path, "struct.jl")
 
-        JSON3.writetypes(json, file_path; mutable=false)
+        JSON3.writetypes(json, file_path; mutable = false)
         include(file_path)
         parsed = JSON3.read(json, Vector{JSONTypes.Root})
 
         @test !ismutabletype(JSONTypes.Root)
         @test parsed[1].c.d == 4
-        @test fieldtype(JSONTypes.Root, 1) == Union{Int64, String}
+        @test fieldtype(JSONTypes.Root, 1) == Union{Int64,String}
     end
 
     @testset "Raw Types" begin
@@ -286,6 +291,31 @@
         @test isa(res, raw_json_type)
 
         @test res.b == 2
+
+        empty_json = "[]"
+        raw_json_type = JSON3.generate_type(JSON3.read(empty_json))
+        @test raw_json_type === Vector{Any}
+
+        two_json = """[[], [\"hello\"]]"""
+        raw_json_type = JSON3.generate_type(JSON3.read(two_json))
+        @test raw_json_type === Vector{Vector{String}}
+
+        @test JSON3.unify(Any, Any) == Any
+        @test JSON3.unify(Any, Int64) == Int64
+        @test JSON3.unify(Int64, Any) == Int64
+        @test JSON3.unify(Int64, String) == Union{Int64,String}
+        @test JSON3.unify(Float64, Union{Int64,String}) == Union{Float64,Int64,String}
+        @test JSON3.unify(Float64, Real) == Real
+        @test JSON3.unify(Float64, Union{Int64,Float64}) == Union{Int64,Float64}
+        @test JSON3.unify(Union{Int64,Float64}, Float64) == Union{Int64,Float64}
+        @test JSON3.unify(Float64, Float64) == Float64
+        @test JSON3.unify(Vector{Int64}, Vector{Int64}) == Vector{Int64}
+        @test JSON3.unify(NamedTuple{(:d,),Tuple{Int64}}, NamedTuple{(:d,),Tuple{Int64}}) ==
+              NamedTuple{(:d,),Tuple{Int64}}
+        @test JSON3.unify(
+            NamedTuple{(:d,),Tuple{Int64}},
+            NamedTuple{(:d,),Tuple{String}},
+        ) == NamedTuple{(:d,),Tuple{Union{Int64,String}}}
     end
 
     @testset "Pascal Case" begin

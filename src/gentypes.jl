@@ -5,22 +5,22 @@
     fieldtypes(::Type{T}) where {T} = Tuple(fieldtype(T, i) for i = 1:fieldcount(T))
 end
 
-# top type - unifying a type with top yeilds the type
-struct Top end
-
 # get the type from a named tuple, given a name
 get_type(NT, k) = hasfield(NT, k) ? fieldtype(NT, k) : Nothing
 
 # unify two types to a single type
 function promoteunion(T, S)
     new = promote_type(T, S)
-    return isabstracttype(new) ? Union{T, S} : new
+    return isabstracttype(new) ? Union{T,S} : new
 end
 
-unify(a, b) = unify(b, a)
 unify(a::Type{T}, b::Type{S}) where {T,S} = promoteunion(T, S)
 unify(a::Type{T}, b::Type{S}) where {T,S<:T} = T
-unify(a::Type{Top}, b::Type{T}) where {T} = T
+unify(b::Type{S}, a::Type{T}) where {T,S<:T} = T
+unify(a::Type{T}, b::Type{T}) where {T} = T
+unify(a::Type{Any}, b::Type{T}) where {T} = T
+unify(b::Type{T}, a::Type{Any}) where {T} = T
+unify(a::Type{Any}, b::Type{Any}) = Any
 
 function unify(
     a::Type{NamedTuple{A,T}},
@@ -42,8 +42,11 @@ function unify(
 
     return NamedTuple{tuple(ks...),Tuple{ts...}}
 end
+unify(a::Type{NamedTuple{A,T}}, b::Type{NamedTuple{A,T}}) where {A,T<:Tuple} =
+    NamedTuple{A,T}
 
 unify(a::Type{Vector{T}}, b::Type{Vector{S}}) where {T,S} = Vector{unify(T, S)}
+unify(a::Type{Vector{T}}, b::Type{Vector{T}}) where {T} = Vector{T}
 
 # parse json into a type, maintain field order
 """
@@ -63,8 +66,12 @@ function generate_type(o::JSON3.Object)
 end
 
 function generate_type(a::JSON3.Array)
+    if isempty(a)
+        return Vector{Any}
+    end
+
     t = Set([])
-    nt = Top
+    nt = Any
     for item in a
         it = generate_type(item)
         if it <: NamedTuple
@@ -239,7 +246,9 @@ function generate_struct_type_module(exprs, module_name)
     for expr in exprs
         push!(
             struct_type_decls,
-            Meta.parse("StructTypes.StructType(::Type{$(expr.args[2])}) = StructTypes.$struct_type()"),
+            Meta.parse(
+                "StructTypes.StructType(::Type{$(expr.args[2])}) = StructTypes.$struct_type()",
+            ),
         )
     end
     type_block = Expr(:block, struct_type_import, exprs..., struct_type_decls...)
@@ -266,17 +275,13 @@ function generatetypes(
 )
     # either a JSON.Array or JSON.Object
     json = read(
-        length(json_str) < 255 && isfile(json_str) ? Base.read(json_str, String) :
-            json_str,
+        length(json_str) < 255 && isfile(json_str) ? Base.read(json_str, String) : json_str,
     )
 
     # build a type for the JSON
     raw_json_type = generate_type(json)
-    json_exprs = generate_exprs(raw_json_type; root_name=root_name, mutable=mutable)
-    return generate_struct_type_module(
-        json_exprs,
-        module_name
-    )
+    json_exprs = generate_exprs(raw_json_type; root_name = root_name, mutable = mutable)
+    return generate_struct_type_module(json_exprs, module_name)
 end
 
 # macro to create a module with types generated from a json string
@@ -306,6 +311,6 @@ function writetypes(
     root_name::Symbol = :Root,
     mutable::Bool = true,
 )
-    mod = generatetypes(json, module_name; mutable=mutable, root_name=root_name)
+    mod = generatetypes(json, module_name; mutable = mutable, root_name = root_name)
     write_exprs(mod, file_name)
 end
