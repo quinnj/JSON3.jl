@@ -118,16 +118,66 @@ function pascalcase(s::Symbol)
     return Symbol(new_str)
 end
 
+# remove line number nodes
+function remove_line_numbers!(expr::Expr)
+    filter!(x -> !isa(x, LineNumberNode), expr.args)
+    for arg in expr.args
+        remove_line_numbers!(arg)
+    end
+end
+remove_line_numbers!(x) = nothing # no-op fallback
+
+# collapse singleton blocks into just the contained Expr
+function collapse_singleton_blocks!(expr::Expr)
+    if expr.head == :block && length(expr.args) == 1
+        expr.head = expr.args[1].head
+        expr.args = expr.args[1].args
+    end
+
+    for arg in expr.args
+        collapse_singleton_blocks!(arg)
+    end
+end
+collapse_singleton_blocks!(x) = nothing # no-op fallback
+
+# Union{A, Union{B, C}} => Union{A, B, C}
+function collapse_unions!(expr::Expr)
+    if expr.head == :curly && length(expr.args) > 0 && expr.args[1] == :Union
+        if isa(expr.args[end], Expr) # nested union
+            u = pop!(expr.args)
+            append!(expr.args, u.args[2:3])
+            collapse_unions!(expr) # catch more nested unions
+        end
+    end
+
+    for arg in expr.args
+        collapse_unions!(arg)
+    end
+end
+collapse_unions!(x) = nothing # no-op fallback
+
 """
     JSON3.write_exprs(expr, f)
 
 Write an `Expr` or `Vector{Expr}` to file.  Formatted so that it can be used with `include`.
 """
 function write_exprs(expr::Expr, io::IOStream)
+    remove_line_numbers!(expr)
+    collapse_unions!(expr)
+    collapse_singleton_blocks!(expr)
+
     str = repr(expr)[3:end-1] # removes :( and )
     str = replace(str, "\n  " => "\n") # un-tab each line
+
+    # better spacing
+    str = replace(str, "end\n" => "end\n\n")
+    str = replace(str, r"(module \w+)" => @s_str("\\1\n"))
+    str = replace(str, r"(import \w+)" => @s_str("\\1\n"))
+    str = str[1:end-3] * "\nend # module\n"
+
     Base.write(io, str)
-    Base.write(io, "\n\n")
+
+    return nothing
 end
 
 function write_exprs(exprs::Vector, fname::AbstractString)

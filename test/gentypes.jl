@@ -1,4 +1,5 @@
 @testset "Generate Types" begin
+
     menu = """
     {
       "menu": {
