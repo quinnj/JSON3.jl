@@ -1,7 +1,7 @@
 using Test, JSON3, StructTypes, UUIDs, Dates
 
-if !isdefined(Base, :ismutabletype)
-    ismutabletype(T) = T.mutable
+@static if Base.VERSION < v"1.5"
+    ismutable(o::T) where {T} = T.mutable
 end
 
 struct data

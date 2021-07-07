@@ -14,6 +14,10 @@ function promoteunion(T, S)
     return isabstracttype(new) ? Union{T,S} : new
 end
 
+# get the type of the contents
+type_or_eltype(::Type{Vector{T}}) where {T} = T
+type_or_eltype(::Type{T}) where {T} = T
+
 unify(a::Type{T}, b::Type{S}) where {T,S} = promoteunion(T, S)
 unify(a::Type{T}, b::Type{S}) where {T,S<:T} = T
 unify(b::Type{S}, a::Type{T}) where {T,S<:T} = T
@@ -305,17 +309,21 @@ function generate_struct_type_module(exprs, module_name)
     return Expr(:module, true, module_name, type_block)
 end
 
+read_json_str(json_str) = read(
+    length(json_str) < 255 && isfile(json_str) ? Base.read(json_str, String) : json_str,
+)
+
 """
     JSON3.generatetypes(json, module_name; mutable=true, root_name=:Root)
 
-Convenience function to go from a json string or file name to an AST with a module of structs.
+Convenience function to go from a json string, an array of json strings, or a file name to an AST with a module of structs.
 
 Performs the following:
 1. If the JSON is a file, read to string
 2. Call `JSON3.read` on the JSON string
 3. Get the "raw type" from [`generate_type`](@ref)
 4. Parse the "raw type" into a vector of `Expr` ([`generate_exprs`](@ref))
-5. Generate a module containg the structs ([`generate_struct_type_module`](@ref))
+5. Generate an AST with the module containg the structs ([`generate_struct_type_module`](@ref))
 """
 function generatetypes(
     json_str::AbstractString,
@@ -324,12 +332,25 @@ function generatetypes(
     root_name::Symbol = :Root,
 )
     # either a JSON.Array or JSON.Object
-    json = read(
-        length(json_str) < 255 && isfile(json_str) ? Base.read(json_str, String) : json_str,
-    )
+    json = read_json_str(json_str)
 
     # build a type for the JSON
     raw_json_type = generate_type(json)
+    json_exprs = generate_exprs(raw_json_type; root_name = root_name, mutable = mutable)
+    return generate_struct_type_module(json_exprs, module_name)
+end
+
+function generatetypes(
+    json_str::Vector{<:AbstractString},
+    module_name::Symbol;
+    mutable::Bool = true,
+    root_name::Symbol = :Root,
+)
+    # either a JSON.Array or JSON.Object
+    json = read_json_str.(json_str)
+
+    # build a type for the JSON
+    raw_json_type = reduce(unify, type_or_eltype.(generate_type.(json)); init = Any)
     json_exprs = generate_exprs(raw_json_type; root_name = root_name, mutable = mutable)
     return generate_struct_type_module(json_exprs, module_name)
 end

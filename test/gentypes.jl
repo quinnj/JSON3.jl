@@ -256,9 +256,44 @@
         include(file_path)
         parsed = JSON3.read(json, Vector{JSONTypes.Root})
 
-        @test !ismutabletype(JSONTypes.Root)
+        @test !ismutable(parsed[1])
         @test parsed[1].c.d == 4
         @test fieldtype(JSONTypes.Root, 1) == Union{Int64,String}
+    end
+
+    @testset "Array of Samples" begin
+        jsons = [
+            """{"a": 1, "b": 2, "c": {"d": 4}}""",
+            """{"a": "w", "b": 5, "c": {"d": 4}}""",
+            """{"a": 3, "b": 4, "c": {"d": 6}}""",
+            """{"a": 7, "b": 7, "c": {"d": 7}}""",
+        ]
+
+        path = mktempdir()
+        file_path = joinpath(path, "struct.jl")
+
+        JSON3.writetypes(jsons, file_path; mutable = false)
+        include(file_path)
+        parsed = JSON3.read(jsons[1], JSONTypes.Root)
+
+        @test !ismutable(parsed)
+        @test parsed.c.d == 4
+
+        weird_jsons = [
+            """{"a": 1, "b": 2, "c": {"d": 4}}""",
+            """[{"a": "w"}, {"b": 5}, {"c": {"d": 4}}]""",
+            """{"x": 7}""",
+        ]
+
+        JSON3.writetypes(weird_jsons, file_path)
+        include(file_path)
+
+        parsed = JSON3.read(weird_jsons[1], JSONTypes.Root)
+        @test parsed.c.d == 4
+
+        parsed = JSON3.read(weird_jsons[3], JSONTypes.Root)
+        @test parsed.x == 7
+        @test !isdefined(parsed, :a)
     end
 
     @testset "Raw Types" begin
