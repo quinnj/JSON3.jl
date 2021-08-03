@@ -48,6 +48,11 @@ end
 
 read(::NoStructType, buf, pos, len, b, ::Type{T}; kw...) where {T} = throw(ArgumentError("$T doesn't have a defined `StructTypes.StructType`"))
 
+# https://github.com/quinnj/JSON3.jl/issues/172
+# treat Union{Bool, Real} as non-StructTypes.NumberType so parsing works as expected
+read(::NumberType, buf, pos, len, b, S::Type{Union{Bool, T}}; kw...) where {T <: Real} =
+    read(Struct(), buf, pos, len, b, S; kw...)
+
 function read(::Struct, buf, pos, len, b, U::Union; kw...)
     # Julia implementation detail: Unions are sorted :)
     # This lets us avoid the below try-catch when U <: Union{Missing,T}

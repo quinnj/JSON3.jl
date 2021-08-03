@@ -926,6 +926,10 @@ x = JSON3.read(json; jsonlines=true)
 str = JSON3.write(NaNStruct(NaN); allow_inf=true)
 @test JSON3.read(str, NaNStruct; allow_inf=true).x === NaN
 
+# https://github.com/quinnj/JSON3.jl/issues/172
+@test JSON3.read("true", Union{Bool, Int})
+@test JSON3.read("42", Union{Bool, Float64}) === 42.0
+
 include("gentypes.jl")
 include("stringnumber.jl")
 
