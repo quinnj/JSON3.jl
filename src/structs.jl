@@ -29,9 +29,16 @@ function _prepare_read(str::AbstractString, ::Type{T}) where {T}
     invalid(error, buf, pos, T)
 end
 
-function read(str::AbstractString, ::Type{T}; kw...) where {T}
+function read(str::AbstractString, ::Type{T}; jsonlines::Bool=false, kw...) where {T}
     buf, pos, len, b = _prepare_read(str, T)
-    pos, x = read(StructType(T), buf, pos, len, b, T; kw...)
+    if jsonlines
+        if StructType(T) != ArrayType()
+            throw(ArgumentError("expect StructType($T) == StructTypes.ArrayType() when jsonlines=true"))
+        end
+        pos, x = readjsonlines(buf, pos, len, b, T; kw...)
+    else
+        pos, x = read(StructType(T), buf, pos, len, b, T; kw...)
+    end
     return x
 end
 
@@ -225,6 +232,46 @@ read(::ArrayType, buf, pos, len, b, ::Type{Tuple}, ::Type{eT}; kw...) where {eT}
         @wh
     end
 
+@label invalid
+    invalid(error, buf, pos, T)
+end
+
+@inline readjsonlines(buf, pos, len, b, ::Type{T}; kw...) where {T} = readjsonlines(buf, pos, len, b, T, Base.IteratorEltype(T) == Base.HasEltype() ? eltype(T) : Any; kw...)
+@inline readjsonlines(buf, pos, len, b, ::Type{T}, ::Type{eT}; kw...) where {T, eT} = readjsonlinesarray(buf, pos, len, b, T, eT; kw...)
+
+function readjsonlinesarray(buf, pos, len, b, ::Type{T}, ::Type{eT}; kw...) where {T, eT}
+    vals = Vector{eT}(undef, 0)
+    while true
+        # positioned at start of value
+        @wh_done  # remove spaces and tabs, jump to done on eof
+        pos, y = read(StructType(eT), buf, pos, len, b, eT; kw...)
+        push!(vals, y)
+        if pos > len
+            @goto done
+        end
+        b = getbyte(buf, pos)
+        @wh_done  # remove spaces and tabs, jump to done on eof
+        if b != UInt8('\n') && b != UInt8('\r')
+            error = ExpectedComma
+            @goto invalid
+        end
+        pos += 1
+        if pos > len
+            @goto done
+        end
+        if b == UInt8('\r')  # Previous byte was \r, look for \n
+            b = getbyte(buf, pos)
+            if b == UInt8('\n')
+                pos += 1
+                if pos > len
+                    @goto done
+                end
+            end
+        end
+        b = getbyte(buf, pos)
+    end
+@label done
+    return pos, construct(T, vals; kw...)
 @label invalid
     invalid(error, buf, pos, T)
 end
