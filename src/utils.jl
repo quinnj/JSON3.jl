@@ -31,6 +31,18 @@ macro wh()
     end)
 end
 
+macro wh_done()
+    esc(quote
+        while b == UInt8(' ') || b == UInt8('\t')
+            pos += 1
+            if pos > len
+                @goto done
+            end
+            b = getbyte(buf, pos)
+        end
+    end)
+end
+
 const EMPTY   = UInt64(0b00000000) << 56
 const OBJECT  = UInt64(0b00000001) << 56
 const ARRAY   = UInt64(0b00000010) << 56

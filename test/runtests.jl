@@ -919,6 +919,44 @@ x = JSON3.read(json; jsonlines=true)
 @test length(x) == 2
 @test x == [1, 2]
 
+# 171
+for d_jsonl in [
+    """
+    { "a": 1,  "b": 3.14,  "c": "hey" }
+    { "a": 2,  "b": 6.28,  "c": "hi"  }
+    """,
+    # No newline at end
+    """
+    { "a": 1,  "b": 3.14,  "c": "hey" }
+    { "a": 2,  "b": 6.28,  "c": "hi"  }""",
+    # No newline, extra whitespace at end
+    """
+    { "a": 1,  "b": 3.14,  "c": "hey" }
+    { "a": 2,  "b": 6.28,  "c": "hi"  }   """,
+    # Whitespace at start of line
+    """
+      { "a": 1,  "b": 3.14,  "c": "hey" }
+      { "a": 2,  "b": 6.28,  "c": "hi"  }
+    """,
+    # Extra whitespace at beginning, end of lines, end of string
+    " { \"a\": 1,  \"b\": 3.14,  \"c\": \"hey\" }  \n" *
+    "  { \"a\": 2,  \"b\": 6.28,  \"c\": \"hi\"  }  \n  ",
+]
+    for nl in ["\n", "\r", "\r\n"]
+        d_jsonl = replace(d_jsonl, "\n" => nl)
+        dss = JSON3.read(d_jsonl, Vector{D}, jsonlines=true)
+
+        @test length(dss) == 2
+        @test dss[1].a == 1
+        @test dss[1].b == 3.14
+        @test dss[1].c == "hey"
+        @test dss[2].a == 2
+        @test dss[2].b == 6.28
+        @test dss[2].c == "hi"
+
+    end
+end
+
 # allow_inf consistency
 @test_throws ArgumentError JSON3.read("-Infinity")
 

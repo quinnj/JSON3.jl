@@ -372,7 +372,7 @@ function jsonlines!(buf, pos, len, b, tape, tapeidx; kw...)
         end
         b = getbyte(buf, pos)
         if b != UInt8('\n') && b != UInt8('\r')
-            error = ExpectedComma
+            error = ExpectedNewline
             @goto invalid
         end
         pos += 1
