@@ -252,7 +252,7 @@ function readjsonlinesarray(buf, pos, len, b, ::Type{T}, ::Type{eT}; kw...) wher
         b = getbyte(buf, pos)
         @wh_done  # remove spaces and tabs, jump to done on eof
         if b != UInt8('\n') && b != UInt8('\r')
-            error = ExpectedComma
+            error = ExpectedNewline
             @goto invalid
         end
         pos += 1
