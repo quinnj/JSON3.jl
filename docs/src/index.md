@@ -495,7 +495,10 @@ x = MyParametricType(1)
 StructTypes.StructType(::Type{<:MyParametricType}) = StructTypes.Struct() # note the `<:`
                                                               # NOT like this StructTypes.StructType(::Type{MyParametricType})
 ```
-
+When deserializing, the type parameter(s) should be provided:
+```julia
+JSON3.read(json_string, MyParametricType{Int}) # NOT JSON3.read(json_string, MyParametricType)
+```
 ## Generated Types
 
 JSON3 has the ability to generate types from sample JSON, which then can be used to parse JSON into. Inspired by the [F# type provider](http://tomasp.net/academic/papers/fsharp-data/fsharp-data.pdf).
