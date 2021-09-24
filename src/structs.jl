@@ -60,20 +60,24 @@ read(::NoStructType, buf, pos, len, b, ::Type{T}; kw...) where {T} = throw(Argum
 read(::NumberType, buf, pos, len, b, S::Type{Union{Bool, T}}; kw...) where {T <: Real} =
     read(Struct(), buf, pos, len, b, S; kw...)
 
-function read(::Struct, buf, pos, len, b, U::Union; kw...)
+@generated function read(::Struct, buf, pos, len, b, T::Union; kw...)
+    U = first(T.parameters) # Extract Union from Type
     # Julia implementation detail: Unions are sorted :)
     # This lets us avoid the below try-catch when U <: Union{Missing,T}
     if U.a === Nothing || U.a === Missing
-        if buf[pos] == UInt8('n')
-            return read(StructType(U.a), buf, pos, len, b, U.a)
+        :(if buf[pos] == UInt8('n')
+            return read(StructType($(U.a)), buf, pos, len, b, $(U.a))
         else
-            return read(StructType(U.b), buf, pos, len, b, U.b; kw...)
-        end
-    end
-    try
-        return read(StructType(U.a), buf, pos, len, b, U.a; kw...)
-    catch e
-        return read(StructType(U.b), buf, pos, len, b, U.b; kw...)
+            return read(StructType($(U.b)), buf, pos, len, b, $(U.b); kw...)
+        end)
+    else
+        return :(
+            try
+                return read(StructType($(U.a)), buf, pos, len, b, $(U.a); kw...)
+            catch e
+                return read(StructType($(U.b)), buf, pos, len, b, $(U.b); kw...)
+            end
+        )
     end
 end
 
