@@ -100,6 +100,17 @@ json_string = """{"a": 1, "b": "hello, world"}"""
 JSON3.read!(json_string, t)
 ```
 
+#### Mutating read-JSON
+
+Since the JSON object is immutable, you can't mutate the read-JSON. However, you can `copy` the JSON and the result copy will be mutable.
+
+```@example
+read_only_json = JSON3.read("{\"a\": 3}")
+
+writable_json = copy(read_only_json) # writable_json is now mutable
+writable_json[:a] = 2 
+```
+
 #### Generate a type from your JSON
 
 See the [section on generating types](#Generated-Types) for more details.
