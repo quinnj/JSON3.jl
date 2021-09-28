@@ -102,7 +102,7 @@ JSON3.read!(json_string, t)
 
 #### Mutating read-JSON
 
-Since the JSON object is immutable, you can't mutate the read-JSON. However, you can `copy` the JSON and the result copy will be mutable.
+Note that the `JSON3.Object` and `JSON3.Array` types are immutable, and hence can't be used like a normal `Dict` or `Array` to replace or add additional values. Calling `copy(obj_or_arr)` will convert a `JSON3.Object` into a mutable `Dict` or a `JSON3.Array` into a `Base.Array`, recursively calling `copy` on any nested objects/arrays.
 
 ```@example
 read_only_json = JSON3.read("{\"a\": 3}")
