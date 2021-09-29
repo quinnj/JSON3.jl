@@ -379,4 +379,22 @@
         @test length(json_arr) == 2
         @test json_arr[1].menu.header == "SVG Viewer"
     end
+
+    @testset "Missingness" begin
+        json = """
+            [
+                {"a": "w", "b": 5, "c": 9, "d": null},
+                {"a": 3, "b": 4, "c": 2},
+                {"a": 7, "b": 7, "c": 0, "d": 10}
+            ]
+        """
+
+        JSON3.@generatetypes(json)
+        res = JSON3.read(json, Vector{JSONTypes.Root})
+
+        @test res[3].d == 10
+        @test ismissing(res[2].d)
+        @test res[1].d === nothing
+
+    end
 end

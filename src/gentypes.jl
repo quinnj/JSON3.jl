@@ -6,7 +6,7 @@
 end
 
 # get the type from a named tuple, given a name
-get_type(NT, k) = hasfield(NT, k) ? fieldtype(NT, k) : Nothing
+get_type(NT, k) = hasfield(NT, k) ? fieldtype(NT, k) : Missing
 
 # unify two types to a single type
 function promoteunion(T, S)
@@ -40,7 +40,7 @@ function unify(
     for (k, v) in zip(B, fieldtypes(b))
         if !(k in ks)
             push!(ks, k)
-            push!(ts, unify(v, Nothing))
+            push!(ts, unify(v, Missing))
         end
     end
 
@@ -222,13 +222,27 @@ function generate_expr!(
     mutable::Bool = true,
 ) where {N,T<:Tuple}
     sub_exprs = []
+    missing_fields = []
     for (n, t) in zip(N, fieldtypes(nt))
         push!(sub_exprs, generate_field_expr!(exprs, t, n; mutable = mutable))
+        if Missing <: t
+            push!(missing_fields, n)
+        end
     end
 
     struct_name = pascalcase(root_name)
+    missing_kw_args = (length(missing_fields) > 0 ? "; " : "") * join(map(n -> "n=missing", missing_fields), ", ")
     if mutable
-        push!(sub_exprs, Meta.parse("$struct_name() = new()"))
+        if length(missing_fields) == 0
+            push!(sub_exprs, Meta.parse("$struct_name() = new()"))
+        else
+            missing_assigns = join(map(n -> "x.$n = missing", missing_fields), "\n")
+            push!(sub_exprs, Meta.parse("""function $struct_name()
+                                            x = new()
+                                            $missing_assigns
+                                            return x
+                                        end"""))
+        end
     end
 
     push!(exprs, Expr(:struct, mutable, struct_name, Expr(:block, sub_exprs...)))

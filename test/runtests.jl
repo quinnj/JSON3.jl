@@ -456,6 +456,7 @@ obj = JSON3.read("""
 @test JSON3.read("\"1\"", Union{String, Int}) == "1"
 @test JSON3.read("null", Union{Int, String, Nothing}) === nothing
 @test JSON3.read("1.0", Union{Float64, Int}) === 1.0
+@test JSON3.read("null", Union{Missing, Nothing, Int}) === nothing
 
 @test JSON3.read("1", Any) == 1
 @test JSON3.read("3.14", Any) == 3.14
