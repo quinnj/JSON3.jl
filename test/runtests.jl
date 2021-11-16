@@ -141,6 +141,18 @@ StructTypes.StructType(::Type{NaNStruct}) = StructTypes.CustomStruct()
 StructTypes.lower(x::NaNStruct) = x.x
 StructTypes.construct(::Type{NaNStruct}, x) = NaNStruct(x)
 
+Base.@kwdef mutable struct System
+    duration::Real = 0 # mandatory
+    cwd::Union{Nothing, String} = nothing
+    environment::Union{Nothing, Dict} = nothing
+    batch::Union{Nothing, Dict} = nothing
+    shell::Union{Nothing, Dict} = nothing
+end
+StructTypes.StructType(::Type{System}) = StructTypes.Mutable()
+StructTypes.omitempties(::Type{System}) = (:cwd, :environment, :batch, :shell)
+
+roundtrip(x::T) where T = JSON3.read(JSON3.write(x), T)
+
 @testset "JSON3" begin
 
 @testset "read.jl" begin
@@ -929,6 +941,10 @@ str = JSON3.write(NaNStruct(NaN); allow_inf=true)
 # https://github.com/quinnj/JSON3.jl/issues/172
 @test JSON3.read("true", Union{Bool, Int})
 @test JSON3.read("42", Union{Bool, Float64}) === 42.0
+
+# https://github.com/quinnj/JSON3.jl/issues/187
+x = System(duration=3600.0)
+@test roundtrip(x).duration == x.duration
 
 include("gentypes.jl")
 include("stringnumber.jl")

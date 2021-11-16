@@ -52,6 +52,10 @@ read(::NoStructType, buf, pos, len, b, ::Type{T}; kw...) where {T} = throw(Argum
 # treat Union{Bool, Real} as non-StructTypes.NumberType so parsing works as expected
 read(::NumberType, buf, pos, len, b, S::Type{Union{Bool, T}}; kw...) where {T <: Real} =
     read(Struct(), buf, pos, len, b, S; kw...)
+# https://github.com/quinnj/JSON3.jl/issues/187
+# without this, `Real` dispatches to the above definition
+read(::NumberType, buf, pos, len, b, ::Type{Real}; kw...) =
+    read(NumberType(), buf, pos, len, b, Union{Float64, Int64}; kw...)
 
 function read(::Struct, buf, pos, len, b, U::Union; kw...)
     # Julia implementation detail: Unions are sorted :)
