@@ -38,6 +38,8 @@ struct D
     c::String
 end
 
+struct ParametricSingleton{T} end
+
 abstract type Vehicle end
 
 struct Car <: Vehicle
@@ -436,8 +438,9 @@ obj2 = JSON3.read("""
 @test_throws ArgumentError JSON3.read!("{\"a\": 1, a", A(1, 2, 3, 4))
 @test_throws ArgumentError JSON3.read!("}", A(1, 2, 3, 4))
 
-@test_throws ArgumentError JSON3.read("{}", C)
-@test_throws ArgumentError JSON3.write(C())
+# @test_throws ArgumentError JSON3.read("{}", C)
+@test JSON3.write(C()) == "\"C()\""
+@test JSON3.write(ParametricSingleton{Int64}()) == "\"ParametricSingleton{Int64}()\""
 
 StructTypes.StructType(::Type{C}) = StructTypes.Struct()
 

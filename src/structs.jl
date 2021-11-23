@@ -1,4 +1,4 @@
-import StructTypes: StructType, CustomStruct, DictType, ArrayType, StringType, NumberType, BoolType, NullType, NoStructType, Struct, OrderedStruct, Mutable, construct, AbstractType, subtypes, subtypekey
+import StructTypes: StructType, CustomStruct, DictType, ArrayType, StringType, NumberType, BoolType, NullType, NoStructType, SingletonType, Struct, OrderedStruct, Mutable, construct, AbstractType, subtypes, subtypekey
 
 struct RawType <: StructType end
 
