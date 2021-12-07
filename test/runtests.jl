@@ -896,17 +896,50 @@ ds2 = JSON3.read(JSON3.write(ds), DateStruct)
 @test JSON3.read(JSON3.write([Symbol("before \" after")])) == ["before \" after"]
 
 # @pretty
+@testset "pretty.jl" begin
 io = IOBuffer()
 JSON3.pretty(io, 3.14)
 @test String(take!(io)) == "3.14"
 JSON3.pretty(io, "hey")
 @test String(take!(io)) == "hey"
+JSON3.pretty(io, "{}")
+@test String(take!(io)) == "{\n}"
+JSON3.pretty(io, "[]")
+@test String(take!(io)) == "[\n]"
 JSON3.pretty(io, (a=1, b=true, c=3.14, d="hey", e=(abcdefghijklmnopqrstuvwxyz=1000, aa=1e8, dd=[nothing, nothing, nothing, 3.14])))
+@test String(take!(io)) == """{
+   "a": 1,
+   "b": true,
+   "c": 3.14,
+   "d": "hey",
+   "e": {
+           "abcdefghijklmnopqrstuvwxyz": 1000,
+                                   "aa": 100000000,
+                                   "dd": [
+                                           null,
+                                           null,
+                                           null,
+                                           3.14
+                                         ]
+        }
+}"""
+
+JSON3.pretty(io, (a=1, b=D(1, 3.14, "cool")))
+@test String(take!(io)) == """{
+   "a": 1,
+   "b": {
+           "a": 1,
+           "b": 3.14,
+           "c": "cool"
+        }
+}"""
 
 # 77
 io = IOBuffer()
 JSON3.pretty(io,  JSON3.write(Dict( "x" => Inf64), allow_inf=true), allow_inf=true )
 @test String(take!(io)) == "{\n   \"x\": Infinity\n}"
+
+end # @testset "pretty.jl"
 
 # parsequoted
 @test JSON3.read("{\"a\":\"10\",\"b\":\"1\",\"c\":\"45\",\"d\":\"100\"}", A; parsequoted=true) == A(10, 1, 45, 100)
