@@ -35,96 +35,55 @@ function pretty(out::IO, str::String, indent=0, offset=0; kw...)
     @wh
     # printing object?
     if b == UInt8('{')
-        Base.write(out, b)
-        pos += 1
-        @eof
-        b = getbyte(buf, pos)
-        @wh
-        if b == UInt8('}')
-            Base.write(out, b)
+        Base.write(out, "{\n")
+
+        obj = JSON3.read(str; kw...)
+
+        if length(obj) == 0
+            Base.write(out, "}")
             return
         end
-        Base.write(out, '\n')
+
+        ks = collect(keys(obj))
+        maxlen = maximum(map(sizeof, ks)) + 5
         indent += 1
-        keys = []
-        vals = []
-        # loop thru all key-value pairs, keeping track of longest key to pad others
-        while b != UInt8('}')
-            pos, str = JSON3.read(StructTypes.StringType(), buf, pos, len, b, String; kw...)
-            push!(keys, str)
-            @eof
-            b = getbyte(buf, pos) # ':'
-            @wh
-            pos += 1
-            @eof
-            b = getbyte(buf, pos)
-            @wh
-            pos, x = JSON3.read(StructTypes.Struct(), buf, pos, len, b, Any; kw...)
-            push!(vals, x)
-            @eof
-            b = getbyte(buf, pos) # ',' or '}'
-            @wh
-            if b == UInt8('}')
-                break
-            end
-            pos += 1
-            @eof
-            b = getbyte(buf, pos)
-            @wh
-        end
-        maxlen = maximum(map(sizeof, keys)) + 5
-        # @show maxlen
-        for i = 1:length(keys)
+
+        i = 1
+        for (key, value) in obj
             Base.write(out, "  "^indent)
-            Base.write(out, lpad("\"$(keys[i])\"" * ": ", maxlen + offset, ' '))
-            pretty(out, JSON3.write(vals[i]; kw...), indent, maxlen + offset; kw...)
-            if i == length(keys)
+            Base.write(out, lpad("\"$(key)\"" * ": ", maxlen + offset, ' '))
+            pretty(out, JSON3.write(value; kw...), indent, maxlen + offset; kw...)
+            if i == length(obj)
                 indent -= 1
                 Base.write(out, "\n" * ("  "^indent * " "^offset) * "}")
             else
                 Base.write(out, ",\n")
+                i += 1
             end
         end
-
     # printing array?
     elseif b == UInt8('[')
-        Base.write(out, b)
-        pos += 1
-        @eof
-        b = getbyte(buf, pos)
-        @wh
-        if b == UInt8(']')
-            Base.write(out, b)
+        Base.write(out, "[\n")
+
+        arr = JSON3.read(str; kw...)
+
+        if length(arr) == 0
+            Base.write(out, "]")
             return
         end
-        Base.write(out, '\n')
+
         indent += 1
-        vals = []
-        while b != UInt8(']')
-            pos, x = JSON3.read(StructTypes.Struct(), buf, pos, len, b, Any; kw...)
-            push!(vals, x)
-            @eof
-            b = getbyte(buf, pos) # ',' or ']'
-            @wh
-            if b == UInt8(']')
-                break
-            end
-            pos += 1
-            @eof
-            b = getbyte(buf, pos)
-            @wh
-        end
-        for (i, val) in enumerate(vals)
+
+        for (i, val) in enumerate(arr)
             Base.write(out, "  "^indent * " "^offset)
-            pretty(out, JSON3.write(vals[i]; kw...), indent, offset; kw...)
-            if i == length(vals)
+            pretty(out, JSON3.write(val; kw...), indent, offset; kw...)
+            if i == length(arr)
                 indent -= 1
                 Base.write(out, "\n" * ("  "^indent * " "^offset) * "]")
             else
                 Base.write(out, ",\n")
             end
         end
-
     # printing constant?
     else
         Base.write(out, str)
