@@ -8,10 +8,47 @@ end
 # get the type from a named tuple, given a name
 get_type(NT, k) = hasfield(NT, k) ? fieldtype(NT, k) : Nothing
 
+# if a union contains two named tuples, unify them
+# if union length is > 2, u.b will have continuing fields
+function unify_union(u)
+    if !isa(u.b, Union)
+        # because of unify methods, only need to worry about unions with len > 2
+        return u
+    end
+
+    # unions are sorted alphabetically, so pairs of super types will always be adjacent
+    type = Union{}
+    union_types = Base.uniontypes(u)
+    i = 1
+    while i < Base.unionlen(u)
+        cur = union_types[i]
+        next = union_types[i+1]
+        if cur <: Vector && next <: Vector
+            type = Union{type,unify(cur, next)}
+            i += 2
+        elseif cur <: NamedTuple && next <: NamedTuple
+            type = Union{type,unify(cur, next)}
+            i += 2
+        else
+            type = Union{type,cur}
+            if i == Base.unionlen(u) - 1
+                type = Union{type,next}
+            end
+            i += 1
+        end
+    end
+
+    return type
+end
+
 # unify two types to a single type
-function promoteunion(T, S)
+function promoteunion(::Type{T}, ::Type{S}) where {T,S}
     new = promote_type(T, S)
-    return isabstracttype(new) ? Union{T,S} : new
+    if !isabstracttype(new) && isconcretetype(new)
+        return new
+    else
+        return unify_union(Union{T,S})
+    end
 end
 
 # get the type of the contents
@@ -144,14 +181,15 @@ function collapse_singleton_blocks!(expr::Expr)
 end
 collapse_singleton_blocks!(x) = nothing # no-op fallback
 
+isunion(expr::Expr) = expr.head == :curly && length(expr.args) > 0 && expr.args[1] == :Union
+isunion(x) = false # fallback
+
 # Union{A, Union{B, C}} => Union{A, B, C}
 function collapse_unions!(expr::Expr)
-    if expr.head == :curly && length(expr.args) > 0 && expr.args[1] == :Union
-        if isa(expr.args[end], Expr) # nested union
-            u = pop!(expr.args)
-            append!(expr.args, u.args[2:3])
-            collapse_unions!(expr) # catch more nested unions
-        end
+    if isunion(expr) && isunion(expr.args[end])
+        u = pop!(expr.args)
+        append!(expr.args, u.args[2:3])
+        collapse_unions!(expr) # catch more nested unions
     end
 
     for arg in expr.args
@@ -221,6 +259,7 @@ function generate_expr!(
     root_name::Symbol;
     mutable::Bool = true,
 ) where {N,T<:Tuple}
+    @info "generate_expr! nt"
     sub_exprs = []
     for (n, t) in zip(N, fieldtypes(nt))
         push!(sub_exprs, generate_field_expr!(exprs, t, n; mutable = mutable))
@@ -242,10 +281,13 @@ function generate_expr!(
     root_name::Symbol;
     kwargs...,
 ) where {T<:NamedTuple,N}
+    @info "generate_expr! array"
     return generate_expr!(exprs, T, root_name; kwargs...)
 end
 
 function generate_expr!(exprs, t::Type{T}, root_name::Symbol; kwargs...) where {T}
+    @info "generate_expr! other"
+    @info T
     if T isa Union
         return Expr(
             :curly,
@@ -265,6 +307,7 @@ function generate_field_expr!(
     root_name::Symbol;
     kwargs...,
 ) where {N,T}
+    @info "generate_field_expr! nt"
     generate_expr!(exprs, t, root_name; kwargs...)
     return Expr(:(::), root_name, pascalcase(root_name))
 end
@@ -275,6 +318,7 @@ function generate_field_expr!(
     root_name::Symbol;
     kwargs...,
 ) where {T,N}
+    @info "generate_field_expr! array"
     return Expr(
         :(::),
         root_name,
@@ -283,6 +327,7 @@ function generate_field_expr!(
 end
 
 function generate_field_expr!(exprs, ::Type{T}, root_name::Symbol; kwargs...) where {T}
+    @info "generate_field_expr! other"
     return Expr(:(::), root_name, generate_expr!(exprs, T, root_name; kwargs...))
 end
 

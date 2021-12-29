@@ -352,6 +352,10 @@
             NamedTuple{(:d,),Tuple{Int64}},
             NamedTuple{(:d,),Tuple{String}},
         ) == NamedTuple{(:d,),Tuple{Union{Int64,String}}}
+        @test JSON3.unify(
+            Union{Nothing, NamedTuple{(:d,),Tuple{Int64}}},
+            NamedTuple{(:d,),Tuple{String}},
+        ) == Union{Nothing, NamedTuple{(:d,),Tuple{Union{Int64,String}}}}
     end
 
     @testset "Pascal Case" begin
