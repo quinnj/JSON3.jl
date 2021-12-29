@@ -379,4 +379,23 @@
         @test length(json_arr) == 2
         @test json_arr[1].menu.header == "SVG Viewer"
     end
+
+    @testset "Var Names" begin
+        json_str = """{"end": 1, "##invalid##": 2}"""
+        JSON3.@generatetypes(json_str)
+        json = JSON3.read(json_str, JSONTypes.Root)
+
+        @test json.end == 1
+        @test getproperty(json, Symbol("##invalid##")) == 2
+
+        path = mktempdir()
+        file_path = joinpath(path, "struct.jl")
+
+        JSON3.writetypes(json_str, file_path; module_name=:KeywordType)
+        include(file_path)
+        parsed = JSON3.read(json_str, KeywordType.Root)
+
+        @test parsed.end == 1
+        @test getproperty(parsed, Symbol("##invalid##")) == 2
+    end
 end
