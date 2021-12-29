@@ -20,8 +20,15 @@ function unify_union(u)
     type = Union{}
     union_types = Base.uniontypes(u)
     i = 1
-    while i < Base.unionlen(u)
+    while i <= Base.unionlen(u)
         cur = union_types[i]
+
+        # no more nexts to compare to
+        if i == Base.unionlen(u)
+            type = Union{type,cur}
+            break
+        end
+
         next = union_types[i+1]
         if cur <: Vector && next <: Vector
             type = Union{type,unify(cur, next)}
@@ -31,9 +38,6 @@ function unify_union(u)
             i += 2
         else
             type = Union{type,cur}
-            if i == Base.unionlen(u) - 1
-                type = Union{type,next}
-            end
             i += 1
         end
     end
@@ -259,7 +263,6 @@ function generate_expr!(
     root_name::Symbol;
     mutable::Bool = true,
 ) where {N,T<:Tuple}
-    @info "generate_expr! nt"
     sub_exprs = []
     for (n, t) in zip(N, fieldtypes(nt))
         push!(sub_exprs, generate_field_expr!(exprs, t, n; mutable = mutable))
@@ -281,13 +284,10 @@ function generate_expr!(
     root_name::Symbol;
     kwargs...,
 ) where {T<:NamedTuple,N}
-    @info "generate_expr! array"
     return generate_expr!(exprs, T, root_name; kwargs...)
 end
 
 function generate_expr!(exprs, t::Type{T}, root_name::Symbol; kwargs...) where {T}
-    @info "generate_expr! other"
-    @info T
     if T isa Union
         return Expr(
             :curly,
@@ -307,7 +307,6 @@ function generate_field_expr!(
     root_name::Symbol;
     kwargs...,
 ) where {N,T}
-    @info "generate_field_expr! nt"
     generate_expr!(exprs, t, root_name; kwargs...)
     return Expr(:(::), root_name, pascalcase(root_name))
 end
@@ -318,7 +317,6 @@ function generate_field_expr!(
     root_name::Symbol;
     kwargs...,
 ) where {T,N}
-    @info "generate_field_expr! array"
     return Expr(
         :(::),
         root_name,
@@ -327,7 +325,6 @@ function generate_field_expr!(
 end
 
 function generate_field_expr!(exprs, ::Type{T}, root_name::Symbol; kwargs...) where {T}
-    @info "generate_field_expr! other"
     return Expr(:(::), root_name, generate_expr!(exprs, T, root_name; kwargs...))
 end
 
