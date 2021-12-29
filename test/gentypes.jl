@@ -388,14 +388,17 @@
         @test json.end == 1
         @test getproperty(json, Symbol("##invalid##")) == 2
 
-        path = mktempdir()
-        file_path = joinpath(path, "struct.jl")
+        # on lower versions of julia, there is a warning for the user to act on
+        @static if Base.VERSION >= v"1.3"
+            path = mktempdir()
+            file_path = joinpath(path, "struct.jl")
 
-        JSON3.writetypes(json_str, file_path; module_name=:KeywordType)
-        include(file_path)
-        parsed = JSON3.read(json_str, KeywordType.Root)
+            JSON3.writetypes(json_str, file_path; module_name=:KeywordType)
+            include(file_path)
+            parsed = JSON3.read(json_str, KeywordType.Root)
 
-        @test parsed.end == 1
-        @test getproperty(parsed, Symbol("##invalid##")) == 2
+            @test parsed.end == 1
+            @test getproperty(parsed, Symbol("##invalid##")) == 2
+        end
     end
 end
