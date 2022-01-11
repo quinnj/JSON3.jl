@@ -160,6 +160,76 @@ function collapse_unions!(expr::Expr)
 end
 collapse_unions!(x) = nothing # no-op fallback
 
+# from https://docs.julialang.org/en/v1/base/base/#Keywords
+const RESERVED_WORDS = (
+    :baremodule,
+    :begin,
+    :break,
+    :catch,
+    :const,
+    :continue,
+    :do,
+    :else,
+    :elseif,
+    :end,
+    :export,
+    :false,
+    :finally,
+    :for,
+    :function,
+    :global,
+    :if,
+    :import,
+    :let,
+    :local,
+    :macro,
+    :module,
+    :quote,
+    :return,
+    :struct,
+    :true,
+    :try,
+    :using,
+    :while,
+)
+
+is_valid_fieldname(x::Symbol) = Base.isidentifier(x) && !(x in RESERVED_WORDS)
+is_valid_fieldname(x) = true # fallback for cases outside of x::Int
+
+# end::Int => var"#JSON3_ESCAPE_THIS#end"::Int (the escape token gets removed later)
+const JSON3_ESCAPE_TOKEN = "#JSON3_ESCAPE_THIS#"
+@static if Base.VERSION < v"1.3"
+    function escape_variable_names!(expr::Expr)
+        if expr.head == :(::)
+            if !is_valid_fieldname(expr.args[1])
+                @warn """Invalid identifier found: $(expr.args[1]).
+
+                In the types written to file, rename the field in the struct to a valid identifier and add a line `StructTypes.names(::Type{MyType}) = ((:julia_field_name, :json_field_name))` with the affected type, new Julia field name, and original JSON field name."""
+            end
+        else
+            for arg in expr.args
+                escape_variable_names!(arg)
+            end
+        end
+    end
+else
+    function escape_variable_names!(expr::Expr)
+        if expr.head == :(::)
+            if !is_valid_fieldname(expr.args[1])
+                # if the variable name is invalid, it will be escaped by `repr` later. This
+                # token is used to force reserved keywords to be marked as invalid and will
+                # be removed in `write_expr`..
+                expr.args[1] = Symbol("$JSON3_ESCAPE_TOKEN$(expr.args[1])")
+            end
+        else
+            for arg in expr.args
+                escape_variable_names!(arg)
+            end
+        end
+    end
+end
+escape_variable_names!(x) = nothing # no-op fallback
+
 """
     JSON3.write_exprs(expr, f)
 
@@ -169,9 +239,11 @@ function write_exprs(expr::Expr, io::IOStream)
     remove_line_numbers!(expr)
     collapse_unions!(expr)
     collapse_singleton_blocks!(expr)
+    escape_variable_names!(expr)
 
     str = repr(expr)[3:end-1] # removes :( and )
     str = replace(str, "\n  " => "\n") # un-tab each line
+    str = replace(str, JSON3_ESCAPE_TOKEN => "") # remove the escape token
 
     # better spacing
     str = replace(str, "end\n" => "end\n\n")
