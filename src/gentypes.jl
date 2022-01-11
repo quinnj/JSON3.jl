@@ -335,17 +335,25 @@ function generate_expr!(
     root_name::Symbol;
     mutable::Bool = true,
 ) where {N,T<:Tuple}
+    struct_name = pascalcase(root_name)
+    struct_expr = findfirst(e -> e.head == :struct && e.args[2] == struct_name, exprs)
+    if !isnothing(struct_expr) # already a struct with this name, augment it
+        new_struct_name = replace(String(gensym(struct_name)), "#" => "_")
+        @warn "struct with name $struct_name already exists, changing name to $new_struct_name"
+        struct_name = Symbol(new_struct_name)
+    end
+
     sub_exprs = []
     for (n, t) in zip(N, fieldtypes(nt))
         push!(sub_exprs, generate_field_expr!(exprs, t, n; mutable = mutable))
     end
 
-    struct_name = pascalcase(root_name)
     if mutable
         push!(sub_exprs, Meta.parse("$struct_name() = new()"))
     end
 
     push!(exprs, Expr(:struct, mutable, struct_name, Expr(:block, sub_exprs...)))
+
     return struct_name
 end
 
