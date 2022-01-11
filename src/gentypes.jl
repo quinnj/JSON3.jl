@@ -344,7 +344,7 @@ function unify_types(types)
     return new_types
 end
 
-# flatten a nested named tuple type into flat structs
+# flatten a nested named tuple type into a vector of (name => named tuple)
 function flatten_types!(
     types,
     nt::Type{NamedTuple{N,T}},
@@ -360,6 +360,7 @@ function flatten_types!(
 
     push!(types, (root_name => NamedTuple{tuple(ns...),Tuple{ts...}}))
 
+    # if a nested named tuple, return the name of the type instead of the signature
     return Val{pascalcase(root_name)}
 end
 
@@ -369,7 +370,7 @@ function flatten_types!(
     ::Type{Base.Array{T,N}},
     root_name::Symbol,
 ) where {T<:NamedTuple,N}
-    return flatten_types!(types, T, root_name)
+    return Vector{flatten_types!(types, T, root_name)}
 end
 
 function flatten_types!(types, t::Type{T}, root_name::Symbol) where {T}
