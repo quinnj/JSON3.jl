@@ -323,89 +323,101 @@ The name of the root type is from the `name` variable (default :Root), then nest
 If `mutable` is `true`, an empty constructor is included in the struct definition. This allows the mutable structs to be used with `StructTypes.Mutable()` out of the box.
 """
 function generate_exprs(t; root_name::Symbol = :Root, mutable = true)
-    exprs = []
-    generate_expr!(exprs, t, root_name; mutable = mutable)
-    return exprs
+    types = []
+    flatten_types!(types, t, root_name)
+    types = unify_types(types)
+    return map(x -> generate_expr(x.second, x.first; mutable = mutable), types)
+end
+
+# if multiple types have the same root name, unify them into one type
+function unify_types(types)
+    new_types = []
+    for t in types
+        i = findfirst(x -> x.first == t.first, new_types)
+        if isnothing(i)
+            push!(new_types, t)
+        else
+            new_types[i] = (t.first => unify(new_types[i].second, t.second))
+        end
+    end
+
+    return new_types
+end
+
+# flatten a nested named tuple type into flat structs
+function flatten_types!(
+    types,
+    nt::Type{NamedTuple{N,T}},
+    root_name::Symbol,
+) where {N,T<:Tuple}
+    ns = []
+    ts = []
+
+    for (n, t) in zip(N, fieldtypes(nt))
+        push!(ns, n)
+        push!(ts, flatten_types!(types, t, n))
+    end
+
+    push!(types, (root_name => NamedTuple{tuple(ns...),Tuple{ts...}}))
+
+    return Val{pascalcase(root_name)}
+end
+
+# should only hit this in the case of the array being the root of the type
+function flatten_types!(
+    types,
+    ::Type{Base.Array{T,N}},
+    root_name::Symbol,
+) where {T<:NamedTuple,N}
+    return flatten_types!(types, T, root_name)
+end
+
+function flatten_types!(types, t::Type{T}, root_name::Symbol) where {T}
+    if T isa Union
+        return Union{
+            flatten_types!(types, t.a, root_name),
+            flatten_types!(types, t.b, root_name),
+        }
+    else
+        return t
+    end
 end
 
 # turn a "raw" type into an AST for a struct
-function generate_expr!(
-    exprs,
+function generate_expr(
     nt::Type{NamedTuple{N,T}},
     root_name::Symbol;
     mutable::Bool = true,
 ) where {N,T<:Tuple}
     struct_name = pascalcase(root_name)
-    struct_expr = findfirst(e -> e.head == :struct && e.args[2] == struct_name, exprs)
-    if !isnothing(struct_expr) # already a struct with this name, augment it
-        new_struct_name = replace(String(gensym(struct_name)), "#" => "_")
-        @warn "struct with name $struct_name already exists, changing name to $new_struct_name"
-        struct_name = Symbol(new_struct_name)
-    end
 
     sub_exprs = []
     for (n, t) in zip(N, fieldtypes(nt))
-        push!(sub_exprs, generate_field_expr!(exprs, t, n; mutable = mutable))
+        push!(sub_exprs, Expr(:(::), n, generate_field_expr(t)))
     end
 
     if mutable
         push!(sub_exprs, Meta.parse("$struct_name() = new()"))
     end
 
-    push!(exprs, Expr(:struct, mutable, struct_name, Expr(:block, sub_exprs...)))
-
-    return struct_name
-end
-
-# should only hit this in the case of the array being the root of the type
-function generate_expr!(
-    exprs,
-    ::Type{Base.Array{T,N}},
-    root_name::Symbol;
-    kwargs...,
-) where {T<:NamedTuple,N}
-    return generate_expr!(exprs, T, root_name; kwargs...)
-end
-
-function generate_expr!(exprs, t::Type{T}, root_name::Symbol; kwargs...) where {T}
-    if T isa Union
-        return Expr(
-            :curly,
-            :Union,
-            generate_expr!(exprs, t.a, root_name; kwargs...),
-            generate_expr!(exprs, t.b, root_name; kwargs...),
-        )
-    else
-        return to_ast(T)
-    end
+    return Expr(:struct, mutable, struct_name, Expr(:block, sub_exprs...))
 end
 
 # given the type of a field of a struct, return a node for that field's name/type
-function generate_field_expr!(
-    exprs,
-    t::Type{NamedTuple{N,T}},
-    root_name::Symbol;
-    kwargs...,
-) where {N,T}
-    generate_expr!(exprs, t, root_name; kwargs...)
-    return Expr(:(::), root_name, pascalcase(root_name))
+function generate_field_expr(t::Type{Val{N}}) where {N}
+    return N
 end
 
-function generate_field_expr!(
-    exprs,
-    ::Type{Base.Array{T,N}},
-    root_name::Symbol;
-    kwargs...,
-) where {T,N}
-    return Expr(
-        :(::),
-        root_name,
-        Expr(:curly, :Array, generate_expr!(exprs, T, root_name; kwargs...), 1),
-    )
+function generate_field_expr(::Type{Base.Array{T,N}}) where {T,N}
+    return Expr(:curly, :Array, generate_field_expr(T), 1)
 end
 
-function generate_field_expr!(exprs, ::Type{T}, root_name::Symbol; kwargs...) where {T}
-    return Expr(:(::), root_name, generate_expr!(exprs, T, root_name; kwargs...))
+function generate_field_expr(t::Type{T}) where {T}
+    if T isa Union
+        return Expr(:curly, :Union, generate_field_expr(t.a), generate_field_expr(t.b))
+    else
+        return to_ast(T)
+    end
 end
 
 # create a module with the struct declarations as well as the StructType declarations
