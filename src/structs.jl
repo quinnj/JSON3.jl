@@ -561,7 +561,7 @@ const DEFAULT_STRUCT_FIELD_COUNT = 32
     return
 end
 
-@inline function read(::Struct, buf, pos, len, b, ::Type{T}; kw...) where {T}
+function read(::Struct, buf, pos, len, b, ::Type{T}; kw...) where {T}
     values = Vector{Any}(undef, DEFAULT_STRUCT_FIELD_COUNT)
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
