@@ -341,8 +341,8 @@ function generate_expr!(
     end
 
     struct_name = pascalcase(root_name)
-    struct_expr = findfirst(e -> e.head == :struct && e.args[2] == struct_name, exprs)
-    if !isnothing(struct_expr) # already a struct with this name, augment it
+    struct_exprs = filter(e -> e.head == :struct && e.args[2] == struct_name, exprs)
+    if length(struct_exprs) > 0 # already a struct with this name, augment it
         new_struct_name = replace(String(gensym(struct_name)), "#" => "")
         @info "struct with name $struct_name already exists, changing name to $new_struct_name"
         struct_name = Symbol(new_struct_name)
