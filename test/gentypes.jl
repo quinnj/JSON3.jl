@@ -405,12 +405,36 @@
             path = mktempdir()
             file_path = joinpath(path, "struct.jl")
 
-            JSON3.writetypes(json_str, file_path; module_name=:KeywordType)
+            JSON3.writetypes(json_str, file_path; module_name = :KeywordType)
             include(file_path)
             parsed = JSON3.read(json_str, KeywordType.Root)
 
             @test parsed.end == 1
             @test getproperty(parsed, Symbol("##invalid##")) == 2
         end
+    end
+
+    @testset "Duplicate Names" begin
+        json_str = """
+        {
+            "label": {
+                "type": "alert",
+                "label": [
+                    {
+                        "type": "text",
+                        "text": {
+                            "content": "Open New",
+                            "label": {
+                                "text": "open"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+        """
+        JSON3.@generatetypes(json_str)
+        json = JSON3.read(json_str, JSONTypes.Root)
+        @test json.label.label[1].text.label.text == "open"
     end
 end
