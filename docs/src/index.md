@@ -32,7 +32,7 @@ using JSON3 # hide
 json_string = """{"a": 1, "b": "hello, world"}"""
 
 hello_world = JSON3.read(json_string)
-JSON3.pretty(JSON3.write(hello_world))
+JSON3.pretty(hello_world)
 ```
 
 #### Read and write from/to a file
