@@ -324,7 +324,7 @@ If `mutable` is `true`, an empty constructor is included in the struct definitio
 """
 function generate_exprs(t; root_name::Symbol = :Root, mutable = true)
     exprs = []
-    generate_expr!(exprs, t, root_name; mutable = mutable)
+    generate_expr!(exprs, t, root_name; mutable = mutable, is_root = true)
     return exprs
 end
 
@@ -334,12 +334,12 @@ function generate_expr!(
     nt::Type{NamedTuple{N,T}},
     root_name::Symbol;
     mutable::Bool = true,
+    kwargs...,
 ) where {N,T<:Tuple}
     sub_exprs = []
     for (n, t) in zip(N, fieldtypes(nt))
         push!(sub_exprs, generate_field_expr!(exprs, t, n; mutable = mutable))
     end
-
     struct_name = pascalcase(root_name)
     struct_exprs = filter(e -> e.head == :struct && e.args[2] == struct_name, exprs)
     if length(struct_exprs) > 0 # already a struct with this name, augment it
@@ -357,14 +357,20 @@ function generate_expr!(
     return struct_name
 end
 
-# should only hit this in the case of the array being the root of the type
+# If at the root of a JSON expression, use the vectors type as the type, otherwise, generate
+# with the vector still wrapping the type
 function generate_expr!(
     exprs,
     ::Type{Base.Array{T,N}},
     root_name::Symbol;
+    is_root::Bool = false,
     kwargs...,
 ) where {T<:NamedTuple,N}
-    return generate_expr!(exprs, T, root_name; kwargs...)
+    if is_root
+        return generate_expr!(exprs, T, root_name; kwargs...)
+    else
+        return Expr(:curly, :Array, generate_expr!(exprs, T, root_name; kwargs...), 1)
+    end
 end
 
 function generate_expr!(exprs, t::Type{T}, root_name::Symbol; kwargs...) where {T}

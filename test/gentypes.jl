@@ -294,6 +294,41 @@
         parsed = JSON3.read(weird_jsons[3], JSONTypes.Root)
         @test parsed.x == 7
         @test !isdefined(parsed, :a)
+
+        # Issue #209
+        daily_menu = """{
+            "object":"page",
+            "date":"23.03.2022"
+        }"""
+        dishes = """{
+            "object":"list",
+            "results":[
+                {
+                    "object":"dish",
+                    "name":"Spaghetti"
+                }
+            ]
+        }"""
+
+        JSON3.@generatetypes [daily_menu, dishes]
+
+        new_daily_menu = """{
+            "object":"page",
+            "date":"24.03.2022"
+        }"""
+        new_dishes = """{
+            "object":"list",
+            "results":[
+                {
+                    "object":"dish",
+                    "name":"Pizza"
+                }
+            ]
+        }"""
+
+        menu_struct = JSON3.read(new_daily_menu, JSONTypes.Root)
+        dishes_struct = JSON3.read(new_dishes, JSONTypes.Root)
+        @test dishes_struct.results[1].object == "dish"
     end
 
     @testset "Raw Types" begin
