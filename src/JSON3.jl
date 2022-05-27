@@ -130,6 +130,7 @@ Base.getindex(obj::Object, key) = get(obj, key)
     copy(obj)
 
 Recursively copy [`JSON3.Object`](@ref)s to `Dict`s and [`JSON3.Array`](@ref)s to `Vector`s.  This copy can then be mutated if needed.
+See also [`JSON3.materialize`](@ref).
 """
 function Base.copy(obj::Object)
     dict = Dict{Symbol, Any}()
@@ -138,6 +139,15 @@ function Base.copy(obj::Object)
     end
     return dict
 end
+
+"""
+    materialize(obj)
+
+Materialize an object returned from [`JSON3.read`](@ref) as a plain Julia object: `Dict`, `Vector`, `String`, or `Number`.
+See also [`copy`](@ref).
+"""
+materialize(x) = copy(x)
+materialize(x::String) = x
 
 # AbstractArray interface
 Base.IndexStyle(::Type{<:Array}) = Base.IndexLinear()

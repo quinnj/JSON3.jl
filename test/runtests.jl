@@ -876,6 +876,12 @@ obj = JSON3.read("{\"hey\":1}")
 obj = JSON3.read("{\"a\":\"b\", \"b\":null, \"c\":[null,null]}")
 @test copy(obj) == Dict(:a => "b", :b => nothing, :c => [nothing, nothing])
 
+# materialize to a plain Julia object
+@test JSON3.materialize(JSON3.read("123")) == 123
+@test JSON3.materialize(JSON3.read("\"123\"")) == "123"
+@test JSON3.materialize(JSON3.read("[1, 2, 3]")) == [1, 2, 3]
+@test JSON3.materialize(JSON3.read("{\"a\":\"b\", \"b\":null, \"c\":[null,null]}")) == Dict(:a => "b", :b => nothing, :c => [nothing, nothing])
+
 # better Tuple reading support
 @test JSON3.read("[\"car\",\"Mercedes\"]", Tuple{Symbol, String}) == (:car, "Mercedes")
 @test JSON3.read("[\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\",\"hey\"]", NTuple{35, String}) ==
