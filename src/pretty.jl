@@ -26,8 +26,8 @@ Base.@kwdef mutable struct AlignmentContext
     offset::UInt16 = 0
     function AlignmentContext(alignment, indent, level, offset)
         if alignment != :Left && alignment != :Colon
-            throw(ArgumentError("Alignment :$(alignment) is not supported. \
-                                 Only :Left and :Colon are supported so far"))
+            throw(ArgumentError("Alignment :$(alignment) is not supported. " * 
+                                 "Only `:Left` and `:Colon` are supported so far"))
         end
         new(alignment, indent, level, offset)
     end
