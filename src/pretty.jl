@@ -68,7 +68,7 @@ function pretty(out::IO, str::String, ac=AlignmentContext(); kw...)
         obj = JSON3.read(str; kw...)
 
         if length(obj) == 0
-            Base.write(out, "}")
+            Base.write(out, ' '^(ac.indent * ac.level + ac.offset) * "}")
             return
         end
 
@@ -98,7 +98,7 @@ function pretty(out::IO, str::String, ac=AlignmentContext(); kw...)
         arr = JSON3.read(str; kw...)
 
         if length(arr) == 0
-            Base.write(out, "]")
+            Base.write(out, ' '^(ac.indent * ac.level + ac.offset) * "]")
             return
         end
 
