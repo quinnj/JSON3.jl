@@ -55,3 +55,41 @@ using StructTypes
 JSON3.@generatetypes json_string_sample
 JSON3.read(json_string, JSONTypes.Root)
 ```
+
+#### Non-allocating interface
+
+```julia
+json_string = """
+{
+    "a": 1,
+    "b": [1,2,3,5,8],
+    "c": {
+        "a": ["2"],
+    }
+}
+"""
+reader = JSON3.Reader()
+obj = JSON3.parse!(reader, json_string, JSON3.JSONObject) # returns a JSON3.JSONObject
+
+# method 1
+obj["a", Int64] # 1
+# method 2
+cursor = findcursor(obj, "a") # JSON3.Cursor
+item = obj[cursor, Int64] # 1
+# method 3
+field = first(obj)
+key(field) # "a", SubString
+value(field, Int64) # 1
+
+# Array
+collect(obj["b", JSON3.JSONArray{Int64}]) # [1,2,3,5,8]
+# Object
+obj["c", JSON3.JSONObject] # JSON3.JSONObject 
+
+# Data is accessed by iterating over the fields.
+# When fields are orders, it is possible to access them sequentially:
+cursor = findcursor(obj, "a") # JSON3.Cursor
+cursor2 = findcursor(obj, "b", cursor) # iterates from cursor
+obj[cursor2] # obj["b"] 
+
+```

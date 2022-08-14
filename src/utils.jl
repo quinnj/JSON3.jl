@@ -67,7 +67,7 @@ isnull(x::UInt64) = (x & TYPEMASK) == NULL
 isintfloat(x::UInt64) = (x & TYPEMASK) == (INT | FLOAT)
 nonnull(x::UInt64) = (x & TYPEMASK) & ~NULL
 
-function geteltype(T)
+function geteltype(T::UInt64)
     if empty(T); return Union{}
     elseif isany(T); return Any
     elseif isobject(T); return Object
@@ -81,6 +81,15 @@ function geteltype(T)
     else return Union{geteltype(nonnull(T)), Nothing}
     end
 end
+
+geteltype(::Type{Any}) = ANY
+geteltype(::Type{T}) where {T} = ANY
+geteltype(::Type{Nothing}) = NULL
+geteltype(::Type{Union{Nothing, T}}) where {T} = (NULL | geteltype(T))
+geteltype(::Type{<:AbstractString}) = STRING
+geteltype(::Type{<:Integer}) = INT
+geteltype(::Type{<:AbstractFloat}) = FLOAT
+geteltype(::Type{Bool}) = BOOL
 
 object(tapelen) = OBJECT | Core.bitcast(UInt64, tapelen)
 array(tapelen)  = ARRAY  | Core.bitcast(UInt64, tapelen)
@@ -115,12 +124,10 @@ getnontypemask(x::UInt64) = Core.bitcast(Int64, x & ~TYPEMASK)
 getpos(x::UInt64) = Core.bitcast(Int64, getnontypemask(x) >> 16)
 getlen(x::UInt64) = Core.bitcast(Int64, x & 0x000000000000ffff)
 
-gettapelen(T, x::UInt64) = ifelse(isobject(x) | isarray(x), getnontypemask(x), 2)
+gettapelen(x::UInt64) = ifelse(isobject(x) | isarray(x), getnontypemask(x), 2)
 gettapelen(::Union{Type{Int64}, Type{Float64}, Type{Bool}, Type{Nothing}}) = 2
 
-regularstride(T) = false
-regularstride(::Union{Type{Int64}, Type{Float64}, Type{Bool}, Type{Nothing}}) = true
-regularstride(::Type{Union{Int64, Float64}}) = true
+issmalltype(x::UInt64) = x & (EMPTY | NULL | INT | FLOAT | BOOL | STRING) == gettypemask(x)
 
 function getvalue(::Type{Object}, buf, tape, tapeidx, t)
     x = Object(buf, Base.unsafe_view(tape, tapeidx:tapeidx + getnontypemask(t)), Dict{Symbol, Int}())
