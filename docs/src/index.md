@@ -35,6 +35,23 @@ hello_world = JSON3.read(json_string)
 JSON3.pretty(hello_world)
 ```
 
+The alignment of the string produced  by `JSON3.pretty` can be controlled by
+passing an [`JSON3.AlignmentContext`](@ref) to `JSON3.pretty`. To align each
+level at the `:` Symbol and indent each new level by 2 additional spaces, use
+```@example
+using JSON3 # hide
+json_string = """{"a":"abc","aaaaaaaaaaaaaa":{"a":"abc","aaaaaaaaaaaaaa":"abc"},"c":"abc"}""";
+JSON3.pretty(JSON3.read(json_string), JSON3.AlignmentContext(alignment=:Colon, indent=2))
+```
+to left align the JSON string and indent each new level by 4 additional spaces
+(this is also the default) use
+```@example
+using JSON3 # hide
+json_string = """{"a":"abc","aaaaaaaaaaaaaa":{"a":"abc","aaaaaaaaaaaaaa":"abc"},"c":"abc"}""";
+JSON3.pretty(JSON3.read(json_string), JSON3.AlignmentContext(alignment=:Left, indent=4))
+```
+
+
 #### Read and write from/to a file
 ```jl
 json_string = read("my_file.json", String)
@@ -161,6 +178,7 @@ JSON3.read!
 JSON3.write
 JSON3.pretty
 JSON3.@pretty
+JSON3.AlignmentContext
 JSON3.Object
 JSON3.Array
 Base.copy
