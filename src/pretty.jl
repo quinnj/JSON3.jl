@@ -8,8 +8,34 @@ macro pretty(json)
 end
 
 """
-    JSON3.pretty(x; kw...)
-    JSON3.pretty(io, x; kw...)
+    JSON3.AlignmentContext(alignment=:Left, indent=4, level=0, offset=0)
+
+Specifies the indentation of a pretty JSON string.
+
+## Keyword Args
+* `alignment`: A Symbol specifying the alignment type. Can be `:Left` to left-align
+               everything or `:Colon` to align at the `:`.
+* `indent`: The number of spaces to indent each new level with.
+* `level`: The indentation level.
+* `offset`: The indentation offset.
+"""
+Base.@kwdef mutable struct AlignmentContext
+    alignment::Symbol = :Left
+    indent::UInt16 = 4
+    level::UInt16 = 0
+    offset::UInt16 = 0
+    function AlignmentContext(alignment, indent, level, offset)
+        if alignment != :Left && alignment != :Colon
+            throw(ArgumentError("Alignment :$(alignment) is not supported. " * 
+                                 "Only `:Left` and `:Colon` are supported so far"))
+        end
+        new(alignment, indent, level, offset)
+    end
+end
+
+"""
+    JSON3.pretty(x, ac=JSON3.AlignmentContext(); kw...)
+    JSON3.pretty(io, x, ac=JSON3.AlignmentContext(); kw...)
 
 Pretty print a JSON string.
 
@@ -17,14 +43,16 @@ Pretty print a JSON string.
 
 * `x`: A JSON string, or an object to write to JSON then pretty print.
 * `io`: The `IO` object to write the pretty printed string to. [default `stdout`]
+* `ac`: The `AlignmentContext` for the pretty printing. Defaults to left-aligned
+        with 4 spaces indent. See [`JSON3.AlignmentContext`](@ref) for more options.
 
 ## Keyword Args
 
 See [`JSON3.write`](@ref) and [`JSON3.read`](@ref).
 """
-pretty(str; kw...) = pretty(stdout, str; kw...)
-pretty(out::IO, x; kw...) = pretty(out, JSON3.write(x; kw...); kw...)
-function pretty(out::IO, str::String, indent=0, offset=0; kw...)
+pretty(str, ac=AlignmentContext(); kw...) = pretty(stdout, str, ac; kw...)
+pretty(out::IO, x, ac=AlignmentContext(); kw...) = pretty(out, JSON3.write(x; kw...), ac; kw...)
+function pretty(out::IO, str::String, ac=AlignmentContext(); kw...)
     buf = codeunits(str)
     len = length(buf)
     if len == 0
@@ -40,22 +68,24 @@ function pretty(out::IO, str::String, indent=0, offset=0; kw...)
         obj = JSON3.read(str; kw...)
 
         if length(obj) == 0
-            Base.write(out, "}")
+            Base.write(out, ' '^(ac.indent * ac.level + ac.offset) * "}")
             return
         end
 
         ks = collect(keys(obj))
         maxlen = maximum(map(sizeof, ks)) + 5
-        indent += 1
+        ac.alignment == :Colon && (ac.offset += maxlen)
+        ac.level += 1
 
         i = 1
         for (key, value) in obj
-            Base.write(out, "  "^indent)
-            Base.write(out, lpad("\"$(key)\"" * ": ", maxlen + offset, ' '))
-            pretty(out, JSON3.write(value; kw...), indent, maxlen + offset; kw...)
+            Base.write(out, ' '^(ac.level * ac.indent))
+            Base.write(out, lpad("\"$(key)\"" * ": ", ac.offset, ' '))
+            pretty(out, JSON3.write(value; kw...), ac; kw...)
             if i == length(obj)
-                indent -= 1
-                Base.write(out, "\n" * ("  "^indent * " "^offset) * "}")
+                ac.level -= 1
+                ac.alignment == :Colon && (ac.offset -= maxlen)
+                Base.write(out, "\n" * ' '^(ac.indent * ac.level + ac.offset) * "}")
             else
                 Base.write(out, ",\n")
                 i += 1
@@ -68,18 +98,18 @@ function pretty(out::IO, str::String, indent=0, offset=0; kw...)
         arr = JSON3.read(str; kw...)
 
         if length(arr) == 0
-            Base.write(out, "]")
+            Base.write(out, ' '^(ac.indent * ac.level + ac.offset) * "]")
             return
         end
 
-        indent += 1
+        ac.level += 1
 
         for (i, val) in enumerate(arr)
-            Base.write(out, "  "^indent * " "^offset)
-            pretty(out, JSON3.write(val; kw...), indent, offset; kw...)
+            Base.write(out, ' '^(ac.indent * ac.level + ac.offset))
+            pretty(out, JSON3.write(val; kw...), ac; kw...)
             if i == length(arr)
-                indent -= 1
-                Base.write(out, "\n" * ("  "^indent * " "^offset) * "]")
+                ac.level -= 1
+                Base.write(out, "\n" * ' '^(ac.indent * ac.level + ac.offset) * "]")
             else
                 Base.write(out, ",\n")
             end

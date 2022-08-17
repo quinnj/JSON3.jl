@@ -906,7 +906,7 @@ JSON3.pretty(io, "{}")
 @test String(take!(io)) == "{\n}"
 JSON3.pretty(io, "[]")
 @test String(take!(io)) == "[\n]"
-JSON3.pretty(io, (a=1, b=true, c=3.14, d="hey", e=(abcdefghijklmnopqrstuvwxyz=1000, aa=1e8, dd=[nothing, nothing, nothing, 3.14])))
+JSON3.pretty(io, (a=1, b=true, c=3.14, d="hey", e=(abcdefghijklmnopqrstuvwxyz=1000, aa=1e8, dd=[nothing, nothing, nothing, 3.14])), JSON3.AlignmentContext(alignment=:Colon, indent=2))
 @test String(take!(io)) == """{
    "a": 1,
    "b": true,
@@ -923,8 +923,24 @@ JSON3.pretty(io, (a=1, b=true, c=3.14, d="hey", e=(abcdefghijklmnopqrstuvwxyz=10
                                          ]
         }
 }"""
-
-JSON3.pretty(io, (a=1, b=D(1, 3.14, "cool")))
+JSON3.pretty(io, (a=1, b=true, c=3.14, d="hey", e=(abcdefghijklmnopqrstuvwxyz=1000, aa=1e8, dd=[nothing, nothing, nothing, 3.14])))
+@test String(take!(io)) == """{
+    "a": 1,
+    "b": true,
+    "c": 3.14,
+    "d": "hey",
+    "e": {
+        "abcdefghijklmnopqrstuvwxyz": 1000,
+        "aa": 100000000,
+        "dd": [
+            null,
+            null,
+            null,
+            3.14
+        ]
+    }
+}"""
+JSON3.pretty(io, (a=1, b=D(1, 3.14, "cool")), JSON3.AlignmentContext(alignment=:Colon, indent=2))
 @test String(take!(io)) == """{
    "a": 1,
    "b": {
@@ -933,11 +949,20 @@ JSON3.pretty(io, (a=1, b=D(1, 3.14, "cool")))
            "c": "cool"
         }
 }"""
+JSON3.pretty(io, (a=1, b=D(1, 3.14, "cool")))
+@test String(take!(io)) == """{
+    "a": 1,
+    "b": {
+        "a": 1,
+        "b": 3.14,
+        "c": "cool"
+    }
+}"""
 
 # 77
 io = IOBuffer()
 JSON3.pretty(io,  JSON3.write(Dict( "x" => Inf64), allow_inf=true), allow_inf=true )
-@test String(take!(io)) == "{\n   \"x\": Infinity\n}"
+@test String(take!(io)) == "{\n    \"x\": Infinity\n}"
 
 end # @testset "pretty.jl"
 
