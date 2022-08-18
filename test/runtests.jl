@@ -1,5 +1,6 @@
 using Test, JSON3, StructTypes, UUIDs, Dates
 
+
 @static if Base.VERSION < v"1.5"
     ismutable(o::T) where {T} = T.mutable
 end
@@ -834,9 +835,6 @@ x = Dict(:hey=>1)
 @test StructTypes.construct(Dict{Symbol, Any}, x) == x
 
 @test JSON3.gettapelen(Int64) == 2
-@test JSON3.regularstride(Missing) == false
-@test JSON3.regularstride(Int64) == true
-@test JSON3.regularstride(Union{Int64, Float64}) == true
 @test JSON3.getvalue(Nothing, [], [], 1, 2) === nothing
 @test JSON3.defaultminimum(nothing) == 4
 @test JSON3.defaultminimum(Int64) == 16
@@ -1044,5 +1042,7 @@ x = System(duration=3600.0)
 
 include("gentypes.jl")
 include("stringnumber.jl")
+include("reader.jl")
 
 end # @testset "JSON3"
+

@@ -48,7 +48,7 @@ function populateinds!(x::Object)
         key = getvalue(Symbol, buf, tape, tapeidx, t)
         tapeidx += 2
         inds[key] = tapeidx
-        @inbounds tapeidx += gettapelen(Any, tape[tapeidx])
+        @inbounds tapeidx += gettapelen(tape[tapeidx])
         i += 1
     end
     return
@@ -64,7 +64,7 @@ function populateinds!(x::Array)
     i = 1
     while i <= len
         @inbounds inds[i] = tapeidx
-        @inbounds tapeidx += gettapelen(Any, tape[tapeidx])
+        @inbounds tapeidx += gettapelen(tape[tapeidx])
         i += 1
     end
     return
@@ -78,7 +78,7 @@ end
     tapeidx += 2
     @inbounds t = tape[tapeidx]
     x = Pair{Symbol, Any}(key, getvalue(Any, getbuf(obj), tape, tapeidx, t))
-    tapeidx += gettapelen(Any, t)
+    tapeidx += gettapelen(t)
     return x, (i + 1, tapeidx)
 end
 
@@ -149,7 +149,7 @@ function Base.iterate(arr::Array{T}, (i, tapeidx)=(1, 3)) where {T}
     tape = gettape(arr)
     @inbounds t = tape[tapeidx]
     val = getvalue(T, getbuf(arr), tape, tapeidx, t)
-    tapeidx += gettapelen(T, t)
+    tapeidx += gettapelen(t)
     return val, (i + 1, tapeidx)
 end
 
@@ -171,5 +171,6 @@ include("structs.jl")
 include("write.jl")
 include("pretty.jl")
 include("gentypes.jl")
+include("read_tape.jl")
 
 end # module
