@@ -172,4 +172,6 @@ include("write.jl")
 include("pretty.jl")
 include("gentypes.jl")
 
+include("workload.jl")
+
 end # module
