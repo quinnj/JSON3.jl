@@ -1045,4 +1045,18 @@ x = System(duration=3600.0)
 include("gentypes.jl")
 include("stringnumber.jl")
 
+# https://github.com/JuliaData/StructTypes.jl/issues/85
+struct Struct1
+    iarr::Vector{Integer}
+end
+
+StructTypes.StructType(::Type{Struct1}) = StructTypes.Struct()
+
+s1 = Struct1([1,2,3,4,5]);
+iob = IOBuffer();
+JSON3.write(iob, s1);
+s1_json = String(take!(iob))
+s2 = JSON3.read(s1_json, Struct1)
+@test s1.iarr == s2.iarr
+
 end # @testset "JSON3"
