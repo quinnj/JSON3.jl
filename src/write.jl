@@ -86,6 +86,7 @@ write(::NumberType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringTyp
 write(::NullType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
 write(::BoolType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
 write(::AbstractType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
+write(::SingletonType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
 write(::NoStructType, buf, pos, len, ::Type{T}; kw...) where {T} = write(StringType(), buf, pos, len, Base.string(T))
 
 write(::NoStructType, buf, pos, len, ::T; kw...) where {T} = throw(ArgumentError("$T doesn't have a defined `StructTypes.StructType`"))
@@ -190,6 +191,8 @@ function write(::BoolType, buf, pos, len, x::Bool; kw...)
     end
     return buf, pos, len
 end
+
+write(::SingletonType, buf, pos, len, x; kw...) = write(StringType(), buf, pos, len, x; kw...)
 
 # adapted from base/intfuncs.jl
 function write(::NumberType, buf, pos, len, y::Integer; kw...)
