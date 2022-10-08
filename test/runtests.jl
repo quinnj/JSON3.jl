@@ -1062,4 +1062,8 @@ s1_json = String(take!(iob))
 s2 = JSON3.read(s1_json, Struct1)
 @test s1.iarr == s2.iarr
 
+# https://github.com/quinnj/JSON3.jl/issues/232
+@test JSON3.write(3//2) == "1.5"
+@test JSON3.write(π) == "3.141592653589793"
+1
 end # @testset "JSON3"

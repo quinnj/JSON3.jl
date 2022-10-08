@@ -210,8 +210,37 @@ function write(::NumberType, buf, pos, len, y::Integer; kw...)
     return buf, pos + n, len
 end
 
-write(::NumberType, buf, pos, len, x::T; kw...) where {T} =
-    write(NumberType(), buf, pos, len, StructTypes.construct(StructTypes.numbertype(T), x); kw...)
+# default fallback for non-Integer/non-AbstractFloat numbers
+# conver to Float64 and write the string representation
+"""
+    JSON3.tostring(x::Real) -> String
+
+For some number types that are `<: Real`, but not `<: Integer` or `<: AbstractFloat`,
+`tostring` provides an overload to convert `x` to an appropriate string representation
+which will be used for the JSON numeric representation. By default, `x` is converted
+to a `Float64` and then to a `String`.
+"""
+tostring(x::Real) = Base.string(convert(Float64, x))
+
+function write(::NumberType, buf, pos, len, x::T; kw...) where {T}
+    NT = StructTypes.numbertype(T)
+    if NT === T
+        # this means T hasn't overloaded numbertype
+        # and we can't StructTypes.construct since we'll just stack overflow
+        # so we call last-chance tostring that can be overloaded
+        bytes = codeunits(tostring(x))
+        sz = sizeof(bytes)
+        @check sz
+        for i = 1:sz
+            @inbounds @writechar bytes[i]
+        end
+
+        return buf, pos, len
+    else
+        write(NumberType(), buf, pos, len, StructTypes.construct(NT, x); kw...)
+    end
+end
+
 function write(::NumberType, buf, pos, len, x::AbstractFloat; allow_inf::Bool=false, kw...)
     isfinite(x) || allow_inf || error("$x not allowed to be written in JSON spec")
     bytes = codeunits(Base.string(x))
