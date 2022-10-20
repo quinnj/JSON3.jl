@@ -182,6 +182,7 @@ JSON3.AlignmentContext
 JSON3.Object
 JSON3.Array
 Base.copy
+JSON3.tostring
 ```
 
 ### In Relation to Other JSON Packages
