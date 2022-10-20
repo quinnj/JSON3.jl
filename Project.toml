@@ -1,7 +1,7 @@
 name = "JSON3"
 uuid = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 authors = ["Jacob Quinn <quinn.jacobd@gmail.com>"]
-version = "1.9.5"
+version = "1.10.0"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -13,8 +13,8 @@ UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]
 Parsers = "0.3, 1, 2"
-StructTypes = "1.5"
-julia = "1"
+StructTypes = "1.10"
+julia = "1.6"
 SnoopPrecompile = "1"
 
 [extras]

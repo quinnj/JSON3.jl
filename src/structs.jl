@@ -1,4 +1,4 @@
-import StructTypes: StructType, CustomStruct, DictType, ArrayType, StringType, NumberType, BoolType, NullType, NoStructType, Struct, OrderedStruct, Mutable, construct, AbstractType, subtypes, subtypekey
+import StructTypes: StructType, CustomStruct, DictType, ArrayType, StringType, NumberType, BoolType, NullType, NoStructType, SingletonType, Struct, OrderedStruct, Mutable, construct, AbstractType, subtypes, subtypekey
 
 struct RawType <: StructType end
 
@@ -63,6 +63,8 @@ read(::NumberType, buf, pos, len, b, S::Type{Union{Bool, T}}; kw...) where {T <:
 # without this, `Real` dispatches to the above definition
 read(::NumberType, buf, pos, len, b, ::Type{Real}; kw...) =
     read(NumberType(), buf, pos, len, b, Union{Float64, Int64}; kw...)
+read(::NumberType, buf, pos, len, b, ::Type{Integer}; kw...) =
+    read(NumberType(), buf, pos, len, b, Int64; kw...)
 
 @generated function read(::Struct, buf, pos, len, b, T::Union; kw...)
     U = first(T.parameters) # Extract Union from Type

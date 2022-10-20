@@ -38,6 +38,8 @@ struct D
     c::String
 end
 
+struct ParametricSingleton{T} end
+
 abstract type Vehicle end
 
 struct Car <: Vehicle
@@ -436,9 +438,10 @@ obj2 = JSON3.read("""
 @test_throws ArgumentError JSON3.read!("{\"a\": 1, a", A(1, 2, 3, 4))
 @test_throws ArgumentError JSON3.read!("}", A(1, 2, 3, 4))
 
-@test_throws ArgumentError JSON3.read("{}", C)
-@test_throws ArgumentError JSON3.write(C())
+@test JSON3.write(C()) == "\"C()\""
+@test JSON3.write(ParametricSingleton{Int64}()) == "\"ParametricSingleton{Int64}()\""
 
+@test_throws MethodError JSON3.read("{}", C)
 StructTypes.StructType(::Type{C}) = StructTypes.Struct()
 
 @test JSON3.read("{}", C) == C()
@@ -1044,5 +1047,19 @@ x = System(duration=3600.0)
 
 include("gentypes.jl")
 include("stringnumber.jl")
+
+# https://github.com/JuliaData/StructTypes.jl/issues/85
+struct Struct1
+    iarr::Vector{Integer}
+end
+
+StructTypes.StructType(::Type{Struct1}) = StructTypes.Struct()
+
+s1 = Struct1([1,2,3,4,5]);
+iob = IOBuffer();
+JSON3.write(iob, s1);
+s1_json = String(take!(iob))
+s2 = JSON3.read(s1_json, Struct1)
+@test s1.iarr == s2.iarr
 
 end # @testset "JSON3"
