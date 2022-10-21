@@ -264,8 +264,8 @@ end
         @writechar 'I' 'n' 'f' 'i' 'n' 'i' 't' 'y'
         return buf, pos, len
     end
-    @check Parsers.neededdigits(T)
-    pos = Parsers.writeshortest(buf, pos, x)
+    @check Ryu.neededdigits(T)
+    pos = Ryu.writeshortest(buf, pos, x)
     return buf, pos, len
 end
 
