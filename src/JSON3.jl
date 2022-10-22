@@ -1,6 +1,7 @@
 module JSON3
 
 using Parsers, Mmap, UUIDs, Dates, StructTypes
+using Base: Ryu
 
 """An immutable (read only) struct which provides an efficient view of a JSON object. Supports the `AbstractDict` interface. See [built in types](#Builtin-types) for more detail on why we have an `Object` type."""
 struct Object{S <: AbstractVector{UInt8}, TT <: AbstractVector{UInt64}} <: AbstractDict{Symbol, Any}
