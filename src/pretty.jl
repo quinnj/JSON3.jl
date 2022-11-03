@@ -52,7 +52,7 @@ See [`JSON3.write`](@ref) and [`JSON3.read`](@ref).
 """
 pretty(str, ac=AlignmentContext(); kw...) = pretty(stdout, str, ac; kw...)
 pretty(out::IO, x, ac=AlignmentContext(); kw...) = pretty(out, JSON3.write(x; kw...), ac; kw...)
-function pretty(out::IO, str::String, ac=AlignmentContext(); kw...)
+function pretty(out::IO, str::AbstractString, ac=AlignmentContext(); kw...)
     buf = codeunits(str)
     len = length(buf)
     if len == 0
