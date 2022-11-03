@@ -25,8 +25,11 @@ Read JSON.
 * `allow_inf`: Allow reading of `Inf` and `NaN` values (not part of the JSON standard). [default `false`]
 * `dateformat`: A [`DateFormat`](https://docs.julialang.org/en/v1/stdlib/Dates/#Dates.DateFormat) describing the format of dates in the JSON so that they can be read into `Date`s, `Time`s, or `DateTime`s when reading into a type. [default `Dates.default_format(T)`]
 * `parsequoted`: Accept quoted values when reading into a NumberType. [default `false`]
+* `numbertype`: Type to parse numbers as. [default `nothing`, which parses numbers as Int if possible, Float64 otherwise]
 """
-function read(str::AbstractString; jsonlines::Bool=false, kw...)
+function read(str::AbstractString; jsonlines::Bool=false,
+              numbertype::Union{DataType, Nothing}=nothing, kw...)
+
     buf = codeunits(str)
     len = length(buf)
     if len == 0
@@ -39,10 +42,18 @@ function read(str::AbstractString; jsonlines::Bool=false, kw...)
     @wh
     tape = len < 1000 ? Vector{UInt64}(undef, len + 4) :
         Vector{UInt64}(undef, div(len, 10))
-    if jsonlines
-        pos, tapeidx = jsonlines!(buf, pos, len, b, tape, Int64(1); kw...)
+    if numbertype === nothing
+        checkint = true
+    elseif numbertype == Float64
+        checkint = false
     else
-        pos, tapeidx = read!(buf, pos, len, b, tape, Int64(1), Any; kw...)
+        throw(ArgumentError("numbertype $numbertype is not supported. " *
+                            "Only `nothing` (default) and `Float64` are supported so far."))
+    end
+    if jsonlines
+        pos, tapeidx = jsonlines!(buf, pos, len, b, tape, Int64(1), checkint; kw...)
+    else
+        pos, tapeidx = read!(buf, pos, len, b, tape, Int64(1), Any, checkint; kw...)
     end
     @inbounds t = tape[1]
     if isobject(t)
@@ -74,9 +85,9 @@ const FLOAT_INT_BOUND = 2.0^53
 
 function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any}, checkint=true; allow_inf::Bool=false)
     if b == UInt8('{')
-        return read!(buf, pos, len, b, tape, tapeidx, Object; allow_inf=allow_inf)
+        return read!(buf, pos, len, b, tape, tapeidx, Object, checkint; allow_inf=allow_inf)
     elseif b == UInt8('[')
-        return read!(buf, pos, len, b, tape, tapeidx, Array; allow_inf=allow_inf)
+        return read!(buf, pos, len, b, tape, tapeidx, Array, checkint; allow_inf=allow_inf)
     elseif b == UInt8('"')
         return read!(buf, pos, len, b, tape, tapeidx, String)
     elseif b == UInt8('n')
@@ -203,7 +214,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Nothing})
     end
 end
 
-function read!(buf, pos, len, b, tape, tapeidx, ::Type{Object}; kw...)
+function read!(buf, pos, len, b, tape, tapeidx, ::Type{Object}, checkint=true; kw...)
     objidx = tapeidx
     eT = EMPTY
     pos += 1
@@ -263,7 +274,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Object}; kw...)
         @wh
         # now positioned at start of value
         prevtapeidx = tapeidx
-        pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any; kw...)
+        pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any, checkint; kw...)
         @eof
         b = getbyte(buf, pos)
         @wh
@@ -297,7 +308,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Object}; kw...)
     invalid(error, buf, pos, Object)
 end
 
-function read!(buf, pos, len, b, tape, tapeidx, ::Type{Array}; kw...)
+function read!(buf, pos, len, b, tape, tapeidx, ::Type{Array}, checkint=true; kw...)
     arridx = tapeidx
     eT = EMPTY
     pos += 1
@@ -317,7 +328,8 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Array}; kw...)
     while true
         # positioned at start of value
         prevtapeidx = tapeidx
-        pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any, eT != FLOAT && eT != (FLOAT | NULL); kw...)
+        check_int = checkint ? eT != FLOAT && eT != (FLOAT | NULL) : false
+        pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any, check_int; kw...)
         @eof
         b = getbyte(buf, pos)
         @wh
@@ -345,7 +357,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Array}; kw...)
     invalid(error, buf, pos, Array)
 end
 
-function jsonlines!(buf, pos, len, b, tape, tapeidx; kw...)
+function jsonlines!(buf, pos, len, b, tape, tapeidx, checkint=true; kw...)
     arridx = tapeidx
     eT = EMPTY
     if pos > len
@@ -361,7 +373,8 @@ function jsonlines!(buf, pos, len, b, tape, tapeidx; kw...)
         @wh
         # positioned at start of value
         prevtapeidx = tapeidx
-        pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any, eT != FLOAT && eT != (FLOAT | NULL); kw...)
+        check_int = checkint ? eT != FLOAT && eT != (FLOAT | NULL) : false
+        pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any, check_int; kw...)
         @inbounds eT = promoteeltype(eT, gettypemask(tape[prevtapeidx]))
         nelem += 1
         if pos > len

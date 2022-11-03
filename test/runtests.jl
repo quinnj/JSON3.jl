@@ -172,6 +172,15 @@ roundtrip(x::T) where T = JSON3.read(JSON3.write(x), T)
 @test JSON3.read("true") === true
 @test JSON3.read("false") === false
 
+# numbertype
+@test JSON3.read("1.0", numbertype=Float64) === 1.0
+@test JSON3.read("1", numbertype=Float64) === 1.0
+@test_throws ArgumentError JSON3.read("1", numbertype=Float32)
+@test JSON3.read("{\"hey\":1}", numbertype=Float64).hey === 1.0
+@test JSON3.read("[\"hey\",1]", numbertype=Float64)[2] === 1.0
+@test JSON3.read("[[1]]", numbertype=Float64)[1][1] === 1.0
+@test JSON3.read("1.0"; jsonlines=true, numbertype=Float64)[1] === 1.0
+
 # more robust Int vs. Float detection: https://github.com/quinnj/JSON3.jl/issues/124
 @test JSON3.read("9223372036854775807") == 9223372036854775807
 @test JSON3.read("9223372036854775808") == 9.223372036854776e18 # overflowed Int64 promotes to Float64 (though slightly lossy)
