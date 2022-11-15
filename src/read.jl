@@ -10,13 +10,13 @@ read(io::Union{IO, Base.AbstractCmd}; kw...) = read(Base.read(io, String); kw...
 read(bytes::AbstractVector{UInt8}; kw...) = read(VectorString(bytes); kw...)
 
 """
-    JSON3.read(json_str, [type]; kw... )
+    JSON3.read(json, [type]; kw... )
 
 Read JSON.
 
 ## Args
 
-* `json_str`: A string, IO, or bytes (`AbstractVector{UInt8`) containing JSON to read
+* `json`: A file, string, IO, or bytes (`AbstractVector{UInt8`) containing JSON to read
 * `type`: Optionally, a type to read the JSON into. If not a [built in type](#Builtin-types), must have a "struct mapping" registered with [StructTypes.jl](#Struct-API).
 
 ## Keyword Args
@@ -27,8 +27,12 @@ Read JSON.
 * `parsequoted`: Accept quoted values when reading into a NumberType. [default `false`]
 * `numbertype`: Type to parse numbers as. [default `nothing`, which parses numbers as Int if possible, Float64 otherwise]
 """
-function read(str::AbstractString; jsonlines::Bool=false,
+function read(json::AbstractString; jsonlines::Bool=false,
               numbertype::Union{DataType, Nothing}=nothing, kw...)
+
+    str = !(json isa VectorString) && length(json) < 255 && isfile(json) ?
+          VectorString(Mmap.mmap(json)) : 
+          json
 
     buf = codeunits(str)
     len = length(buf)
