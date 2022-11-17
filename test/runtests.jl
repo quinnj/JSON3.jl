@@ -398,6 +398,15 @@ x = XInt(10)
 @test JSON3.read("{\"a\": 1, \"b\": 2}", NamedTuple{(:a, :b), Tuple{Float64, Float64}}) == (a=1.0, b=2.0)
 @test JSON3.write((a=1.0, b=2.0)) == "{\"a\":1.0,\"b\":2.0}"
 
+mktemp() do path, io
+    str = "{\"a\":1.0,\"b\":2.0}"
+    write(io, str)
+    obj =  JSON3.read(str)
+    close(io)
+    @test JSON3.read(path) == obj
+    @test JSON3.read(path, Dict) == Dict("a" => 1.0, "b" => 2.0)
+end
+
 # Test that writing DictType works even when length(pairs(dict_type)) isn't
 # available. Issue #37.
 StructTypes.StructType(::Type{DictWithoutLength}) = StructTypes.DictType()
@@ -810,6 +819,10 @@ obj = JSON3.read("{\"hey\":1}")
 @test get(obj, Int, :ho, 2) == 2
 
 @test JSON3.read("{\"hey\":1}") == JSON3.read(b"{\"hey\":1}") == JSON3.read(IOBuffer("{\"hey\":1}"))
+
+JSON3.read("{\"hey\":1}")  
+JSON3.read(b"{\"hey\":1}") 
+JSON3.read(IOBuffer("{\"hey\":1}"))
 
 arr = JSON3.read("[\"hey\",1, null, false, \"ho\", {\"a\": 1}, 2]")
 @test Base.IndexStyle(arr) == Base.IndexLinear()

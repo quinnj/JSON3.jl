@@ -30,10 +30,7 @@ Read JSON.
 function read(json::AbstractString; jsonlines::Bool=false,
               numbertype::Union{DataType, Nothing}=nothing, kw...)
 
-    str = !(json isa VectorString) && length(json) < 255 && isfile(json) ?
-          VectorString(Mmap.mmap(json)) : 
-          json
-
+    str = read_json_str(json)
     buf = codeunits(str)
     len = length(buf)
     if len == 0
