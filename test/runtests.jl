@@ -820,10 +820,6 @@ obj = JSON3.read("{\"hey\":1}")
 
 @test JSON3.read("{\"hey\":1}") == JSON3.read(b"{\"hey\":1}") == JSON3.read(IOBuffer("{\"hey\":1}"))
 
-JSON3.read("{\"hey\":1}")  
-JSON3.read(b"{\"hey\":1}") 
-JSON3.read(IOBuffer("{\"hey\":1}"))
-
 arr = JSON3.read("[\"hey\",1, null, false, \"ho\", {\"a\": 1}, 2]")
 @test Base.IndexStyle(arr) == Base.IndexLinear()
 @test arr[7] == 2
