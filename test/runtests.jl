@@ -1065,5 +1065,8 @@ s2 = JSON3.read(s1_json, Struct1)
 # https://github.com/quinnj/JSON3.jl/issues/232
 @test JSON3.write(3//2) == "1.5"
 @test JSON3.write(π) == "3.141592653589793"
-1
+
+# https://github.com/quinnj/JSON3.jl/issues/242
+@test JSON3.write(BigInt(-3)) == "-3"
+
 end # @testset "JSON3"

@@ -195,8 +195,11 @@ end
 write(::SingletonType, buf, pos, len, x; kw...) = write(StringType(), buf, pos, len, x; kw...)
 
 # adapted from base/intfuncs.jl
+_split_sign(x) = Base.split_sign(x)
+_split_sign(x::BigInt) = (abs(x), x < 0)
+
 function write(::NumberType, buf, pos, len, y::Integer; kw...)
-    x, neg = Base.split_sign(y)
+    x, neg = _split_sign(y)
     if neg
         @writechar UInt8('-')
     end
