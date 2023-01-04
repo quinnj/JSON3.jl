@@ -13,7 +13,8 @@ function rawbytes end
 read(io::IO, ::Type{T}; kw...) where {T} = read(Base.read(io, String), T; kw...)
 read(bytes::AbstractVector{UInt8}, ::Type{T}; kw...) where {T} = read(VectorString(bytes), T; kw...)
 
-function _prepare_read(str::AbstractString, ::Type{T}) where {T}
+function _prepare_read(json::AbstractString, ::Type{T}) where {T}
+    str = read_json_str(json)
     buf = codeunits(str)
     len = length(buf)
     if len == 0
