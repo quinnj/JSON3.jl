@@ -10,7 +10,7 @@ end
 
 function rawbytes end
 
-read(io::IO, ::Type{T}; kw...) where {T} = read(Base.read(io, String), T; kw...)
+read(io::Union{IO, Base.AbstractCmd}, ::Type{T}; kw...) where {T} = read(Base.read(io, String), T; kw...)
 read(bytes::AbstractVector{UInt8}, ::Type{T}; kw...) where {T} = read(VectorString(bytes), T; kw...)
 
 function _prepare_read(json::AbstractString, ::Type{T}) where {T}
