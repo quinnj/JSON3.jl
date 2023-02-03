@@ -155,6 +155,14 @@ StructTypes.omitempties(::Type{System}) = (:cwd, :environment, :batch, :shell)
 
 roundtrip(x::T) where T = JSON3.read(JSON3.write(x), T)
 
+mutable struct UndefGuy
+    id::Int
+    name::String
+    UndefGuy() = new()
+end
+
+StructTypes.StructType(::Type{UndefGuy}) = StructTypes.Mutable()
+
 @testset "JSON3" begin
 
 @testset "read.jl" begin
@@ -1086,5 +1094,14 @@ s2 = JSON3.read(s1_json, Struct1)
 
 # https://github.com/quinnj/JSON3.jl/issues/242
 @test JSON3.write(BigInt(-3)) == "-3"
+
+# tests that we handle #undef correctly
+x = UndefGuy()
+x.id = 10
+@test JSON3.write(x) == "{\"id\":10}"
+
+y = Vector{UndefGuy}(undef, 2)
+y[1] = x
+@test JSON3.write(y) == "[{\"id\":10},null]"
 
 end # @testset "JSON3"

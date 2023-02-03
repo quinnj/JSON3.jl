@@ -7,7 +7,8 @@ defaultminimum(x::Symbol) = ccall(:strlen, Csize_t, (Cstring,), x) + 2
 defaultminimum(x::Enum) = 16
 defaultminimum(::Type{T}) where {T} = 16
 defaultminimum(x::Char) = 3
-defaultminimum(x::Union{Tuple, AbstractSet, AbstractArray}) = isempty(x) ? 2 : sum(defaultminimum, x)
+defaultminimum(x::Union{Tuple, AbstractSet}) = isempty(x) ? 2 : sum(defaultminimum, x)
+defaultminimum(x::AbstractArray) = isempty(x) ? 2 : sum(defaultminimum, (isassigned(x, i) ? defaultminimum(x[i]) : 4 for i in eachindex(x)))
 defaultminimum(x::Union{AbstractDict, NamedTuple, Pair}) = isempty(x) ? 2 : sum(defaultminimum(k) + defaultminimum(v) for (k, v) in StructTypes.keyvaluepairs(x))
 defaultminimum(x) = max(2, sizeof(x))
 
@@ -168,6 +169,26 @@ function write(::ArrayType, buf, pos, len, x::T; kw...) where {T}
     i = 1
     for y in x
         buf, pos, len = write(StructType(y), buf, pos, len, y; kw...)
+        if i < n
+            @writechar ','
+        end
+        i += 1
+    end
+    @writechar ']'
+    return buf, pos, len
+end
+
+function write(::ArrayType, buf, pos, len, x::AbstractArray; kw...)
+    @writechar '['
+    n = length(x)
+    i = 1
+    for i in eachindex(x)
+        if isassigned(x, i)
+            y = x[i]
+            buf, pos, len = write(StructType(y), buf, pos, len, y; kw...)
+        else
+            buf, pos, len = write(NullType(), buf, pos, len, nothing; kw...)
+        end
         if i < n
             @writechar ','
         end
