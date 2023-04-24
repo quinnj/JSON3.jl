@@ -1,6 +1,6 @@
-using SnoopPrecompile
+using PrecompileTools
 
-@precompile_all_calls begin
+@compile_workload begin
     str = """{"a": 1, "b": "hello, world", "c": [1, 2], "d": true, "e": null, "f": 1.92}"""
 
     JSON3.read(IOBuffer(str))
