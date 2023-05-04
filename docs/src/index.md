@@ -513,7 +513,37 @@ Here we have a `Vehicle` type that is defined as a `StructTypes.AbstractType()`.
 
 ### Parametric types
 
-When using parametric types define the `StructTypes.StructType` for all the subtypes of your parametric type:
+For Julia dispatch and thereby for both `StructTypes` and `JSON3.jl` parametric types with different parameters are their own type. Consider this example where subtype of `data` depens on properties of the sorrounding envelope object.
+```julia
+abstract type MessageTypes end
+struct Envelope{MsgType <: MessageTypes}
+    _id :: Int
+    data :: MsgType
+    _type :: String
+    Envelope{MsgType}(n,t, tnm) where {MsgType} = new(n,t, tnm)
+end
+
+StructTypes.StructType(::Type{Envelope}) = StructTypes.AbstractType()
+StructTypes.StructType(::Type{Envelope{T}}) where T <: MessageTypes  = StructTypes.Struct()
+StructTypes.subtypekey(::Type{Envelope}) = :_type
+StructTypes.subtypes(::Type{Envelope}) = (ping=Envelope{Ping}, pong=Envelope{Pong})
+
+struct Ping <: MessageTypes
+  now::String
+end
+StructTypes.StructType(::Type{Ping}) = StructTypes.Struct()
+  
+struct Pong <: MessageTypes
+  now::Int
+end
+StructTypes.StructType(::Type{Pong}) = StructTypes.Struct()
+```
+So `Type{Envelope}`, `Type{Envelope{Ping}}` and `Type{Envelope{Pong}}` are distinct Julia types which each can have their own dispatch. Here `Type{Envelope}` is choosen to be an `StructTypes.AbstractType()`. Note that `Envelope` is not an abstract type. `StructTypes.AbstractType()` makes no claims about properties of the Julia type and instead causes a subtype lookup when this type is used for deserialization. Deserializing against `Envelope` triggers a look-up of a type based one value in the field `_type` in this example.
+```julia
+  @assert JSON3.read("""{"_id":1,"data":{"now":2023},"_type":"pong"}""", Envelope) isa Envelope{Pong}
+  @assert JSON3.read("""{"_id":1,"data":{"now":"2023"},"_type":"ping"}""", Envelope) isa Envelope{Ping}
+```
+If given a parametric types we want define all subtypes to be a `StructTypes.StructType` `<:` is useful.
 ```julia
 struct MyParametricType{T}
     t::T
@@ -523,13 +553,13 @@ MyParametricType(t::T) where {T} = MyParametricType{T}(t)
 
 x = MyParametricType(1)
 
-StructTypes.StructType(::Type{<:MyParametricType}) = StructTypes.Struct() # note the `<:`
-                                                              # NOT like this StructTypes.StructType(::Type{MyParametricType})
+StructTypes.StructType(::Type{<:MyParametricType}) = StructTypes.Struct() 
 ```
-When deserializing, the type parameter(s) should be provided:
+This match all possible parametric types `MyParametricType{T}`. When deserializing, the type parameter(s) should be provided:
 ```julia
 JSON3.read(json_string, MyParametricType{Int}) # NOT JSON3.read(json_string, MyParametricType)
 ```
+In the previous example `Envelope` was ultimatetly resolved to a fully parametrized type.
 ## Generated Types
 
 JSON3 has the ability to generate types from sample JSON, which then can be used to parse JSON into. Inspired by the [F# type provider](http://tomasp.net/academic/papers/fsharp-data/fsharp-data.pdf).
