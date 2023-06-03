@@ -748,3 +748,11 @@ end
     JSON3.write(path, [1, 2, 3])
     open(JSON3.read, path) == [1, 2, 3]
 end
+
+@test mktemp() do path, io
+    str = "σ"^127
+    JSON3.write(path, str)
+    open(path, "r") do io
+        JSON3.read(io) == str
+    end
+end
