@@ -180,8 +180,7 @@ end
 
 function write(::ArrayType, buf, pos, len, x::AbstractArray; kw...)
     @writechar '['
-    n = length(x)
-    i = 1
+    n = 0
     for i in eachindex(x)
         if isassigned(x, i)
             y = x[i]
@@ -189,10 +188,13 @@ function write(::ArrayType, buf, pos, len, x::AbstractArray; kw...)
         else
             buf, pos, len = write(NullType(), buf, pos, len, nothing; kw...)
         end
-        if i < n
-            @writechar ','
-        end
-        i += 1
+        @writechar ','
+        n += 1
+    end
+    if n > 0
+        # for non-empty arrays, we eagerly write a comma after each element
+        # so backtrack one pos where we'll write ']'
+        pos -= 1
     end
     @writechar ']'
     return buf, pos, len
