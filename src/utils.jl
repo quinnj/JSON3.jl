@@ -189,7 +189,6 @@ Base.@pure function symbolin(names::Tuple{Vararg{Symbol}}, name::Symbol)
     return false
 end
 
-read_json_str(json::VectorString) = json
 function read_json_str(json)
     # length check is to ensure that isfile doesn't thrown an error
     # see issue for details https://github.com/JuliaLang/julia/issues/39774
