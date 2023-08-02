@@ -129,9 +129,54 @@ function getvalue(::Type{Object}, buf, tape, tapeidx, t)
 end
 
 function getvalue(::Type{Array}, buf, tape, tapeidx, t)
-    x = Array{geteltype(tape[tapeidx+1])}(buf, Base.unsafe_view(tape, tapeidx:tapeidx + getnontypemask(t)), Int[])
-    populateinds!(x)
-    return x
+    T = tape[tapeidx+1]
+    ttape = Base.unsafe_view(tape, tapeidx:tapeidx + getnontypemask(t))
+    inds = Int[]
+    if empty(T)
+        x = Array{Union{},typeof(buf),typeof(ttape)}(buf, ttape, inds)
+        populateinds!(x)
+        return x
+    elseif isany(T)
+        x = Array{Any,typeof(buf),typeof(ttape)}(buf, ttape, inds)
+        populateinds!(x)
+        return x
+    elseif isobject(T)
+        x = Array{Object,typeof(buf),typeof(ttape)}(buf, ttape, inds)
+        populateinds!(x)
+        return x
+    elseif isarray(T)
+        x = Array{Array,typeof(buf),typeof(ttape)}(buf, ttape, inds)
+        populateinds!(x)
+        return x
+    elseif isstring(T)
+        x = Array{String,typeof(buf),typeof(ttape)}(buf, ttape, inds)
+        populateinds!(x)
+        return x
+    elseif isint(T)
+        x = Array{Int64,typeof(buf),typeof(ttape)}(buf, ttape, inds)
+        populateinds!(x)
+        return x
+    elseif isfloat(T)
+        x = Array{Float64,typeof(buf),typeof(ttape)}(buf, ttape, inds)
+        populateinds!(x)
+        return x
+    elseif isbool(T)
+        x = Array{Bool,typeof(buf),typeof(ttape)}(buf, ttape, inds)
+        populateinds!(x)
+        return x
+    elseif isnull(T)
+        x = Array{Nothing,typeof(buf),typeof(ttape)}(buf, ttape, inds)
+        populateinds!(x)
+        return x
+    elseif isintfloat(T)
+        x = Array{Union{Int64, Float64},typeof(buf),typeof(ttape)}(buf, ttape, inds)
+        populateinds!(x)
+        return x
+    else
+        x = Array{Union{geteltype(nonnull(T)), Nothing},typeof(buf),typeof(ttape)}(buf, ttape, inds)
+        populateinds!(x)
+        return x
+    end
 end
 
 function getvalue(::Type{Symbol}, buf, tape, tapeidx, t)
