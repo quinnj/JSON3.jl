@@ -1103,4 +1103,6 @@ y = Vector{UndefGuy}(undef, 2)
 y[1] = x
 @test JSON3.write(y) == "[{\"id\":10},null]"
 
+@testset "Arrow" include("arrow.jl")
+
 end # @testset "JSON3"
