@@ -1,7 +1,7 @@
 name = "JSON3"
 uuid = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 authors = ["Jacob Quinn <quinn.jacobd@gmail.com>"]
-version = "1.13.2"
+version = "1.14.0"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -12,13 +12,22 @@ StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
 UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]
+ArrowTypes = "2.2"
 Parsers = "0.3, 1, 2"
+PrecompileTools = "1"
 StructTypes = "1.10"
 julia = "1.6"
-PrecompileTools = "1"
+
+[extensions]
+JSON3ArrowExt = ["ArrowTypes"]
 
 [extras]
+Arrow = "69666777-d1a9-59fb-9406-91d4454c9d45"
+ArrowTypes = "31f734f8-188a-4ce0-8406-c8a06bd891cd"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["Arrow", "Test"]
+
+[weakdeps]
+ArrowTypes = "31f734f8-188a-4ce0-8406-c8a06bd891cd"
