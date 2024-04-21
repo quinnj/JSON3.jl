@@ -513,7 +513,7 @@ Here we have a `Vehicle` type that is defined as a `StructTypes.AbstractType()`.
 
 ### Parametric types
 
-For Julia dispatch and thereby for both `StructTypes` and `JSON3.jl` parametric types with different parameters are their own type. Consider this example where subtype of `data` depens on properties of the sorrounding envelope object.
+For Julia dispatch and thereby for both `StructTypes` and `JSON3.jl` parametric types with different parameters are their own type. Consider this example where subtype of `data` depens on properties of the surrounding envelope object.
 ```julia
 abstract type MessageTypes end
 struct Envelope{MsgType <: MessageTypes}
