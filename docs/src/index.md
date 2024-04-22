@@ -271,7 +271,7 @@ mutable struct MyType
 
     MyType() = new()
 end
-# or if not an "emtpy" inner construct, can be empty outer constructor
+# or if not an "empty" inner construct, can be empty outer constructor
 MyType() = ...
 ```
 Note specifically that we're defining a `mutable struct` to allow field mutation, and providing a `MyType() = new()` inner constructor which constructs an "empty" `MyType` where isbits fields will be randomly initialized, and reference fields will be `#undef`. (Note that the constructor doesn't need to be *exactly* this (i.e. inner), but at least needs to be callable like `MyType()`. If certain fields need to be intialized or zeroed out for security, then this should be accounted for in the constructor). For these mutable types, the type will first be initizlied like `MyType()`, then JSON parsing will parse each key-value pair in a JSON object, setting the field as the key is encountered, and converting the JSON value to the appropriate field value. This flow has the nice properties of: allowing parsing success even if fields are missing in the JSON structure, and if "extra" fields exist in the JSON structure that aren't apart of the Julia struct's fields, they will automatically be ignored. This allows for maximum robustness when mapping Julia types to arbitrary JSON objects that may be generated via web services, other language JSON libraries, etc.
@@ -513,7 +513,7 @@ Here we have a `Vehicle` type that is defined as a `StructTypes.AbstractType()`.
 
 ### Parametric types
 
-For Julia dispatch and thereby for both `StructTypes` and `JSON3.jl` parametric types with different parameters are their own type. Consider this example where subtype of `data` depens on properties of the sorrounding envelope object.
+For Julia dispatch and thereby for both `StructTypes` and `JSON3.jl` parametric types with different parameters are their own type. Consider this example where subtype of `data` depens on properties of the surrounding envelope object.
 ```julia
 abstract type MessageTypes end
 struct Envelope{MsgType <: MessageTypes}
