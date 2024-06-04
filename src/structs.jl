@@ -211,7 +211,7 @@ end
 @inline read(::ArrayType, buf, pos, len, b, ::Type{T}, ::Type{eT}; kw...) where {T, eT} = readarray(buf, pos, len, b, T, eT; kw...)
 read(::ArrayType, buf, pos, len, b, ::Type{Tuple}, ::Type{eT}; kw...) where {eT} = readarray(buf, pos, len, b, Tuple, eT; kw...)
 
-@inline function readarray(buf, pos, len, b, ::Type{T}, ::Type{eT}; kw...) where {T, eT}
+function readarray(buf, pos, len, b, ::Type{T}, ::Type{eT}; kw...) where {T, eT}
     if b != UInt8('[')
         error = ExpectedOpeningArrayChar
         @goto invalid
@@ -460,7 +460,7 @@ end
     throw(ArgumentError("read! is only defined when T is of the `Mutable` struct type"))
 end
 
-@inline function read!(::Mutable, buf, pos, len, b, ::Type{T}, x::T; kw...) where {T}
+function read!(::Mutable, buf, pos, len, b, ::Type{T}, x::T; kw...) where {T}
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
         @goto invalid
