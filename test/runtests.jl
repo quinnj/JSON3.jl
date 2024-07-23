@@ -796,6 +796,8 @@ lotsoffields = LotsOfFields(fill("hey", 35)...)
 jlots = JSON3.write(lotsoffields)
 @test jlots == "{\"x1\":\"hey\",\"x2\":\"hey\",\"x3\":\"hey\",\"x4\":\"hey\",\"x5\":\"hey\",\"x6\":\"hey\",\"x7\":\"hey\",\"x8\":\"hey\",\"x9\":\"hey\",\"x10\":\"hey\",\"x11\":\"hey\",\"x12\":\"hey\",\"x13\":\"hey\",\"x14\":\"hey\",\"x15\":\"hey\",\"x16\":\"hey\",\"x17\":\"hey\",\"x18\":\"hey\",\"x19\":\"hey\",\"x20\":\"hey\",\"x21\":\"hey\",\"x22\":\"hey\",\"x23\":\"hey\",\"x24\":\"hey\",\"x25\":\"hey\",\"x26\":\"hey\",\"x27\":\"hey\",\"x28\":\"hey\",\"x29\":\"hey\",\"x30\":\"hey\",\"x31\":\"hey\",\"x32\":\"hey\",\"x33\":\"hey\",\"x34\":\"hey\",\"x35\":\"hey\"}"
 @test JSON3.read(jlots, LotsOfFields) == lotsoffields
+jlots = "{\"x1\":\"1\",\"x11\":\"11\",\"x2\":\"2\",\"x12\":\"12\",\"x3\":\"3\",\"x13\":\"13\",\"x4\":\"4\",\"x14\":\"14\",\"x5\":\"5\",\"x15\":\"15\",\"x6\":\"6\",\"x16\":\"16\",\"x7\":\"7\",\"x17\":\"17\",\"x8\":\"8\",\"x18\":\"18\",\"x9\":\"9\",\"x19\":\"19\",\"x10\":\"10\",\"x20\":\"20\",\"x26\":\"26\",\"x27\":\"27\",\"x28\":\"28\",\"x29\":\"29\",\"x30\":\"30\",\"x21\":\"21\",\"x22\":\"22\",\"x23\":\"23\",\"x24\":\"24\",\"x25\":\"25\",\"x35\":\"35\",\"x34\":\"34\",\"x33\":\"33\",\"x32\":\"32\",\"x31\":\"31\"}"
+@test JSON3.read(jlots, LotsOfFields) == LotsOfFields(string.(collect(1:35))...)
 
 StructTypes.StructType(::Type{Wrapper}) = StructTypes.CustomStruct()
 StructTypes.lower(x::Wrapper) = x.x

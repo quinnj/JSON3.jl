@@ -550,22 +550,16 @@ mutable struct StructClosure{T, KW}
     kw::KW
 end
 
-const DEFAULT_STRUCT_FIELD_COUNT = 32
-
 @inline function (f::StructClosure)(i, nm, TT; kw...)
     kw2 = merge(values(kw), f.kw)
     pos_i, y_i = read(StructType(TT), f.buf, f.pos, f.len, f.b, TT; kw2...)
     f.pos = pos_i
-    if i <= DEFAULT_STRUCT_FIELD_COUNT
-        f.values[i] = y_i
-    else
-        push!(f.values, y_i)
-    end
+    f.values[i] = y_i
     return
 end
 
 function read(::Struct, buf, pos, len, b, ::Type{T}; kw...) where {T}
-    values = Vector{Any}(undef, DEFAULT_STRUCT_FIELD_COUNT)
+    values = Vector{Any}(undef, fieldcount(T))
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
         @goto invalid
