@@ -284,15 +284,30 @@ end
     if isinf(x)
         # Although this is non-standard JSON, "Infinity" is commonly used.
         # See https://docs.python.org/3/library/json.html#infinite-and-nan-number-values.
-        if sign(x) == -1
-            @writechar '-'
+        return if sign(x) == 1
+            write(RawType(), buf, pos, len, Val(Inf))
+        else
+            write(RawType(), buf, pos, len, Val(-Inf))
         end
-        @writechar 'I' 'n' 'f' 'i' 'n' 'i' 't' 'y'
-        return buf, pos, len
+    end
+    if isnan(x)
+        write(RawType(), buf, pos, len, Val(NaN))
     end
     @check Ryu.neededdigits(T)
     pos = Ryu.writeshortest(buf, pos, x)
     return buf, pos, len
+end
+
+function rawbytes(::Val{T}) where T
+    codeunits(
+        if T === Inf
+            "Infinity"
+        elseif T === -Inf
+            "-Infinity"
+        else
+            "NaN"
+        end
+    )
 end
 
 const NEEDESCAPE = Set(map(UInt8, ('"', '\\', '\b', '\f', '\n', '\r', '\t')))
