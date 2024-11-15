@@ -291,7 +291,7 @@ end
         end
     end
     if isnan(x)
-        write(RawType(), buf, pos, len, Val(NaN))
+        return write(RawType(), buf, pos, len, Val(NaN))
     end
     @check Ryu.neededdigits(T)
     pos = Ryu.writeshortest(buf, pos, x)
