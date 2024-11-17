@@ -279,19 +279,23 @@ function write(::NumberType, buf, pos, len, x::AbstractFloat; allow_inf::Bool=fa
     return buf, pos, len
 end
 
-@inline function write(::NumberType, buf, pos, len, x::T; allow_inf::Bool=false, kw...) where {T <: Base.IEEEFloat}
-    isfinite(x) || allow_inf || error("$x not allowed to be written in JSON spec")
-    if isinf(x)
+_std_mapping(x) = x == Inf ? "Infinity" : x == -Inf ? "-Infinity" : "NaN"
+
+@inline function write(::NumberType, buf, pos, len, x::T; inf_mapping::Function = _std_mapping, allow_inf::Bool = inf_mapping !== _std_mapping, kw...) where {T <: Base.IEEEFloat}
+    if isfinite(x)
+        @check Ryu.neededdigits(T)
+        pos = Ryu.writeshortest(buf, pos, x)
+    else
+        allow_inf || error("$x not allowed to be written in JSON spec")
         # Although this is non-standard JSON, "Infinity" is commonly used.
         # See https://docs.python.org/3/library/json.html#infinite-and-nan-number-values.
-        if sign(x) == -1
-            @writechar '-'
+        bytes = codeunits(inf_mapping(x))
+        @check length(bytes)
+        for b in bytes
+            @inbounds buf[pos] = b
+            pos += 1
         end
-        @writechar 'I' 'n' 'f' 'i' 'n' 'i' 't' 'y'
-        return buf, pos, len
     end
-    @check Ryu.neededdigits(T)
-    pos = Ryu.writeshortest(buf, pos, x)
     return buf, pos, len
 end
 
