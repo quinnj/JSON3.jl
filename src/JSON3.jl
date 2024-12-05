@@ -32,7 +32,7 @@ invalid JSON at byte position $pos while parsing type $T: $error
 $(String(buf[max(1, pos-25):min(end, pos+25)]))
 """))
 
-@enum Error UnexpectedEOF ExpectedOpeningObjectChar ExpectedOpeningQuoteChar ExpectedOpeningArrayChar ExpectedClosingArrayChar ExpectedComma ExpectedSemiColon ExpectedNewline InvalidChar InvalidNumber
+@enum Error UnexpectedEOF ExpectedOpeningObjectChar ExpectedOpeningQuoteChar ExpectedOpeningArrayChar ExpectedClosingArrayChar ExpectedComma ExpectedSemiColon ExpectedNewline InvalidChar InvalidNumber ExtraField
 
 # AbstractDict interface
 Base.length(obj::Object) = getnontypemask(gettape(obj)[2])
