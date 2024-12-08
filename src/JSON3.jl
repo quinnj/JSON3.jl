@@ -16,19 +16,7 @@ Object() = Object(codeunits(""), UInt64[object(Int64(2)), 0], Dict{Symbol, Int}(
 # The method below is used for nested objects
 function Base.show(io::IO, obj::Object)
     isempty(obj) && return print(io, "{}")
-    print(io, "{ ")
-    for (i, (k, v)) in enumerate(obj)
-        i == 1 || print(io, ", ")
-        print(io, repr(k), "=>")
-        if v isa Object
-            print(io, isempty(v) ? "{}" : "{…}")
-        elseif v isa Array
-            print(io, isempty(v) ? "[]" : "[…]")
-        else
-            show(io, v)
-        end
-    end
-    print(io, " }")
+    print(io, "{ ", join(keys(obj), ", "), " }")
 end
 
 """An immutable (read only) struct which provides an efficient view of a JSON array. Supports the `AbstractArray` interface. See [built in types](#Builtin-types) for more detail on why we have an `Array` type."""
