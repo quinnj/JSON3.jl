@@ -558,7 +558,7 @@ end
     return
 end
 
-function read(::Struct, buf, pos, len, b, ::Type{T}; kw...) where {T}
+function read(::Struct, buf, pos, len, b, ::Type{T}; ignore_extra_fields::Bool=true, kw...) where {T}
     values = Vector{Any}(undef, fieldcount(T))
     if b != UInt8('{')
         error = ExpectedOpeningObjectChar
@@ -612,7 +612,12 @@ function read(::Struct, buf, pos, len, b, ::Type{T}; kw...) where {T}
         if StructTypes.applyfield(c, T, key)
             pos = c.pos
         else
-            pos, _ = read(Struct(), buf, pos, len, b, Any)
+            if ignore_extra_fields
+                pos, _ = read(Struct(), buf, pos, len, b, Any)
+            else
+                error = ExtraField
+                @goto invalid
+            end
         end
         @eof
         b = getbyte(buf, pos)

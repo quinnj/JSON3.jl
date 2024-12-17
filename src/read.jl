@@ -26,6 +26,7 @@ Read JSON.
 * `dateformat`: A [`DateFormat`](https://docs.julialang.org/en/v1/stdlib/Dates/#Dates.DateFormat) describing the format of dates in the JSON so that they can be read into `Date`s, `Time`s, or `DateTime`s when reading into a type. [default `Dates.default_format(T)`]
 * `parsequoted`: Accept quoted values when reading into a NumberType. [default `false`]
 * `numbertype`: Type to parse numbers as. [default `nothing`, which parses numbers as Int if possible, Float64 otherwise]
+* `ignore_extra_fields`: Ignore extra fields in the JSON when reading into a struct. [default `true`]
 """
 function read(json::AbstractString; jsonlines::Bool=false,
               numbertype::Union{DataType, Nothing}=nothing, kw...)

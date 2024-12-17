@@ -1109,4 +1109,12 @@ y[1] = x
     @testset "Arrow" include("arrow.jl")
 end
 
+# https://github.com/quinnj/JSON3.jl/issues/296
+struct TypeWithoutExtraField
+    a::Int
+end
+string_with_extra_field = "{\"a\": 1, \"b\": 2}"
+@test JSON3.read(string_with_extra_field, TypeWithoutExtraField) == TypeWithoutExtraField(1)
+@test_throws ArgumentError JSON3.read(string_with_extra_field, TypeWithoutExtraField, ignore_extra_fields=false)
+
 end # @testset "JSON3"
