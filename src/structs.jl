@@ -13,8 +13,7 @@ function rawbytes end
 read(io::Union{IO, Base.AbstractCmd}, ::Type{T}; kw...) where {T} = read(Base.read(io, String), T; kw...)
 read(bytes::AbstractVector{UInt8}, ::Type{T}; kw...) where {T} = read(VectorString(bytes), T; kw...)
 
-function _prepare_read(json::AbstractString, ::Type{T}) where {T}
-    str = read_json_str(json)
+function _prepare_read(str::AbstractString, ::Type{T}) where {T}
     buf = codeunits(str)
     len = length(buf)
     if len == 0
@@ -30,7 +29,7 @@ function _prepare_read(json::AbstractString, ::Type{T}) where {T}
     invalid(error, buf, pos, T)
 end
 
-function read(str::AbstractString, ::Type{T}; jsonlines::Bool=false, kw...) where {T}
+function parse(str::AbstractString, ::Type{T}; jsonlines::Bool=false, kw...) where {T}
     buf, pos, len, b = _prepare_read(str, T)
     if jsonlines
         if StructType(T) != ArrayType()
@@ -43,13 +42,21 @@ function read(str::AbstractString, ::Type{T}; jsonlines::Bool=false, kw...) wher
     return x
 end
 
+function read(str::AbstractString, ::Type{T}; jsonlines::Bool=false, kw...) where {T}
+    return parse(read_json_str(str), T; jsonlines, kw...)
+end
+
+function parsefile(fname::AbstractString, ::Type{T}; jsonlines::Bool=false, kw...) where {T}
+    return parse(VectorString(Mmap.mmap(fname)), T; jsonlines, kw...)
+end
+
 """
     JSON3.read!(json_str, x; kw...)
 
 Incrementally update an instance of a mutable object `x` with the contents of `json_str`.  See [`JSON3.read`](@ref) for more details.
 """
 function read!(str::AbstractString, x::T; kw...) where {T}
-    buf, pos, len, b = _prepare_read(str, T)
+    buf, pos, len, b = _prepare_read(read_json_str(str), T)
     pos, x = read!(StructType(T), buf, pos, len, b, T, x; kw...)
     return x
 end

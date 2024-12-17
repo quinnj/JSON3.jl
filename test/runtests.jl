@@ -167,18 +167,20 @@ StructTypes.StructType(::Type{UndefGuy}) = StructTypes.Mutable()
 
 @testset "read.jl" begin
 
-@test_throws ArgumentError JSON3.read("")
-@test JSON3.read("{\"hey\":1}").hey == 1
-@test JSON3.read("[\"hey\",1]") == ["hey",1]
-@test JSON3.read("1.0") === Int64(1)
-@test JSON3.read("1") === Int64(1)
-@test JSON3.read("1.1") === 1.1
-@test JSON3.read("+1.1") === 1.1
-@test JSON3.read("-1.1") === -1.1
-@test JSON3.read("\"hey\"") == "hey"
-@test JSON3.read("null") === nothing
-@test JSON3.read("true") === true
-@test JSON3.read("false") === false
+for readfunc in [JSON3.read, JSON3.parse]
+    @test_throws ArgumentError readfunc("")
+    @test readfunc("{\"hey\":1}").hey == 1
+    @test readfunc("[\"hey\",1]") == ["hey",1]
+    @test readfunc("1.0") === Int64(1)
+    @test readfunc("1") === Int64(1)
+    @test readfunc("1.1") === 1.1
+    @test readfunc("+1.1") === 1.1
+    @test readfunc("-1.1") === -1.1
+    @test readfunc("\"hey\"") == "hey"
+    @test readfunc("null") === nothing
+    @test readfunc("true") === true
+    @test readfunc("false") === false
+end
 
 # numbertype
 @test JSON3.read("1.0", numbertype=Float64) === 1.0

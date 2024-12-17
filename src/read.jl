@@ -30,8 +30,11 @@ Read JSON.
 """
 function read(json::AbstractString; jsonlines::Bool=false,
               numbertype::Union{DataType, Nothing}=nothing, kw...)
+    return parse(read_json_str(json); jsonlines, numbertype, kw...)
+end
 
-    str = read_json_str(json)
+function parse(str::AbstractString; jsonlines::Bool=false,
+               numbertype::Union{DataType, Nothing}=nothing, kw...)
     buf = codeunits(str)
     len = length(buf)
     if len == 0
@@ -71,6 +74,11 @@ function read(json::AbstractString; jsonlines::Bool=false,
     end
 @label invalid
     invalid(error, buf, pos, Any)
+end
+
+function parsefile(fname::AbstractString; jsonlines::Bool=false,
+                   numbertype::Union{DataType, Nothing}=nothing, kw...)
+    return parse(VectorString(Mmap.mmap(fname)); jsonlines, numbertype, kw...)
 end
 
 macro check()
