@@ -809,16 +809,14 @@ json = JSON3.write(w)
 
 end # @testset "structs.jl"
 
-@testset "show.jl" begin
+@testset "repr" begin
 
-# @test repr(JSON3.read("{}")) == "{}"
-# @test repr(JSON3.read("{\"a\": 1}")) == "{\n   \"a\": 1\n}"
-# @test repr(JSON3.read("{\"a\": {\"b\": 2}}")) == "{\n   \"a\": {\n           \"b\": 2\n        }\n}"
-# @test repr(JSON3.read("[]")) == "[]"
-# @test repr(JSON3.read("[1,2,3]")) == "[\n  1,\n  2,\n  3\n]"
-# @test repr(JSON3.read("[1,[2.1,2.2,2.3],3]")) == "[\n  1,\n  [\n    2.1,\n    2.2,\n    2.3\n  ],\n  3\n]"
+@test repr(JSON3.read("{}")) == "{}"
+@test repr(JSON3.read("{\"a\": 1}")) == "{\"a\":1}"
+@test repr(JSON3.read("{\"a\": {\"b\": 2}}")) == "{\"a\":{\"b\":2}}"
+@test repr(JSON3.read("[1,2,3]")) == "[1, 2, 3]"
 
-end # @testset "show.jl"
+end # @testset "repr"
 
 include("json.jl")
 

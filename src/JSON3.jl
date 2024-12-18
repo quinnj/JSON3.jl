@@ -13,11 +13,8 @@ end
 Object() = Object(codeunits(""), UInt64[object(Int64(2)), 0], Dict{Symbol, Int}())
 
 # show(::IO, ::MIME"text/plain", ::AbstractDict) gets used at the top level
-# The method below is used for nested objects
-function Base.show(io::IO, obj::Object)
-    isempty(obj) && return print(io, "{}")
-    print(io, "{ ", join(keys(obj), ", "), " }")
-end
+# This method below is used for nested objects
+Base.show(io::IO, obj::Object) = JSON3.write(io, obj)
 
 """An immutable (read only) struct which provides an efficient view of a JSON array. Supports the `AbstractArray` interface. See [built in types](#Builtin-types) for more detail on why we have an `Array` type."""
 struct Array{T, S <: AbstractVector{UInt8}, TT <: AbstractVector{UInt64}} <: AbstractVector{T}
