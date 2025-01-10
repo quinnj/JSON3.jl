@@ -315,7 +315,7 @@ So if your type subtypes `AbstractDict` and implements its interface, then JSON 
 
 Otherwise, the interface to satisfy `StructTypes.DictType()` for reading is:
 
-  * `MyType(x::Dict{Symbol, Any})`: implement a constructor that takes a `Dict{Symbol, Any}` of key-value pairs parsed from JSOn
+  * `MyType(x::Dict{Symbol, Any})`: implement a constructor that takes a `Dict{Symbol, Any}` of key-value pairs parsed from JSON
   * `StructTypes.construct(::Type{MyType}, x::Dict; kw...)`: alternatively, you may overload the `StructTypes.construct` method for your type if defining a constructor is undesirable (or would cause other clashes or ambiguities)
 
 The interface to satisfy for writing is:
