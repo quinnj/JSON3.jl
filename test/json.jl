@@ -46,6 +46,19 @@ end
     @test JSON3.read("Inf"; allow_inf=true) === Inf
     @test JSON3.read("Infinity"; allow_inf=true) === Inf
     @test JSON3.read("-Infinity"; allow_inf=true) === -Inf
+
+    JSON3.rawbytes(::Val{Inf}) = codeunits("1e1000")
+    JSON3.rawbytes(::Val{-Inf}) = codeunits("__-inf__")
+    JSON3.rawbytes(::Val{NaN}) = codeunits("__nan__")
+
+    @test JSON3.write([Inf], allow_inf=true) == "[1e1000]"
+    @test JSON3.write([-Inf], allow_inf=true) == "[__-inf__]"
+    @test JSON3.write([NaN], allow_inf=true) == "[__nan__]"
+
+    # delete the methods to avoid affecting other tests
+    Base.delete_method.(methods(JSON3.rawbytes, (Val{Inf},)))
+    Base.delete_method.(methods(JSON3.rawbytes, (Val{-Inf},)))
+    Base.delete_method.(methods(JSON3.rawbytes, (Val{NaN},)))
 end
 
 @testset "Char" begin
