@@ -25,6 +25,12 @@ Write JSON.
 ## Keyword Args
 
 * `allow_inf`: Allow writing of `Inf` and `NaN` values (not part of the JSON standard). [default `false`]
+* `inf_mapping`: A function to map `Inf`, `-Inf` and `NaN` values to a custom representation. [default `nothing`]
+
+    e.g. a quoted version of the default mapping
+
+    `quoted_inf_mapping(x) = x == Inf ? "\\"Infinity\\"" : x == -Inf ? "\\"-Infinity\\"" : "\\"NaN\\""`
+        
 * `dateformat`: A [`DateFormat`](https://docs.julialang.org/en/v1/stdlib/Dates/#Dates.DateFormat) describing how to format `Date`s in the object. [default `Dates.default_format(T)`]
 """
 function write(io::IO, obj::T; kw...) where {T}
@@ -278,37 +284,6 @@ function write(::NumberType, buf, pos, len, x::AbstractFloat; allow_inf::Bool=fa
 
     return buf, pos, len
 end
-
-"""
-    underscore_inf_mapping(x)
-
-This function provides alternative string mappings for `Inf` and `NaN` values.
-### Example
-
-```
-inf_mapping = JSON3.underscore_inf_mapping
-JSON3.write(NaN; inf_mapping) # "\\"__nan__\\""
-```
-
-Alternative mappings can easily be defined by the user, e.g. a quoted version of the default mapping: 
-
-```
-inf_mapping(x) = x == Inf ? "\\"my_infinity\\"" : x == -Inf ? "\\"-my_infinity\\"" : "\\"my_nan\\""
-JSON3.write(NaN; inf_mapping) # "\\"my_nan\\""
-```
-
-See also [`quoted_inf_mapping`](@ref).
-"""
-underscore_inf_mapping(x) = x == Inf ? "\"__inf__\"" : x == -Inf ? "\"__neginf__\"" : "\"__nan__\""
-
-"""
-    quoted_inf_mapping(x)
-
-Provides a quoted version of the default mappings for `Inf` and `NaN` values.
-
-See also [`underscore_inf_mapping`](@ref).
-"""
-quoted_inf_mapping(x) = x == Inf ? "\"Infinity\"" : x == -Inf ? "\"-Infinity\"" : "\"NaN\""
 
 @inline function write(::NumberType, buf, pos, len, x::T; inf_mapping::Union{Function, Nothing} = nothing, allow_inf::Bool = inf_mapping !== nothing, kw...) where {T <: Base.IEEEFloat}
     if isfinite(x) || allow_inf && inf_mapping === nothing && isnan(x)
