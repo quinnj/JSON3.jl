@@ -279,21 +279,55 @@ function write(::NumberType, buf, pos, len, x::AbstractFloat; allow_inf::Bool=fa
     return buf, pos, len
 end
 
-_std_mapping(x) = x == Inf ? "Infinity" : x == -Inf ? "-Infinity" : "NaN"
+"""
+    underscore_inf_mapping(x)
 
-@inline function write(::NumberType, buf, pos, len, x::T; inf_mapping::Function = _std_mapping, allow_inf::Bool = inf_mapping !== _std_mapping, kw...) where {T <: Base.IEEEFloat}
-    if isfinite(x)
+This function provides alternative string mappings for `Inf` and `NaN` values.
+### Example
+
+```
+inf_mapping = JSON3.underscore_inf_mapping
+JSON3.write(NaN; inf_mapping) # "\\"__nan__\\""
+```
+
+Alternative mappings can easily be defined by the user, e.g. a quoted version of the default mapping: 
+
+```
+inf_mapping(x) = x == Inf ? "\\"my_infinity\\"" : x == -Inf ? "\\"-my_infinity\\"" : "\\"my_nan\\""
+JSON3.write(NaN; inf_mapping) # "\\"my_nan\\""
+```
+
+See also [`quoted_inf_mapping`](@ref).
+"""
+underscore_inf_mapping(x) = x == Inf ? "\"__inf__\"" : x == -Inf ? "\"__neginf__\"" : "\"__nan__\""
+
+"""
+    quoted_inf_mapping(x)
+
+Provides a quoted version of the default mappings for `Inf` and `NaN` values.
+
+See also [`underscore_inf_mapping`](@ref).
+"""
+quoted_inf_mapping(x) = x == Inf ? "\"Infinity\"" : x == -Inf ? "\"-Infinity\"" : "\"NaN\""
+
+@inline function write(::NumberType, buf, pos, len, x::T; inf_mapping::Union{Function, Nothing} = nothing, allow_inf::Bool = inf_mapping !== nothing, kw...) where {T <: Base.IEEEFloat}
+    if isfinite(x) || allow_inf && inf_mapping === nothing && isnan(x)
         @check Ryu.neededdigits(T)
         pos = Ryu.writeshortest(buf, pos, x)
     else
         allow_inf || error("$x not allowed to be written in JSON spec")
         # Although this is non-standard JSON, "Infinity" is commonly used.
         # See https://docs.python.org/3/library/json.html#infinite-and-nan-number-values.
-        bytes = codeunits(inf_mapping(x))
-        @check length(bytes)
-        for b in bytes
-            @inbounds buf[pos] = b
-            pos += 1
+        if inf_mapping === nothing
+            sign(x) == -1 && @writechar '-'
+            @writechar 'I' 'n' 'f' 'i' 'n' 'i' 't' 'y'
+        else
+            bytes = codeunits(inf_mapping(x))
+            @check length(bytes)
+            for b in bytes
+                @inbounds buf[pos] = b
+                pos += 1
+            end
         end
     end
     return buf, pos, len

@@ -46,6 +46,14 @@ end
     @test JSON3.read("Inf"; allow_inf=true) === Inf
     @test JSON3.read("Infinity"; allow_inf=true) === Inf
     @test JSON3.read("-Infinity"; allow_inf=true) === -Inf
+
+    @test JSON3.write(NaN, inf_mapping = JSON3.underscore_inf_mapping) == "\"__nan__\""
+    @test JSON3.write(Inf, inf_mapping = JSON3.underscore_inf_mapping) == "\"__inf__\"" 
+    @test JSON3.write(-Inf, inf_mapping = JSON3.underscore_inf_mapping) == "\"__neginf__\""
+
+    @test JSON3.write(NaN, inf_mapping = JSON3.quoted_inf_mapping) == "\"NaN\""
+    @test JSON3.write(Inf, inf_mapping = JSON3.quoted_inf_mapping) == "\"Infinity\"" 
+    @test JSON3.write(-Inf, inf_mapping = JSON3.quoted_inf_mapping) == "\"-Infinity\""
 end
 
 @testset "Char" begin
