@@ -27,10 +27,9 @@ Write JSON.
 * `allow_inf`: Allow writing of `Inf` and `NaN` values (not part of the JSON standard). [default `false`]
 * `inf_mapping`: A function to map `Inf`, `-Inf` and `NaN` values to a custom representation. [default `nothing`]
 
-    e.g. a quoted version of the default mapping
+    if `inf_mapping` is `nothing` the mapping is equivalent to
 
-    `quoted_inf_mapping(x) = x == Inf ? "\\"Infinity\\"" : x == -Inf ? "\\"-Infinity\\"" : "\\"NaN\\""`
-        
+    `inf_mapping = x -> x == Inf ? "Infinity" : x == -Inf ? "-Infinity" : "NaN"``
 * `dateformat`: A [`DateFormat`](https://docs.julialang.org/en/v1/stdlib/Dates/#Dates.DateFormat) describing how to format `Date`s in the object. [default `Dates.default_format(T)`]
 """
 function write(io::IO, obj::T; kw...) where {T}
