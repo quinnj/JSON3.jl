@@ -28,8 +28,8 @@ Write JSON.
 * `inf_mapping`: A function to map `Inf`, `-Inf` and `NaN` values to a custom representation. [default `nothing`]
 
     if `inf_mapping` is `nothing` the mapping is equivalent to
-
-    `inf_mapping = x -> x == Inf ? "Infinity" : x == -Inf ? "-Infinity" : "NaN"``
+    `inf_mapping = x -> x == Inf ? "Infinity" : x == -Inf ? "-Infinity" : "NaN"`.
+    Specifying `inf_mapping` will automatically set the default value of `allow_inf` to `true`.
 * `dateformat`: A [`DateFormat`](https://docs.julialang.org/en/v1/stdlib/Dates/#Dates.DateFormat) describing how to format `Date`s in the object. [default `Dates.default_format(T)`]
 """
 function write(io::IO, obj::T; kw...) where {T}
@@ -285,7 +285,7 @@ function write(::NumberType, buf, pos, len, x::AbstractFloat; allow_inf::Bool=fa
 end
 
 @inline function write(::NumberType, buf, pos, len, x::T; inf_mapping::Union{Function, Nothing} = nothing, allow_inf::Bool = inf_mapping !== nothing, kw...) where {T <: Base.IEEEFloat}
-    if isfinite(x) || allow_inf && inf_mapping === nothing && isnan(x)
+    if isfinite(x) || (allow_inf && inf_mapping === nothing && isnan(x))
         @check Ryu.neededdigits(T)
         pos = Ryu.writeshortest(buf, pos, x)
     else
