@@ -93,13 +93,13 @@ end
 
 const FLOAT_INT_BOUND = 2.0^53
 
-function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any}, checkint=true; allow_inf::Bool=false)
+function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any}, checkint=true; inf_mapping::Union{Function,Nothing}=nothing, allow_inf::Bool=(inf_mapping !== nothing))
     if b == UInt8('{')
-        return read!(buf, pos, len, b, tape, tapeidx, Object, checkint; allow_inf=allow_inf)
+        return read!(buf, pos, len, b, tape, tapeidx, Object, checkint; allow_inf=allow_inf, inf_mapping=inf_mapping)
     elseif b == UInt8('[')
-        return read!(buf, pos, len, b, tape, tapeidx, Array, checkint; allow_inf=allow_inf)
+        return read!(buf, pos, len, b, tape, tapeidx, Array, checkint; allow_inf=allow_inf, inf_mapping=inf_mapping)
     elseif b == UInt8('"')
-        return read!(buf, pos, len, b, tape, tapeidx, String)
+        return read!(buf, pos, len, b, tape, tapeidx, String; inf_mapping=inf_mapping)
     elseif b == UInt8('n')
         return read!(buf, pos, len, b, tape, tapeidx, Nothing)
     elseif b == UInt8('t')
@@ -148,7 +148,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any}, checkint=true; allo
     invalid(InvalidChar, buf, pos, Any)
 end
 
-function read!(buf, pos, len, b, tape, tapeidx, ::Type{String})
+function read!(buf, pos, len, b, tape, tapeidx, ::Type{String}; inf_mapping::Union{Function,Nothing}=nothing)
     pos += 1
     @eof
     strpos = pos
@@ -171,6 +171,23 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{String})
         b = getbyte(buf, pos)
     end
     @check
+    if inf_mapping !== nothing
+        val = view(buf, strpos:pos-1)
+        float = if val == codeunits(inf_mapping(Inf))[2:end-1]
+            Inf
+        elseif val == codeunits(inf_mapping(-Inf))[2:end-1]
+            -Inf
+        elseif val == codeunits(inf_mapping(NaN))[2:end-1]
+            NaN
+        else
+            0.0
+        end
+        if float != 0.0
+            @inbounds tape[tapeidx] = FLOAT
+            @inbounds tape[tapeidx+1] = Core.bitcast(UInt64, float)
+            return pos + 1, tapeidx + 2
+        end
+    end
     @inbounds tape[tapeidx] = string(strlen)
     @inbounds tape[tapeidx+1] = ifelse(escaped, ESCAPE_BIT | strpos, strpos)
     return pos + 1, tapeidx + 2
