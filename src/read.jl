@@ -172,12 +172,12 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{String}; inf_mapping::Uni
     end
     @check
     if inf_mapping !== nothing
-        val = view(buf, strpos:pos-1)
-        float = if val == codeunits(inf_mapping(Inf))[2:end-1]
+        val = view(buf, strpos-1:pos)
+        float = if val == codeunits(inf_mapping(Inf))
             Inf
-        elseif val == codeunits(inf_mapping(-Inf))[2:end-1]
+        elseif val == codeunits(inf_mapping(-Inf))
             -Inf
-        elseif val == codeunits(inf_mapping(NaN))[2:end-1]
+        elseif val == codeunits(inf_mapping(NaN))
             NaN
         else
             0.0
