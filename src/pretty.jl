@@ -65,7 +65,7 @@ function pretty(out::IO, str::AbstractString, ac=AlignmentContext(); kw...)
     if b == UInt8('{')
         Base.write(out, "{\n")
 
-        obj = JSON3.read(str; kw...)
+        obj = JSON3.parse(buf; kw...)
 
         if length(obj) == 0
             Base.write(out, ' '^(ac.indent * ac.level + ac.offset) * "}")
@@ -95,7 +95,7 @@ function pretty(out::IO, str::AbstractString, ac=AlignmentContext(); kw...)
     elseif b == UInt8('[')
         Base.write(out, "[\n")
 
-        arr = JSON3.read(str; kw...)
+        arr = JSON3.parse(buf; kw...)
 
         if length(arr) == 0
             Base.write(out, ' '^(ac.indent * ac.level + ac.offset) * "]")
@@ -116,7 +116,7 @@ function pretty(out::IO, str::AbstractString, ac=AlignmentContext(); kw...)
         end
     # printing constant?
     else
-        Base.write(out, str)
+        Base.write(out, buf)
     end
     return
 @label invalid
