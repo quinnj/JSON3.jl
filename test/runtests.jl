@@ -1107,7 +1107,8 @@ y = Vector{UndefGuy}(undef, 2)
 y[1] = x
 @test JSON3.write(y) == "[{\"id\":10},null]"
 
-@static if isdefined(Base, :get_extension)
+# Arrow tests require a 64 bit system
+@static if isdefined(Base, :get_extension) && Sys.WORD_SIZE == 64
     @testset "Arrow" include("arrow.jl")
 end
 
