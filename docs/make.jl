@@ -6,10 +6,9 @@ makedocs(;
     pages=[
         "Home" => "index.md",
     ],
-    repo="https://github.com/quinnj/JSON3.jl/blob/{commit}{path}#L{line}",
+    repo=Remotes.GitHub("quinnj", "JSON3.jl"),
     sitename="JSON3.jl",
     authors="Jacob Quinn",
-    strict=true,
 )
 
 deploydocs(;

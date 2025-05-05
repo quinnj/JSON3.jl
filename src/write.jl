@@ -65,7 +65,7 @@ end
 
 macro writechar(chars...)
     block = quote
-        @boundscheck @check($(length(chars)))
+        @check($(length(chars)))
     end
     for c in chars
         push!(block.args, quote
