@@ -25,6 +25,11 @@ Write JSON.
 ## Keyword Args
 
 * `allow_inf`: Allow writing of `Inf` and `NaN` values (not part of the JSON standard). [default `false`]
+* `inf_mapping`: A function to map `Inf`, `-Inf` and `NaN` values to a custom representation. [default `nothing`]
+
+    if `inf_mapping` is `nothing` the mapping is equivalent to
+    `inf_mapping = x -> x == Inf ? "Infinity" : x == -Inf ? "-Infinity" : "NaN"`.
+    Specifying `inf_mapping` will automatically set the default value of `allow_inf` to `true`.
 * `dateformat`: A [`DateFormat`](https://docs.julialang.org/en/v1/stdlib/Dates/#Dates.DateFormat) describing how to format `Date`s in the object. [default `Dates.default_format(T)`]
 """
 function write(io::IO, obj::T; kw...) where {T}
@@ -279,19 +284,26 @@ function write(::NumberType, buf, pos, len, x::AbstractFloat; allow_inf::Bool=fa
     return buf, pos, len
 end
 
-@inline function write(::NumberType, buf, pos, len, x::T; allow_inf::Bool=false, kw...) where {T <: Base.IEEEFloat}
-    isfinite(x) || allow_inf || error("$x not allowed to be written in JSON spec")
-    if isinf(x)
+@inline function write(::NumberType, buf, pos, len, x::T; inf_mapping::Union{Function, Nothing} = nothing, allow_inf::Bool = inf_mapping !== nothing, kw...) where {T <: Base.IEEEFloat}
+    if isfinite(x) || (allow_inf && inf_mapping === nothing && isnan(x))
+        @check Ryu.neededdigits(T)
+        pos = Ryu.writeshortest(buf, pos, x)
+    else
+        allow_inf || error("$x not allowed to be written in JSON spec")
         # Although this is non-standard JSON, "Infinity" is commonly used.
         # See https://docs.python.org/3/library/json.html#infinite-and-nan-number-values.
-        if sign(x) == -1
-            @writechar '-'
+        if inf_mapping === nothing
+            sign(x) == -1 && @writechar '-'
+            @writechar 'I' 'n' 'f' 'i' 'n' 'i' 't' 'y'
+        else
+            bytes = codeunits(inf_mapping(x))
+            @check length(bytes)
+            for b in bytes
+                @inbounds buf[pos] = b
+                pos += 1
+            end
         end
-        @writechar 'I' 'n' 'f' 'i' 'n' 'i' 't' 'y'
-        return buf, pos, len
     end
-    @check Ryu.neededdigits(T)
-    pos = Ryu.writeshortest(buf, pos, x)
     return buf, pos, len
 end
 
