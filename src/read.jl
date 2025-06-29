@@ -6,8 +6,9 @@ end
 Base.codeunits(x::VectorString) = x.bytes
 
 # high-level user API functions
-read(io::Union{IO, Base.AbstractCmd}; kw...) = read(Base.read(io, String); kw...)
-read(bytes::AbstractVector{UInt8}; kw...) = read(VectorString(bytes); kw...)
+read(io::Union{IO, Base.AbstractCmd}; kw...) = parse(Base.read(io); kw...)
+read(bytes::AbstractVector{UInt8}; kw...) = parse(bytes; kw...)
+parse(str::AbstractString; kw...) = parse(codeunits(str); kw...)
 
 """
     JSON3.read(json, [type]; kw... )
@@ -16,7 +17,7 @@ Read JSON.
 
 ## Args
 
-* `json`: A file, string, IO, or bytes (`AbstractVector{UInt8`) containing JSON to read
+* `json`: A file, string, IO, or bytes (`AbstractVector{UInt8}`) containing JSON to read
 * `type`: Optionally, a type to read the JSON into. If not a [built in type](#Builtin-types), must have a "struct mapping" registered with [StructTypes.jl](#Struct-API).
 
 ## Keyword Args
@@ -28,14 +29,13 @@ Read JSON.
 * `numbertype`: Type to parse numbers as. [default `nothing`, which parses numbers as Int if possible, Float64 otherwise]
 * `ignore_extra_fields`: Ignore extra fields in the JSON when reading into a struct. [default `true`]
 """
-function read(json::AbstractString; jsonlines::Bool=false,
-              numbertype::Union{DataType, Nothing}=nothing, kw...)
-    return parse(read_json_str(json); jsonlines, numbertype, kw...)
+function read(json::AbstractString; kw...)
+    return parse(read_json_str(json); kw...)
 end
 
-function parse(str::AbstractString; jsonlines::Bool=false,
+function parse(bytes::AbstractVector{UInt8}; jsonlines::Bool=false,
                numbertype::Union{DataType, Nothing}=nothing, kw...)
-    buf = codeunits(str)
+    buf = bytes
     len = length(buf)
     if len == 0
         error = UnexpectedEOF
