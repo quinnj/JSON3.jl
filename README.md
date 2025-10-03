@@ -1,6 +1,6 @@
 # JSON3.jl
 
-## ⚠️ This package has been deprecated. Please migrate to [JSON.jl v1](https://github.com/JuliaIO/JSON.jl) (and see the [migration guide](https://juliaio.github.io/JSON.jl/stable/migrate/#Migration-guide-for-JSON3.jl))
+## ⚠️ This package has been deprecated. Please migrate to [JSON.jl v1](https://github.com/JuliaIO/JSON.jl) (and see the [migration guide](https://juliaio.github.io/JSON.jl/stable/migrate/#Migration-guide-for-JSON3.jl)) ⚠️
 
 Note: If you rely on the "automatically generate Julia struct definitions" feature from JSON3.jl, you may need to keep using JSON3.jl for now. See the [migration guide](https://juliaio.github.io/JSON.jl/stable/migrate/#Features-unique-to-each-library) for details.
 
