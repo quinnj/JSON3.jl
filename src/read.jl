@@ -4,6 +4,7 @@ struct VectorString{T <: AbstractVector{UInt8}} <: AbstractString
 end
 
 Base.codeunits(x::VectorString) = x.bytes
+read_json_str(json::VectorString) = json
 
 # high-level user API functions
 read(io::Union{IO, Base.AbstractCmd}; kw...) = read(Base.read(io, String); kw...)
