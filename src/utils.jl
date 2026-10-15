@@ -237,7 +237,17 @@ end
 function read_json_str(json)
     # length check is to ensure that isfile doesn't thrown an error
     # see issue for details https://github.com/JuliaLang/julia/issues/39774
-    !(json isa VectorString) && sizeof(json) < 255 && isfile(json) ?
+    !(json isa VectorString) && sizeof(json) < 255 && _isfile(json) ?
           VectorString(Mmap.mmap(json)) : 
           json
+end
+
+# file systems with a short NAME_MAX (e.g. eCryptfs) fail `stat` on shorter JSON text
+function _isfile(json)
+    try
+        return isfile(json)
+    catch e
+        e isa Base.IOError && e.code == Base.UV_ENAMETOOLONG && return false
+        rethrow()
+    end
 end
