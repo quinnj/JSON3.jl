@@ -5,6 +5,10 @@ end
 
 Base.codeunits(x::VectorString) = x.bytes
 
+# parsing reads the input through pointers, which only String and byte-vector input keep valid
+jsonstring(x::Union{String, SubString{String}, VectorString}) = x
+jsonstring(x::AbstractString) = String(x)
+
 # high-level user API functions
 read(io::Union{IO, Base.AbstractCmd}; kw...) = read(Base.read(io, String); kw...)
 read(bytes::AbstractVector{UInt8}; kw...) = read(VectorString(bytes); kw...)
@@ -35,7 +39,7 @@ end
 
 function parse(str::AbstractString; jsonlines::Bool=false,
                numbertype::Union{DataType, Nothing}=nothing, kw...)
-    buf = codeunits(str)
+    buf = codeunits(jsonstring(str))
     len = length(buf)
     if len == 0
         error = UnexpectedEOF

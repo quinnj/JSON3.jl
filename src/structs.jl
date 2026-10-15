@@ -14,7 +14,7 @@ read(io::Union{IO, Base.AbstractCmd}, ::Type{T}; kw...) where {T} = read(Base.re
 read(bytes::AbstractVector{UInt8}, ::Type{T}; kw...) where {T} = read(VectorString(bytes), T; kw...)
 
 function _prepare_read(str::AbstractString, ::Type{T}) where {T}
-    buf = codeunits(str)
+    buf = codeunits(jsonstring(str))
     len = length(buf)
     if len == 0
         error = UnexpectedEOF
