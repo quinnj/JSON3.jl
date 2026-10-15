@@ -163,6 +163,17 @@ end
 
 StructTypes.StructType(::Type{UndefGuy}) = StructTypes.Mutable()
 
+# a string type with no stable byte address, like InlineStrings.String15
+struct NoPointerString <: AbstractString
+    s::String
+end
+Base.ncodeunits(x::NoPointerString) = ncodeunits(x.s)
+Base.codeunit(x::NoPointerString) = UInt8
+Base.codeunit(x::NoPointerString, i::Integer) = codeunit(x.s, i)
+Base.isvalid(x::NoPointerString, i::Integer) = isvalid(x.s, i)
+Base.iterate(x::NoPointerString, i::Integer=1) = iterate(x.s, i)
+Base.cconvert(::Type{Ptr{UInt8}}, ::NoPointerString) = error("NoPointerString has no stable address")
+
 @testset "JSON3" begin
 
 @testset "read.jl" begin
@@ -830,6 +841,11 @@ obj = JSON3.read("{\"hey\":1}")
 @test get(obj, Int, :ho, 2) == 2
 
 @test JSON3.read("{\"hey\":1}") == JSON3.read(b"{\"hey\":1}") == JSON3.read(IOBuffer("{\"hey\":1}"))
+
+# 212: other string types are copied before parsing
+@test JSON3.read(NoPointerString("{\"hey\":\"x\"}")).hey == "x"
+@test JSON3.read(NoPointerString("{\"hey\":\"x\"}"), Dict{String, String}) == Dict("hey" => "x")
+@test sprint(JSON3.pretty, NoPointerString("[\"a\"]")) == "[\n    \"a\"\n]"
 
 arr = JSON3.read("[\"hey\",1, null, false, \"ho\", {\"a\": 1}, 2]")
 @test Base.IndexStyle(arr) == Base.IndexLinear()
