@@ -80,7 +80,7 @@ function pretty(out::IO, str::AbstractString, ac=AlignmentContext(); kw...)
         i = 1
         for (key, value) in obj
             Base.write(out, ' '^(ac.level * ac.indent))
-            Base.write(out, lpad("\"$(key)\"" * ": ", ac.offset, ' '))
+            Base.write(out, lpad(JSON3.write(String(key)) * ": ", ac.offset, ' '))
             pretty(out, JSON3.write(value; kw...), ac; kw...)
             if i == length(obj)
                 ac.level -= 1
