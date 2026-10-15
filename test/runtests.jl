@@ -996,6 +996,12 @@ io = IOBuffer()
 JSON3.pretty(io,  JSON3.write(Dict( "x" => Inf64), allow_inf=true), allow_inf=true )
 @test String(take!(io)) == "{\n    \"x\": Infinity\n}"
 
+# 275: keys are escaped
+key = "\"a\"\\b\n"
+pretty_str = sprint(JSON3.pretty, Dict(key => 1))
+@test pretty_str == "{\n    \"\\\"a\\\"\\\\b\\n\": 1\n}"
+@test JSON3.read(pretty_str, Dict{String, Int}) == Dict(key => 1)
+
 end # @testset "pretty.jl"
 
 # parsequoted
