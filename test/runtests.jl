@@ -428,6 +428,18 @@ mktemp() do path, io
     @test JSON3.read(path, Dict) == Dict("a" => 1.0, "b" => 2.0)
 end
 
+# 309: IO contents and `pretty` input are JSON text, never a file path
+mktempdir() do dir
+    cd(dir) do
+        write("123", "{\"from\":\"file\"}")
+        write("[1]", "{\"from\":\"file\"}")
+        @test JSON3.read(IOBuffer("123")) == 123
+        @test JSON3.read(IOBuffer("123"), Int) == 123
+        @test sprint(JSON3.pretty, "[1]") == "[\n    1\n]"
+        @test JSON3.read("123").from == "file"
+    end
+end
+
 # Test that writing DictType works even when length(pairs(dict_type)) isn't
 # available. Issue #37.
 StructTypes.StructType(::Type{DictWithoutLength}) = StructTypes.DictType()

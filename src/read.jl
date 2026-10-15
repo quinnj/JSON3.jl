@@ -10,7 +10,7 @@ jsonstring(x::Union{String, SubString{String}, VectorString}) = x
 jsonstring(x::AbstractString) = String(x)
 
 # high-level user API functions
-read(io::Union{IO, Base.AbstractCmd}; kw...) = read(Base.read(io, String); kw...)
+read(io::Union{IO, Base.AbstractCmd}; kw...) = parse(Base.read(io, String); kw...)
 read(bytes::AbstractVector{UInt8}; kw...) = read(VectorString(bytes); kw...)
 
 """
