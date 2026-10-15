@@ -380,46 +380,30 @@ function jsonlines!(buf, pos, len, b, tape, tapeidx, checkint=true; kw...)
     tapeidx += 2
     nelem = Int64(0)
     while true
-        @wh
+        # skip whitespace and blank lines; the input may end here
+        while b == UInt8('\t') || b == UInt8(' ') || b == UInt8('\n') || b == UInt8('\r')
+            pos += 1
+            pos > len && @goto finish
+            b = getbyte(buf, pos)
+        end
         # positioned at start of value
         prevtapeidx = tapeidx
         check_int = checkint ? eT != FLOAT && eT != (FLOAT | NULL) : false
         pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any, check_int; kw...)
         @inbounds eT = promoteeltype(eT, gettypemask(tape[prevtapeidx]))
         nelem += 1
-        if pos > len
-            @check
-            @inbounds tape[arridx] = array(tapeidx - arridx)
-            @inbounds tape[arridx+1] = eltypelen(eT, nelem)
-            @goto done
-        end
+        pos > len && @goto finish
         b = getbyte(buf, pos)
         if b != UInt8('\n') && b != UInt8('\r')
             error = ExpectedNewline
             @goto invalid
         end
-        pos += 1
-        if pos > len
-            @check
-            @inbounds tape[arridx] = array(tapeidx - arridx)
-            @inbounds tape[arridx+1] = eltypelen(eT, nelem)
-            @goto done
-        end
-        if b == UInt8('\r')
-            b = getbyte(buf, pos)
-            if b == UInt8('\n')
-                pos += 1
-                if pos > len
-                    @check
-                    @inbounds tape[arridx] = array(tapeidx - arridx)
-                    @inbounds tape[arridx+1] = eltypelen(eT, nelem)
-                    @goto done
-                end
-            end
-        end
-        b = getbyte(buf, pos)
     end
 
+@label finish
+    @check
+    @inbounds tape[arridx] = array(tapeidx - arridx)
+    @inbounds tape[arridx+1] = eltypelen(eT, nelem)
 @label done
     return pos, tapeidx
 @label invalid
