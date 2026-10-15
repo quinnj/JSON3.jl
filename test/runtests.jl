@@ -1055,6 +1055,14 @@ x = JSON3.read(json; jsonlines=true)
 @test length(x) == 2
 @test x == [1, 2]
 
+# 263: blank lines, including trailing ones, are skipped
+for json in ("1\n\n2\n\n", "1\n2\n\n\n", "1\r\n2\r\n\r\n", "1\n2\n  \n", "1\r\r2\r\r")
+    @test JSON3.read(json; jsonlines=true) == [1, 2]
+    @test JSON3.read(json, Vector{Int}; jsonlines=true) == [1, 2]
+end
+@test JSON3.read("{\"a\":1}\n\n"; jsonlines=true)[1].a == 1
+@test_throws ArgumentError JSON3.read("1 2\n"; jsonlines=true)
+
 # 171
 for d_jsonl in [
     """
