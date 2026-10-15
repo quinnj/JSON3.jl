@@ -440,6 +440,9 @@ mktempdir() do dir
     end
 end
 
+# 264: a name too long for the file system is JSON text, not an error
+@test !JSON3._isfile("a"^300)
+
 # Test that writing DictType works even when length(pairs(dict_type)) isn't
 # available. Issue #37.
 StructTypes.StructType(::Type{DictWithoutLength}) = StructTypes.DictType()
