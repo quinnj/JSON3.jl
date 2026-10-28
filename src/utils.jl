@@ -9,6 +9,81 @@ function getbyte(buf::AbstractVector{UInt8}, pos)
     return b
 end
 
+# parse a number of type T starting at buf[pos] (whose byte is b); returns (x, ok, nextpos)
+# Parsers 3 removed typeparser, so on Parsers 3 we use parsenext and map its results
+# so that both Parsers majors accept and reject the same inputs
+@static if isdefined(Parsers, :parsenext)
+
+# Parsers 2 didn't consume a dangling exponent like `1e` and reported it as invalid.
+# It also read `f`/`F` as an exponent marker (`1f5` == 1e5), which Parsers 3 doesn't;
+# reject those rather than silently stopping at the `f` and returning a different value
+@inline function danglingexp(buf, nextpos, len)
+    nextpos <= len || return false
+    c = getbyte(buf, nextpos) | 0x20
+    return c == UInt8('e') || c == UInt8('f')
+end
+
+@inline function parsenumber(::Type{T}, buf, pos, len, b) where {T <: Union{Base.BitInteger, BigInt}}
+    # base=10 so radix prefixes like `0x10` aren't parsed, as in Parsers 2
+    x, nextpos, code = Parsers.parsenext(T, buf, pos, len; base=10)
+    return x, code == Parsers.RC_OK, nextpos
+end
+
+@inline function parsenumber(::Type{T}, buf, pos, len, b) where {T <: Base.BitUnsigned}
+    # Parsers 3 rejects any sign on unsigned types, but Parsers 2 accepted `+5` and `-0`
+    signed = b == UInt8('-') || b == UInt8('+')
+    start = signed ? pos + 1 : pos
+    start <= len || return zero(T), false, start
+    x, nextpos, code = Parsers.parsenext(T, buf, start, len; base=10)
+    return x, code == Parsers.RC_OK && (b != UInt8('-') || iszero(x)), nextpos
+end
+
+@inline function parsenumber(::Type{T}, buf, pos, len, b) where {T <: Base.IEEEFloat}
+    # Parsers 2 parsed `0x...` as a 0 followed by an `x`, so don't parse hex floats
+    i = (b == UInt8('-') || b == UInt8('+')) ? pos + 1 : pos
+    if i < len && getbyte(buf, i) == UInt8('0') && (getbyte(buf, i + 1) | 0x20) == UInt8('x')
+        return (b == UInt8('-') ? -zero(T) : zero(T)), true, i + 1
+    end
+    x, nextpos, code = Parsers.parsenext(T, buf, pos, len)
+    # overflow and underflow give ±Inf and ±0, which Parsers 2 treated as valid
+    return x, code != Parsers.RC_INVALID && !danglingexp(buf, nextpos, len), nextpos
+end
+
+@inline function parsenumber(::Type{BigFloat}, buf, pos, len, b)
+    x, nextpos, code = Parsers.parsenext(BigFloat, buf, pos, len)
+    if code == Parsers.RC_OVERFLOW || code == Parsers.RC_UNDERFLOW
+        # outside the exponent range parsenext handles (e.g. 1e100000 or 1e-100000), but
+        # representable as a BigFloat; Parsers 2 parsed these with MPFR, so do the same
+        y = Base.tryparse(BigFloat, String(buf[pos:(nextpos - 1)]))
+        if y !== nothing
+            x, code = y, Parsers.RC_OK
+        end
+    end
+    return x, code == Parsers.RC_OK && !danglingexp(buf, nextpos, len), nextpos
+end
+
+# Parsers 3 only parses the Base integer types, so other Integer types parse as Int64 and convert
+# (Parsers 2 parsed them natively in T, so values outside Int64 are rejected here);
+# other Real types parse as Float64 and convert, as in Parsers 2
+@inline function parsenumber(::Type{T}, buf, pos, len, b) where {T <: Integer}
+    x, ok, nextpos = parsenumber(Int64, buf, pos, len, b)
+    return T(x), ok, nextpos
+end
+
+@inline function parsenumber(::Type{T}, buf, pos, len, b) where {T}
+    x, ok, nextpos = parsenumber(Float64, buf, pos, len, b)
+    return T(x), ok, nextpos
+end
+
+else
+
+@inline function parsenumber(::Type{T}, buf, pos, len, b) where {T}
+    x, code, nextpos = Parsers.typeparser(T, buf, pos, len, b, Int16(0), Parsers.OPTIONS)
+    return x, code > 0, nextpos
+end
+
+end
+
 macro eof()
     esc(quote
         if pos > len
