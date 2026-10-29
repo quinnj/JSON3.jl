@@ -13,7 +13,7 @@ UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]
 ArrowTypes = "2.2"
-Parsers = "0.3, 1, 2"
+Parsers = "0.3, 1, 2, 3"
 PrecompileTools = "1"
 StructTypes = "1.10"
 julia = "1.6"

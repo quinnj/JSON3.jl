@@ -1,6 +1,6 @@
 defaultminimum(::Union{Nothing, Missing}) = 4
 defaultminimum(::Number) = 20
-defaultminimum(::T) where {T <: Base.IEEEFloat} = Parsers.neededdigits(T)
+defaultminimum(::T) where {T <: Base.IEEEFloat} = Ryu.neededdigits(T)
 defaultminimum(x::Bool) = ifelse(x, 4, 5)
 defaultminimum(x::AbstractString) = ncodeunits(x) + 2
 defaultminimum(x::Symbol) = ccall(:strlen, Csize_t, (Cstring,), x) + 2

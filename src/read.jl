@@ -97,6 +97,29 @@ end
 
 const FLOAT_INT_BOUND = 2.0^53
 
+# `float` was parsed from buf[pos:floatpos-1]; if it's integral and in Int64 range, return (int, true)
+@inline function tryint(buf, pos, len, b, float, floatpos)
+    if isinteger(float) && Float64(typemin(Int64)) <= float <= Float64(typemax(Int64))
+        if -FLOAT_INT_BOUND < float < FLOAT_INT_BOUND
+            # easy case, integer w/ less than or equal to 53-bits of precision
+            return unsafe_trunc(Int64, float), true
+        end
+        # if our integral float is > 53-bit precision, we need to reparse the Int so we don't get a lossy conversion
+        # there are also a few floats that satisfy Float64(typemin(Int64)) <= float <= Float64(typemax(Int64))
+        # that actually overflow Int64, like -9223372036854775809 and 9223372036854775808
+        # in those cases, we're going to verify that this Int64 parsing doesn't overflow
+        int, ok, intpos = parsenumber(Int64, buf, pos, len, b)
+        if intpos < floatpos
+            # ah, but there's one more case we need to handle: a > 53-bit precision integer given in
+            # exponent form, like 1e17 or 9.007199254740994e15; in those cases, the truncation to Int64 *isn't* lossy,
+            # unless float is 2^63 (e.g. 9223372036854775807.0), which doesn't fit in an Int64
+            return unsafe_trunc(Int64, float), ok && float < Float64(typemax(Int64))
+        end
+        return int, ok
+    end
+    return Int64(0), false
+end
+
 function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any}, checkint=true; allow_inf::Bool=false)
     if b == UInt8('{')
         return read!(buf, pos, len, b, tape, tapeidx, Object, checkint; allow_inf=allow_inf)
@@ -111,35 +134,17 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any}, checkint=true; allo
     elseif b == UInt8('f')
         return read!(buf, pos, len, b, tape, tapeidx, False)
     elseif (UInt8('0') <= b <= UInt8('9')) || b == UInt8('-') || b == UInt8('+') || (allow_inf && (b == UInt8('N') || b == UInt8('I')))
-        float, code, floatpos = Parsers.typeparser(Float64, buf, pos, len, b, Int16(0), Parsers.OPTIONS)
-        if code > 0
+        float, ok, floatpos = parsenumber(Float64, buf, pos, len, b)
+        if ok
             !isfinite(float) && !allow_inf && @goto invalid
             @check
             # if, for example, we've already parsed floats in an array, just keep them all as floats and don't check for ints
             if checkint
-                fp, ip = modf(float)
-                if fp == 0 && Float64(typemin(Int64)) <= float <= Float64(typemax(Int64))
-                    # ok great, we know the number is integral and pretty much in Int64 range
-                    if -FLOAT_INT_BOUND < float < FLOAT_INT_BOUND
-                        # easy case, integer w/ less than or equal to 53-bits of precision
-                        int = unsafe_trunc(Int64, float)
-                    else
-                        # if our integral float is > 53-bit precision, we need to reparse the Int so we don't get a lossy conversion
-                        # there are also a few floats that satisfy Float64(typemin(Int64)) <= float <= Float64(typemax(Int64))
-                        # that actually overflow Int64, like -9223372036854775809 and 9223372036854775808
-                        # in those cases, we're going to verify that this Int64 parsing doesn't overflow
-                        int, code, floatpos2 = Parsers.typeparser(Int64, buf, pos, len, b, Int16(0), Parsers.OPTIONS)
-                        if floatpos2 < floatpos
-                            # ah, but there's one more case we need to handle: a > 53-bit precision integer given in
-                            # exponent form, like 1e17 or 9.007199254740994e15; in those cases, the truncation to Int64 *isn't* lossy
-                            int = unsafe_trunc(Int64, float)
-                        end
-                    end
-                    if code > 0
-                        @inbounds tape[tapeidx] = INT
-                        @inbounds tape[tapeidx + 1] = Core.bitcast(UInt64, int)
-                        return floatpos, tapeidx + 2
-                    end
+                int, isint = tryint(buf, pos, len, b, float, floatpos)
+                if isint
+                    @inbounds tape[tapeidx] = INT
+                    @inbounds tape[tapeidx + 1] = Core.bitcast(UInt64, int)
+                    return floatpos, tapeidx + 2
                 end
             end
             @inbounds tape[tapeidx] = FLOAT
