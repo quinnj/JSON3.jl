@@ -12,16 +12,16 @@ end
 StructTypes.StructType(::Type{NumAny}) = StructTypes.Struct()
 
 @testset "floats" begin
-    # integral floats read as Int by default, so the sign of zero only survives as a Float64
-    @test JSON3.read("-0.0") === 0
+    # integral floats read as Int64 by default, so the sign of zero only survives as a Float64
+    @test JSON3.read("-0.0") === Int64(0)
     @test JSON3.read("[-0.0]"; numbertype=Float64)[1] === -0.0
     @test JSON3.read("-0.0", Float64) === -0.0
-    @test JSON3.read("-0.0", Any) === 0
+    @test JSON3.read("-0.0", Any) === Int64(0)
     @test JSON3.read("1.5") === 1.5
-    @test JSON3.read("+1") === 1
-    @test JSON3.read("1E5") === 100000
+    @test JSON3.read("+1") === Int64(1)
+    @test JSON3.read("1E5") === Int64(100000)
     @test JSON3.read("1.25e-3") === 0.00125
-    @test JSON3.read("1e-400") === 0
+    @test JSON3.read("1e-400") === Int64(0)
     @test JSON3.read("1e-400", Float64) === 0.0
     # overflow to Inf is only allowed with allow_inf, or when reading into a type
     @test_throws ArgumentError JSON3.read("1e400")
@@ -40,9 +40,9 @@ StructTypes.StructType(::Type{NumAny}) = StructTypes.Struct()
     @test_throws ArgumentError JSON3.read("1e", Any)
     @test_throws ArgumentError JSON3.read("{\"x\":1e}", NumF32)
     # hex isn't JSON: the number ends at the 0
-    @test JSON3.read("0x10") === 0
+    @test JSON3.read("0x10") === Int64(0)
     @test JSON3.read("0x10", Int) === 0
-    @test JSON3.read("0x10", Any) === 0
+    @test JSON3.read("0x10", Any) === Int64(0)
     @test_throws ArgumentError JSON3.read("[0x10]")
     @test_throws ArgumentError JSON3.read("[0x1p3]", Vector{Float64})
     @test_throws ArgumentError JSON3.read("[0x10]", Vector{Int})
@@ -73,7 +73,7 @@ end
     @test JSON3.read("[1,2.5]") == [1, 2.5]
     @test JSON3.read("[1,2]"; numbertype=Float64) == [1.0, 2.0]
     @test eltype(JSON3.read("[1,2]"; numbertype=Float64)) == Float64
-    @test JSON3.read("12", Any) === 12
+    @test JSON3.read("12", Any) === Int64(12)
     @test JSON3.read("1.5", Any) === 1.5
     @test JSON3.read("12", Int) === 12
     @test JSON3.read("-0", Int) === 0
@@ -108,12 +108,12 @@ end
 end
 
 @testset "end of buffer" begin
-    @test JSON3.read("7") === 7
+    @test JSON3.read("7") === Int64(7)
     @test JSON3.read("7.5") === 7.5
-    @test JSON3.read(" 7 ") === 7
+    @test JSON3.read(" 7 ") === Int64(7)
     @test JSON3.read("[7]") == [7]
-    @test JSON3.read("{\"a\":7}")[:a] === 7
-    @test JSON3.read(UInt8['4', '2']) === 42
+    @test JSON3.read("{\"a\":7}")[:a] === Int64(7)
+    @test JSON3.read(UInt8['4', '2']) === Int64(42)
     @test JSON3.read(view(UInt8['[', '4', '2', ']', 'x'], 1:4)) == [42]
     @test JSON3.read("7", Float32) === 7.0f0
     @test JSON3.read(SubString("[1,2]x", 1, 5)) == [1, 2]
