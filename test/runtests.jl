@@ -1169,4 +1169,13 @@ string_with_extra_field = "{\"a\": 1, \"b\": 2}"
 @test JSON3.read(string_with_extra_field, TypeWithoutExtraField) == TypeWithoutExtraField(1)
 @test_throws ArgumentError JSON3.read(string_with_extra_field, TypeWithoutExtraField, ignore_extra_fields=false)
 
+# read keywords reach the values JSON3 reads without a target type: raw values, skipped
+# extra fields, and the fields before an abstract type's subtype key
+@test JSON3.read("{\"bar\":1.5}", StringNumberTests_C; parsequoted=true).bar[] == "1.5"
+@test JSON3.read("{\"bar\":1.5}", StringNumberTests_C; dateformat=dateformat"yyyy").bar[] == "1.5"
+@test JSON3.read("{\"a\":1,\"z\":NaN}", TypeWithoutExtraField; allow_inf=true) == TypeWithoutExtraField(1)
+@test JSON3.read("{\"make\":\"M\",\"z\":[Infinity]}", Car2; allow_inf=true).make == "M"
+@test JSON3.read("{\"topSpeed\":NaN,\"type\":\"car\",\"make\":\"M\",\"model\":\"S\",\"seatingCapacity\":5}",
+                 Vehicle; allow_inf=true).topSpeed === NaN
+
 end # @testset "JSON3"
