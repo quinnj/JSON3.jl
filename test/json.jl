@@ -719,6 +719,15 @@ obj = JSON3.read("{\"a\":2e10}")
 obj = JSON3.read("{\"\U0001d712\":\"\\ud835\\udf12\"}")
 @test obj.𝜒 == "𝜒"
 
+# a surrogate escape that isn't half of a high-low pair stays a lone surrogate
+@test JSON3.read("\"\\ud800\\u0041\"") == "\ud800A"
+@test JSON3.read("\"\\ud83dab1234\"") == "\ud83dab1234"
+@test JSON3.read("\"\\udc00\\udc00\"") == "\udc00\udc00"
+@test JSON3.read("\"\\ud800\\ud83d\\ude00\"") == "\ud800😀"
+@test JSON3.read("\"\\ud800\"") == "\ud800"
+@test JSON3.read("[\"x\\udfff\"]", Vector{String}) == ["x\udfff"]
+@test JSON3.read("{\"\\ud800\\u0062\":1}") == Dict(Symbol("\ud800b") => 1)
+
 struct t109
     i::Int
 end
