@@ -403,6 +403,12 @@ function jsonlines!(buf, pos, len, b, tape, tapeidx, checkint=true; kw...)
         nelem += 1
         pos > len && @goto finish
         b = getbyte(buf, pos)
+        # spaces and tabs may follow a value on its line, as in typed JSON lines reads
+        while b == UInt8(' ') || b == UInt8('\t')
+            pos += 1
+            pos > len && @goto finish
+            b = getbyte(buf, pos)
+        end
         if b != UInt8('\n') && b != UInt8('\r')
             error = ExpectedNewline
             @goto invalid
