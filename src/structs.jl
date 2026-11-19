@@ -682,7 +682,8 @@ end
     return c.pos, x
 
 @label done
-    return pos, StructTypes.construct(values, T)
+    # an empty object fills every field as `read(::Struct, ...)` fills missing ones
+    return pos, StructTypes.construct(Vector{Any}(undef, fieldcount(T)), T)
 
 @label invalid
     invalid(error, buf, pos, T)
