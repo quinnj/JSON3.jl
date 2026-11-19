@@ -36,7 +36,6 @@ function reverseescapechar(b)
     return 0x00
 end
 
-utf16_is_surrogate(c::UInt16) = (c & 0xf800) == 0xd800
 utf16_get_supplementary(lead::UInt16, trail::UInt16) = Char(UInt32(lead-0xd7f7)<<10 + trail)
 
 charvalue(b) = (UInt8('0') <= b <= UInt8('9')) ? b - UInt8('0') :
@@ -77,27 +76,20 @@ function unescape(s)
                     i > n && invalid_escape(s)
                     b = codeunit(s, i)
                     c = (c << 4) + charvalue(b)
-                    if utf16_is_surrogate(c)
-                        i += 3
-                        i > n && invalid_escape(s)
+                    ch = Char(c)
+                    # a high surrogate followed by an escaped low surrogate is one character;
+                    # any other surrogate stays a lone surrogate, as in JSON.jl
+                    if 0xd800 <= c <= 0xdbff && i + 6 <= n &&
+                       codeunit(s, i + 1) == UInt8('\\') && codeunit(s, i + 2) == UInt8('u')
                         c2 = 0x0000
-                        b = codeunit(s, i)
-                        c2 = (c2 << 4) + charvalue(b)
-                        i += 1
-                        i > n && invalid_escape(s)
-                        b = codeunit(s, i)
-                        c2 = (c2 << 4) + charvalue(b)
-                        i += 1
-                        i > n && invalid_escape(s)
-                        b = codeunit(s, i)
-                        c2 = (c2 << 4) + charvalue(b)
-                        i += 1
-                        i > n && invalid_escape(s)
-                        b = codeunit(s, i)
-                        c2 = (c2 << 4) + charvalue(b)
-                        ch = utf16_get_supplementary(c, c2)
-                    else
-                        ch = Char(c)
+                        c2 = (c2 << 4) + charvalue(codeunit(s, i + 3))
+                        c2 = (c2 << 4) + charvalue(codeunit(s, i + 4))
+                        c2 = (c2 << 4) + charvalue(codeunit(s, i + 5))
+                        c2 = (c2 << 4) + charvalue(codeunit(s, i + 6))
+                        if 0xdc00 <= c2 <= 0xdfff
+                            ch = utf16_get_supplementary(c, c2)
+                            i += 6
+                        end
                     end
                     st = codeunits(Base.string(ch))
                     for j = 1:length(st)-1
