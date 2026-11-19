@@ -73,6 +73,13 @@ end
     @test JSON3.read("[1,2.5]") == [1, 2.5]
     @test JSON3.read("[1,2]"; numbertype=Float64) == [1.0, 2.0]
     @test eltype(JSON3.read("[1,2]"; numbertype=Float64)) == Float64
+    # once an array holds floats, its later numbers are floats, but nested values keep their Ints
+    @test JSON3.read("[1.5,2]") isa JSON3.Array{Float64}
+    @test JSON3.read("[1.5,{\"a\":1}]")[2].a === Int64(1)
+    @test JSON3.read("[1.5,null,[1,2]]")[3] isa JSON3.Array{Int64}
+    @test JSON3.read("[1.5,{\"a\":9223372036854775807}]")[2].a === typemax(Int64)
+    @test JSON3.read("1.5\n{\"a\":1}"; jsonlines=true)[2].a === Int64(1)
+    @test JSON3.read("[1.5,{\"a\":1}]"; numbertype=Float64)[2].a === 1.0
     @test JSON3.read("12", Any) === Int64(12)
     @test JSON3.read("1.5", Any) === 1.5
     @test JSON3.read("12", Int) === 12
