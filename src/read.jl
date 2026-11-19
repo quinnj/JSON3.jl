@@ -120,6 +120,10 @@ const FLOAT_INT_BOUND = 2.0^53
     return Int64(0), false
 end
 
+# once an array holds only floats (and nulls), its later numbers stay floats too; nested arrays
+# and objects start their own element types, so they still read integers as Int
+@inline elementcheckint(b, eT) = (eT != FLOAT && eT != (FLOAT | NULL)) || b == UInt8('{') || b == UInt8('[')
+
 function read!(buf, pos, len, b, tape, tapeidx, ::Type{Any}, checkint=true; allow_inf::Bool=false)
     if b == UInt8('{')
         return read!(buf, pos, len, b, tape, tapeidx, Object, checkint; allow_inf=allow_inf)
@@ -347,7 +351,7 @@ function read!(buf, pos, len, b, tape, tapeidx, ::Type{Array}, checkint=true; kw
     while true
         # positioned at start of value
         prevtapeidx = tapeidx
-        check_int = checkint ? eT != FLOAT && eT != (FLOAT | NULL) : false
+        check_int = checkint && elementcheckint(b, eT)
         pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any, check_int; kw...)
         @eof
         b = getbyte(buf, pos)
@@ -397,7 +401,7 @@ function jsonlines!(buf, pos, len, b, tape, tapeidx, checkint=true; kw...)
         end
         # positioned at start of value
         prevtapeidx = tapeidx
-        check_int = checkint ? eT != FLOAT && eT != (FLOAT | NULL) : false
+        check_int = checkint && elementcheckint(b, eT)
         pos, tapeidx = read!(buf, pos, len, b, tape, tapeidx, Any, check_int; kw...)
         @inbounds eT = promoteeltype(eT, gettypemask(tape[prevtapeidx]))
         nelem += 1
