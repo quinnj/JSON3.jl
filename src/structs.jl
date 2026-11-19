@@ -116,13 +116,13 @@ end
     elseif b == UInt8('f')
         return read(BoolType(), buf, pos, len, b, Bool; kw...)
     elseif (UInt8('0') <= b <= UInt8('9')) || b == UInt8('-') || b == UInt8('+') || (allow_inf && (b == UInt8('N') || b == UInt8('I')))
-        float, code, pos = Parsers.typeparser(Float64, buf, pos, len, b, Int16(0), Parsers.OPTIONS)
-        if code > 0
-            int = unsafe_trunc(Int64, float)
-            if int == float
-                return pos, int
+        float, ok, floatpos = parsenumber(Float64, buf, pos, len, b)
+        if ok
+            int, isint = tryint(buf, pos, len, b, float, floatpos)
+            if isint
+                return floatpos, int
             else
-                return pos, float
+                return floatpos, float
             end
         end
     end
@@ -201,13 +201,13 @@ function read(::NumberType, buf, pos, len, b, ::Type{T}; parsequoted::Bool=false
         @wh
         quoted = true
     end
-    x, code, pos = Parsers.typeparser(StructTypes.numbertype(T), buf, pos, len, b, Int16(0), Parsers.OPTIONS)
+    x, ok, pos = parsenumber(StructTypes.numbertype(T), buf, pos, len, b)
     if quoted
-        b = getbyte(buf, pos)
-        @assert b == UInt8('"')
+        # the number must fill the quotes; a malformed one (like `"1e"`) is invalid input, not an assertion failure
+        (pos <= len && getbyte(buf, pos) == UInt8('"')) || @goto invalid
         pos += 1
     end
-    if code > 0
+    if ok
         return pos, construct(T, x; kw...)
     end
 @label invalid
