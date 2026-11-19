@@ -97,8 +97,9 @@ end
 
 const GLOBAL_IGNORED_TAPE = zeros(UInt64, 1024)
 
-@inline function read(::RawType, buf, pos, len, b, ::Type{T}; kw...) where {T}
-    newpos, _ = read!(buf, pos, len, b, GLOBAL_IGNORED_TAPE, 1, Any; kw...)
+# typed-read keywords (like `dateformat`) don't apply to the untyped scan that finds the raw value's end
+@inline function read(::RawType, buf, pos, len, b, ::Type{T}; allow_inf::Bool=false, kw...) where {T}
+    newpos, _ = read!(buf, pos, len, b, GLOBAL_IGNORED_TAPE, 1, Any; allow_inf=allow_inf)
     return newpos, construct(T, RawValue(buf, pos, newpos - pos))
 end
 
@@ -511,7 +512,7 @@ function read!(::Mutable, buf, pos, len, b, ::Type{T}, x::T; kw...) where {T}
         if StructTypes.applyfield!(c, x, key)
             pos = c.pos
         else
-            pos, _ = read(Struct(), buf, pos, len, b, Any)
+            pos, _ = read(Struct(), buf, pos, len, b, Any; kw...)
         end
         @eof
         b = getbyte(buf, pos)
@@ -611,7 +612,7 @@ function read(::Struct, buf, pos, len, b, ::Type{T}; ignore_extra_fields::Bool=t
             pos = c.pos
         else
             if ignore_extra_fields
-                pos, _ = read(Struct(), buf, pos, len, b, Any)
+                pos, _ = read(Struct(), buf, pos, len, b, Any; kw...)
             else
                 error = ExtraField
                 @goto invalid
@@ -796,7 +797,7 @@ end
         b = getbyte(buf, pos)
         @wh
         # read value
-        pos, val = read(Struct(), buf, pos, len, b, Any)
+        pos, val = read(Struct(), buf, pos, len, b, Any; kw...)
         if key == skey
             TT = types[Symbol(val)]
             return read(StructType(TT), buf, startpos, len, startb, TT; kw...)
