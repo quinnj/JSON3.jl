@@ -38,6 +38,11 @@ struct D
     c::String
 end
 
+struct OptionalOrdered
+    a::Union{Nothing, Int}
+    b::Union{Nothing, String}
+end
+
 struct ParametricSingleton{T} end
 
 abstract type Vehicle end
@@ -520,6 +525,12 @@ obj = JSON3.read("""
   "a": 1
 }
 """, D)
+
+# an empty object reads like a `Struct` with every field missing
+StructTypes.StructType(::Type{OptionalOrdered}) = StructTypes.OrderedStruct()
+@test JSON3.read("{}", OptionalOrdered) == OptionalOrdered(nothing, nothing)
+@test JSON3.read("[{ }, {\"a\":1,\"b\":\"x\"}]", Vector{OptionalOrdered}) ==
+      [OptionalOrdered(nothing, nothing), OptionalOrdered(1, "x")]
 
 @test JSON3.read("1", Union{String, Int}) == 1
 @test JSON3.read("\"1\"", Union{String, Int}) == "1"
