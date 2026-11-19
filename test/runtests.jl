@@ -1076,6 +1076,11 @@ for json in ("1\n\n2\n\n", "1\n2\n\n\n", "1\r\n2\r\n\r\n", "1\n2\n  \n", "1\r\r2
 end
 @test JSON3.read("{\"a\":1}\n\n"; jsonlines=true)[1].a == 1
 @test_throws ArgumentError JSON3.read("1 2\n"; jsonlines=true)
+# spaces and tabs may end a line
+for json in ("1 \n2", "1\t\r\n2 ", "{\"a\":1} \n[2]\t")
+    @test length(JSON3.read(json; jsonlines=true)) == 2
+    @test length(JSON3.read(json, Vector{Any}; jsonlines=true)) == 2
+end
 
 # 171
 for d_jsonl in [
